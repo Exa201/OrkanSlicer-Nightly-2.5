@@ -3238,6 +3238,11 @@ bool Print::enable_timelapse_print() const
 
 void Print::_make_wipe_tower()
 {
+    // Tower writers must use the current printer's G-code tag dialect. Their output is
+    // later parsed for filament statistics, so setting this in a writer by tower type
+    // misclassifies Type 1/Type 2 towers on printers using the other dialect.
+    GCodeProcessor::s_IsBBLPrinter = is_BBL_printer();
+
     m_wipe_tower_data.clear();
 
     // BBS

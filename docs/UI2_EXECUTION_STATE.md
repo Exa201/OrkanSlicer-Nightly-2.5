@@ -1,4 +1,21 @@
-# Nightly 2.5 Fortsetzung — Batch 11, Punkt 6/10 verifiziert — 2026-11-04
+# Nightly 2.5 Fortsetzung — Batch 11, Punkt 8/10 verifiziert — 2026-11-04
+
+## Batch 11 — Punkt 8/10: ungültige benutzerdefinierte Schichtreihenfolgen ignorieren
+
+- Orca-Port `7e3d5d4d0`: Nichtpositive Sequenzanzahl, nicht teilbare Gruppen und Gruppen mit weniger als drei Werten werden als ungültige optionale Sequenz ignoriert. Damit führen bearbeitete oder importierte Profile nicht zu ungültigen Iterator-/Indexzugriffen; gültige Gruppen bleiben unverändert.
+- `NativeSliceDeviceTest#malformedCustomLayerPrintSequencesAreIgnoredAndValidOnesRemainIntact` prüft zwei gültige Gruppen sowie nicht teilbare, zu kurze, null- und negative Zähler direkt gegen die produktive native Parserfunktion. Android 16/API 36: 1/1 bestanden; ARM64-Native-Build und Slice-Instrumentierung erfolgreich.
+- Batch 11: 8/10. Vollständige Regression, APK und Nightly-Release bleiben bis 10/10 offen.
+
+# Vorheriger Stand — Punkt 7/10
+
+## Batch 11 — Punkt 7/10: Purge-Tower-Statistik nutzt Drucker-Tagformat
+
+- Orca-Port `3bda65344`: Type-1/Type-2-Tower-Writer erzwingen nicht mehr ihr eigenes globales G-Code-Tagformat. `Print::_make_wipe_tower()` setzt es anhand des aktiven Druckertyps, bevor Tower-G-Code und Analyzer-Tags erzeugt werden.
+- Ursache im Android-Port: Type 1 setzte den globalen Modus stets auf Bambu und Type 2 stets auf Nicht-Bambu. Dadurch konnten Tower-Extrusionen im G-Code-Prozessor mit dem falschen Rollen-Tag analysiert und aus der Purge-Tower-Filamentstatistik ausgelassen werden.
+- `NativeSliceDeviceTest#nonBambuTypeOnePrimeTowerFilamentIsIncludedInSliceStatistics`: echter Klipper-/Type-1-Multimaterial-Slice, beide Werkzeuge im G-Code, Modell- und Tower-Extrusion getrennt erfasst. Android 16/API 36: 1/1 bestanden; ARM64-Native-Build und Slice-Instrumentierung erfolgreich.
+- Batch 11: 7/10. Vollständige Regression, Debug-APK und Nightly-Release bleiben bis 10/10 offen.
+
+# Vorheriger Stand — Punkt 6/10
 
 ## Batch 11 — Punkt 6/10: klassisches Gap-Fill wählt das zugehörige Wandfilament
 
@@ -42,7 +59,7 @@
 - `MainActivityTouchDeviceTest#tappingGeneratedM12AndEmptyPlateDoesNotCrashAndLongPressKeepsActionsCollapsed` prüft die nativen Bounds des tatsächlich gezeichneten Rahmens gegen das bewegte Mesh; Android 16/API 36: 1/1 bestanden, 0 Fehler/Skips. `git diff --check` sauber.
 - Dies ist ein Stabilitätsfix, kein Orca-Nightly-Funktionspunkt. Batch 11 wird separat nach Orca-Verhalten gezählt; APK/Release-Gate unverändert.
 
-## Batch 11 — aktueller Stand
+## Batch 11 — Punkt 1/10
 
 - Punkt 1/10 portiert aus Orca `2cb2f0d2e710931b835d1b31282479686d961b47`: vor dem Slicen wird nun gewarnt, wenn Adaptive Pressure Advance für ein tatsächlich verwendetes Filament aktiviert ist, das Modell aber leer ist oder nur Null-Platzhalter enthält. Variantenspalten und verwendete Filament-IDs werden berücksichtigt; die Warnung bleibt eine sichere Fortsetzungsentscheidung und blockiert den Slice nicht.
 - Verifikation: `AdaptivePAModelValidatorTest` 8/8; echter Slice-Gerätetest `NativeSliceDeviceTest#adaptivePressureAdvanceSliceWarnsWhenEnabledFilamentHasNoMeasurements` 1/1 auf Android 16/API 36. Der Slice erzeugt weiterhin G-Code und liefert die erwartete filamentbezogene Warnung. `git diff --check` sauber.

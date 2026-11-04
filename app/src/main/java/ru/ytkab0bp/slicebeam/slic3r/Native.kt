@@ -77,6 +77,9 @@ class Native {
     /** Exercises exact default object-tour ordering against a six-object fixture. */
     @JvmStatic
     external fun shortest_path_exact_object_tour_regression(): IntArray
+    /** Ensures malformed custom layer sequences are ignored without invalid indexing. */
+    @JvmStatic
+    external fun other_layers_sequence_validation_regression(): IntArray
     /** Exercises sparse-infill line joining, loop avoidance, and crossing rejection. */
     @JvmStatic
     external fun joined_infill_regression(): IntArray

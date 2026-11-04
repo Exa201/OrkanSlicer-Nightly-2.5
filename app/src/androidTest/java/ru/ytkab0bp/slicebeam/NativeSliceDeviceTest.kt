@@ -18,6 +18,7 @@ import ru.ytkab0bp.slicebeam.config.ConfigObject
 import ru.ytkab0bp.slicebeam.config.AdaptivePAModelValidator
 import ru.ytkab0bp.slicebeam.config.Kobra3V2ProfileMigration
 import ru.ytkab0bp.slicebeam.slic3r.GCodeProcessorResult
+import ru.ytkab0bp.slicebeam.slic3r.GCodeViewer
 import ru.ytkab0bp.slicebeam.slic3r.BooleanOperation
 import ru.ytkab0bp.slicebeam.slic3r.GLModel
 import ru.ytkab0bp.slicebeam.slic3r.Model
@@ -167,6 +168,15 @@ class NativeSliceDeviceTest {
         } finally {
             source.delete()
         }
+    }
+
+    @Test
+    fun malformedCustomLayerPrintSequencesAreIgnoredAndValidOnesRemainIntact() {
+        assertArrayEquals(
+            "valid custom groups should parse unchanged while malformed group counts are ignored",
+            intArrayOf(2, 0, 4, 2, 5, 9, 6, 0, 0, 0, 0),
+            Native.other_layers_sequence_validation_regression(),
+        )
     }
 
     @Test
@@ -2628,7 +2638,6 @@ class NativeSliceDeviceTest {
 
         val context = InstrumentationRegistry.getInstrumentation().targetContext
         val config = requireNotNull(SliceBeam.CONFIG)
-        val printer = requireNotNull(config.findPrinter("MyToolChanger 0.4 nozzle"))
         val process = requireNotNull(config.findPrint("0.20mm Standard"))
         // The first and third logical nozzles intentionally have different layer limits.
         printer.put("min_layer_height", "0.04,0.08,0.12,0.16,0.20")
@@ -2656,6 +2665,49 @@ class NativeSliceDeviceTest {
                 Regex("(?m)^T2(?:\\s|$)").containsMatchIn(gcode))
             assertTrue("Prime-tower-compatible objects must complete slicing", gcode.contains("; total layer number:"))
             assertHasExtrusion(gcode)
+        } finally {
+            result?.release()
+            model.release()
+            source.delete()
+            output.delete()
+            SliceBeam.getCurrentConfigFile().delete()
+        }
+    }
+
+    @Test
+    fun nonBambuTypeOnePrimeTowerFilamentIsIncludedInSliceStatistics() = withToolChangerProfile {
+        val context = InstrumentationRegistry.getInstrumentation().targetContext
+        val config = requireNotNull(SliceBeam.CONFIG)
+        val printer = requireNotNull(config.findPrinter("MyToolChanger 0.4 nozzle"))
+        val process = requireNotNull(config.findPrint("0.20mm Standard"))
+        process.put("enable_prime_tower", "1")
+        process.put("wipe_tower_type", "type1")
+        val source = copyCube(context, "orca25-type1-tower-statistics.stl")
+        val output = File(context.cacheDir, "orca25-type1-tower-statistics.gcode")
+        val model = Model(source)
+        var result: GCodeProcessorResult? = null
+        try {
+            model.addObject(model, 0)
+            model.translate(1, 35.0, 0.0, 0.0)
+            model.setExtruder(0, 1)
+            model.setExtruder(1, 2)
+            SliceBeam.genCurrentConfig(model)
+            val generatedConfig = SliceBeam.getCurrentConfigFile().readText()
+            assertTrue("fixture must exercise the non-Bambu Klipper parser",
+                generatedConfig.contains("gcode_flavor = klipper"))
+            assertTrue("fixture must exercise Type 1 tower generation",
+                generatedConfig.contains("wipe_tower_type = type1"))
+
+            result = model.slice(SliceBeam.getCurrentConfigFile().absolutePath, output.absolutePath, null)
+            val gcode = output.readText()
+            assertHasExtrusion(gcode)
+            assertTrue("both assigned tools must be present in the generated G-code",
+                Regex("(?m)^T0(?:\\s|$)").containsMatchIn(gcode) &&
+                    Regex("(?m)^T1(?:\\s|$)").containsMatchIn(gcode))
+            assertTrue("the parser must account for real wipe-tower filament separately",
+                result.getUsedFilamentMM(GCodeViewer.EXTRUSION_ROLE_WIPE_TOWER) > 0.0)
+            assertTrue("model extrusion remains separately accounted",
+                result.getUsedFilamentMM(GCodeViewer.EXTRUSION_ROLE_PERIMETER) > 0.0)
         } finally {
             result?.release()
             model.release()

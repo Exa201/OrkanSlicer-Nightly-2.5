@@ -1,4 +1,31 @@
-## Nightly Batch 11 — Punkt 6/10 (Stand 2026-11-04)
+## Nightly Batch 11 — Punkt 8/10 (Stand 2026-11-04)
+
+### Punkt 8/10 — ungültige benutzerdefinierte Schichtsequenzen ignorieren
+
+Port von Orca `7e3d5d4d0`: Ein nichtpositiver Gruppenzähler, eine nicht durch die
+Gruppenzahl teilbare Werteliste oder eine Gruppe mit weniger als drei Werten wird als
+ungültige optionale Sequenz behandelt und sicher ignoriert. Gültige benutzerdefinierte
+Reihenfolgen werden unverändert geparst.
+
+`NativeSliceDeviceTest#malformedCustomLayerPrintSequencesAreIgnoredAndValidOnesRemainIntact`
+prüft auf Android 16/API 36 zwei gültige Gruppen und vier fehlerhafte Eingaben direkt an
+der produktiven nativen Funktion: 1/1 bestanden. ARM64-Native-Build und
+Slice-Instrumentierung erfolgreich.
+
+### Punkt 7/10 — Purge-Tower-Statistik folgt dem Drucker-Tagformat
+
+### Punkt 7/10 — Purge-Tower-Statistik folgt dem Drucker-Tagformat
+
+Port von Orca `3bda65344`: Die beiden Tower-Writer dürfen nicht anhand ihres
+Implementierungstyps das globale G-Code-Tagformat umschalten. Das Format wird vor dem
+Tower-Aufbau aus dem aktiven Druckerprofil gesetzt. So werden Type-1-Tower auf Klipper-
+und anderen Nicht-Bambu-Druckern von der nachfolgenden G-Code-Analyse mit dem richtigen
+Tagformat erkannt.
+
+`NativeSliceDeviceTest#nonBambuTypeOnePrimeTowerFilamentIsIncludedInSliceStatistics`
+bestand auf Android 16/API 36 (1/1). Der reale Klipper-Type-1-Multimaterial-Slice enthält
+beide Werkzeuge und weist sowohl Modell- als auch Tower-Extrusion separat aus. ARM64-
+Native-Build und Slice-Instrumentierung erfolgreich. Kein physischer Drucker-Test.
 
 ### Punkt 6/10 — klassisches Gap-Fill folgt der Wandfilament-Zuordnung
 
@@ -11,8 +38,6 @@ Der erweiterte echte Slice-Test
 beide Fälle auf Android 16/API 36: Bei 1,9 mm Plattenbreite und zwei Wandlinien ist Gap-Fill
 T1; bei 1,1 mm und einer Wand ist Gap-Fill T0 und es erfolgt kein T1-Wechsel. 1/1 bestanden;
 ARM64-Release-Native-Build und Android-Testkompilierung erfolgreich.
-
-### Punkt 5/10 — Gap-Fill wartet auf angrenzende Oberflächenbahnen
 
 ### Punkt 5/10 — Gap-Fill wartet auf angrenzende Oberflächenbahnen
 

@@ -31,6 +31,7 @@
 #include "libslic3r/Fill/FillBase.hpp"
 #include "libslic3r/Preset.hpp"
 #include "libslic3r/PlaceholderParser.hpp"
+#include "libslic3r/ParameterUtils.hpp"
 #include "libslic3r/FilamentGroup.hpp"
 #include "libslic3r/ModelArrange.hpp"
 #include "libslic3r/MeshBoolean.hpp"
@@ -5858,6 +5859,32 @@ extern "C" {
         jintArray result = env->NewIntArray(static_cast<jsize>(values.size()));
         if (result != nullptr && !values.empty())
             env->SetIntArrayRegion(result, 0, static_cast<jsize>(values.size()), values.data());
+        return result;
+    }
+
+    JNIEXPORT jintArray JNICALL Java_ru_ytkab0bp_slicebeam_slic3r_Native_other_1layers_1sequence_1validation_1regression(JNIEnv* env, jclass) {
+        using namespace Slic3r;
+        const auto valid = get_other_layers_print_sequence(2, { 0, 4, 1, 2, 5, 9, 3, 6 });
+        const auto not_divisible = get_other_layers_print_sequence(2, { 0, 4, 1, 2, 5, 9, 3 });
+        const auto too_short = get_other_layers_print_sequence(1, { 0, 4 });
+        const auto zero_count = get_other_layers_print_sequence(0, { 0, 4, 1 });
+        const auto negative_count = get_other_layers_print_sequence(-1, { 0, 4, 1 });
+        jint encoded[] = {
+            static_cast<jint>(valid.size()),
+            valid.size() > 0 ? valid[0].first.first : -1,
+            valid.size() > 0 ? valid[0].first.second : -1,
+            valid.size() > 0 && !valid[0].second.empty() ? valid[0].second[1] : -1,
+            valid.size() > 1 ? valid[1].first.first : -1,
+            valid.size() > 1 ? valid[1].first.second : -1,
+            valid.size() > 1 && !valid[1].second.empty() ? valid[1].second[1] : -1,
+            static_cast<jint>(not_divisible.size()),
+            static_cast<jint>(too_short.size()),
+            static_cast<jint>(zero_count.size()),
+            static_cast<jint>(negative_count.size()),
+        };
+        jintArray result = env->NewIntArray(sizeof(encoded) / sizeof(encoded[0]));
+        if (result != nullptr)
+            env->SetIntArrayRegion(result, 0, sizeof(encoded) / sizeof(encoded[0]), encoded);
         return result;
     }
 
