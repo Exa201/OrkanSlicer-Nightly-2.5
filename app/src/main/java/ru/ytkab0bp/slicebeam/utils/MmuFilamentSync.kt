@@ -286,6 +286,15 @@ class MmuFilamentSync private constructor() {
             return mapping.optInt(tool, -1)
         }
 
+        /** Full firmware Tn→gate map. Keep entries for gates not used in the current slice. */
+        @JvmStatic
+        fun toolToGateMap(printerTitle: String): IntArray {
+            val mapping = getSnapshot(printerTitle)?.optJSONArray("ttg_map") ?: return IntArray(0)
+            return IntArray(minOf(mapping.length(), Prefs.MAX_FILAMENT_COLORS)) { tool ->
+                mapping.optInt(tool, -1)
+            }
+        }
+
         @JvmStatic
         fun toolForGate(printerTitle: String, gate: Int): Int {
             val mapping = getSnapshot(printerTitle)?.optJSONArray("ttg_map") ?: return -1

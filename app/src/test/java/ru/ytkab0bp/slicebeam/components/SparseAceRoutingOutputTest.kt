@@ -139,4 +139,65 @@ class SparseAceRoutingOutputTest {
             output.delete()
         }
     }
+
+    @Test fun rewrittenGcodeUsesSelectedPhysicalGateForOneThroughSixteenTools() {
+        for (count in 1..16) {
+            val source = File.createTempFile("ace-count-source", ".gcode")
+            val output = File.createTempFile("ace-count-output", ".gcode")
+            try {
+                val commands = (0 until count).joinToString("\n") { "T$it\nG1 X$it E1" }
+                source.writeText("; HEADER_BLOCK_START\n; HEADER_BLOCK_END\n$commands\nM400\n")
+                val scan = AnycubicGCodeProcessor.scan(source)
+                val selectedGates = IntArray(count) { count - it - 1 }
+                val firmwareToolToGate = IntArray(16) { 15 - it }
+                val routing = ru.ytkab0bp.slicebeam.utils.AnycubicAceRoutingPolicy.resolve(
+                    toolCount = count,
+                    usedTools = scan.usedTools,
+                    loadedGates = IntArray(16) { it },
+                    toolToGate = firmwareToolToGate,
+                    selectedGates = selectedGates,
+                )
+                assertNull("unavailable tool count=$count", routing.unavailableTool)
+                assertTrue("rewrite count=$count", AnycubicGCodeProcessor.rewrite(source, output, scan,
+                    AnycubicGCodeProcessor.Options().apply {
+                        remappedTools = routing.toolCommands
+                        gates = routing.gates
+                    }))
+                val expectedFirmwareCommands = selectedGates.map { gate -> "T${firmwareToolToGate.indexOf(gate)}" }
+                assertEquals("commands count=$count", expectedFirmwareCommands,
+                    output.readLines().filter { it.matches(Regex("T[0-9]+")) })
+            } finally {
+                source.delete()
+                output.delete()
+            }
+        }
+    }
+
+    @Test fun oneSlicerToolAssignedToSecondAceGateEmitsFirmwareToolT1() {
+        val source = File.createTempFile("ace-single-source", ".gcode")
+        val output = File.createTempFile("ace-single-output", ".gcode")
+        try {
+            source.writeText("; HEADER_BLOCK_START\n; HEADER_BLOCK_END\nT0\nG1 X1 E1\nM400\n")
+            val scan = AnycubicGCodeProcessor.scan(source)
+            val routing = ru.ytkab0bp.slicebeam.utils.AnycubicAceRoutingPolicy.resolve(
+                toolCount = 1,
+                usedTools = scan.usedTools,
+                loadedGates = intArrayOf(0, 1, 2, 3),
+                toolToGate = intArrayOf(0, 1, 2, 3),
+                selectedGates = intArrayOf(1),
+            )
+
+            assertNull(routing.unavailableTool)
+            assertEquals(1, routing.toolCommands.single())
+            assertTrue(AnycubicGCodeProcessor.rewrite(source, output, scan,
+                AnycubicGCodeProcessor.Options().apply {
+                    remappedTools = routing.toolCommands
+                    gates = routing.gates
+                }))
+            assertEquals(listOf("T1"), output.readLines().filter { it.matches(Regex("T[0-9]+")) })
+        } finally {
+            source.delete()
+            output.delete()
+        }
+    }
 }

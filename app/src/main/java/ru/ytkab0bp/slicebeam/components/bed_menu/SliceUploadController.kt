@@ -668,7 +668,7 @@ object SliceUploadController {
             logicalToolCount,
             usedTools,
             loadedGates,
-            IntArray(logicalToolCount) { tool -> MmuFilamentSync.defaultGateForTool(printerTitle, tool) },
+            MmuFilamentSync.toolToGateMap(printerTitle),
             MmuFilamentSync.getSelectedGates(printerTitle, logicalToolCount),
         )
         val unavailableTool = routing.unavailableTool

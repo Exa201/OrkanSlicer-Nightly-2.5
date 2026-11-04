@@ -91,4 +91,22 @@ class AnycubicAceRoutingPolicyTest {
 
         assertEquals(1, routing.unavailableTool)
     }
+
+    @Test fun routesOneThroughSixteenLogicalToolsUsingTheFullFirmwareGateMap() {
+        val fullFirmwareMap = IntArray(16) { it }
+        for (count in 1..16) {
+            val selectedGates = IntArray(count) { count - it - 1 }
+            val routing = AnycubicAceRoutingPolicy.resolve(
+                toolCount = count,
+                usedTools = IntArray(count) { it },
+                loadedGates = IntArray(16) { it },
+                toolToGate = fullFirmwareMap,
+                selectedGates = selectedGates,
+            )
+
+            assertNull("unavailable tool count=$count", routing.unavailableTool)
+            assertArrayEquals("physical gates count=$count", selectedGates, routing.gates)
+            assertArrayEquals("printer commands count=$count", selectedGates, routing.toolCommands)
+        }
+    }
 }

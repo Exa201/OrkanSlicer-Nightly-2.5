@@ -1,18 +1,22 @@
 # Nightly 2.5 Fortsetzung — Batch 11, Punkt 5/10 verifiziert — 2026-11-04
 
+## ACE-Routing-Zwischenrelease 0.8.433 — 2026-11-04
+
+- Neuere Remote-Commits `87aaa7d53`, `bcb1a1157` und `3768f892b` ergänzten den Fix für sparse ACE-Werkzeugmengen und veröffentlichten `v0.8.433-nightly.1`.
+- APK `OrkanSlicerNightly25_bcb1a1157f.apk`, Paket `com.exa201.orkanslicer.nightly25`, 240,361,747 Bytes, SHA-256 `DFDCA6D6A2B717BF6B8597FF03D6C427AE9A7A11436C8758BA3632D82422BE12`; Code-Commit `bcb1a1157fc2f23982f41caa6ee476d972286461`. API-36-AVD-Start ohne Crash/ANR/OOM im erfassten Logcat.
+- `AnycubicAceRoutingPolicyTest` 8/8, `SparseAceRoutingOutputTest` 5/5. Compose-Instrumentierung 10/11; `sharedAceGateWarningResolvesItsPluralResource` bleibt offen, weil der Test den aktiven MESSAGE_DIALOG nicht fand. Kein physischer Xiaomi-/Druckertest.
+
 ## Batch 11 — Punkt 5/10: Gap-Fill nach angrenzender Oberflächenbahn
 
-- Orca-Port `88c4c1e91`: Bei Füllungen mit festgelegter Pfadreihenfolge wird Gap-Fill erst nach den nahen Linien eingesetzt, die den Spalt begrenzen. Die Travel-Optimierung bleibt innerhalb dieser Reihenfolgebedingung aktiv.
-- `NativeSliceDeviceTest#monotonicTopSurfaceGapFillIsInterleavedWithoutReorderingSurfaceLines` slicet das vorhandene Letter-A-Modell. API 36: 1/1 bestanden. Der Test bestätigt unveränderte Oberflächen-Endpunkte, reale Gap-Fill-Extrusionen und keine spätere direkt benachbarte Top-Surface-Bahn (0,55-mm-Prüfradius).
-- ARM64-Release-Native-Build, Instrumentierungs-APK und `git diff --check` erfolgreich. Ein erster Prüfradius von 0,7 mm schlug wegen einer späteren benachbarten Bahn aus einer separaten Füllgruppe an; die Prüfung ist auf die tatsächliche unmittelbare Nachbarschaft begrenzt. Keine Produktionsregression bekannt.
-- Batch 11: 5/10. Noch kein Commit, Gesamtregression, APK oder Release. Nächster Schritt: weiteren Android-erreichbaren Orca-Punkt auswählen.
+- Orca-Port `88c4c1e91`: Bei Füllungen mit festgelegter Pfadreihenfolge wird Gap-Fill erst nach den nahen Linien eingesetzt, die den Spalt begrenzen. Travel-Optimierung bleibt innerhalb dieser Reihenfolgebedingung aktiv.
+- `NativeSliceDeviceTest#monotonicTopSurfaceGapFillIsInterleavedWithoutReorderingSurfaceLines` slicet das Letter-A-Modell. API 36: 1/1 bestanden; Oberflächen-Endpunkte bleiben erhalten, Gap-Fill wird erzeugt, keine spätere direkt benachbarte Top-Surface-Bahn innerhalb 0,55 mm.
+- ARM64-Release-Native-Build, Instrumentierungs-APK und `git diff --check` erfolgreich. Ein erster Prüfradius von 0,7 mm erfasste zusätzlich eine Bahn aus einer separaten Füllgruppe; die Prüfung ist auf unmittelbare Nachbarschaft begrenzt.
+- Batch 11: 5/10. Gesamtregression, APK und Release bleiben bis 10/10 offen.
 
 ## Batch 11 — Punkt 4/10: AMF-Baugruppen als benannte Multipart-Objekte
 
-- Orca-Port `fa5f7e3db`: AMF-Konstellationen werden als einzelne Assembly mit separat bearbeitbaren, benannten Teilen importiert. Wiederholte Instanzen und Transformationen bleiben erhalten; Zyklen werden sicher abgewiesen. `LoadConfig`-Importe schalten die Assemble-Option entsprechend Orca aus.
-- API-36-Instrumentierung: `amfConstellationImportsAsOneNamedMultipartAssembly`, `amfConstellationsKeepRepeatedOccurrencesAndSeparateAssemblies` und `amfAssemblyImportRejectsCyclicConstellations` bestanden 3/3 nach der finalen Änderung.
-- ARM64-Release-Native-Build, Instrumentierungs-APK und `git diff --check` erfolgreich. Kein Xiaomi-Gerät angeschlossen.
-- Batch 11: 4/10. Noch kein Commit, vollständiger Regressionstest, APK oder Release. Nächster Schritt: aktuellen Orca-Upstream-Diff prüfen und Punkt 5 auswählen.
+- Orca-Port `fa5f7e3db`: AMF-Konstellationen werden als einzelne Assembly mit separat bearbeitbaren, benannten Teilen importiert. Wiederholte Instanzen und Transformationen bleiben erhalten; Zyklen werden sicher abgewiesen. `LoadConfig`-Importe schalten Assemble entsprechend Orca aus.
+- API-36-Instrumentierung: `amfConstellationImportsAsOneNamedMultipartAssembly`, `amfConstellationsKeepRepeatedOccurrencesAndSeparateAssemblies` und `amfAssemblyImportRejectsCyclicConstellations` bestanden 3/3. ARM64-Release-Native-Build erfolgreich.
 
 ## Batch 11 — Punkt 3/10: Originale 3MF-Körpernamen in importierten Baugruppen
 

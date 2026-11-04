@@ -97,7 +97,7 @@ object SlicePrintPreparationDialog {
                     gcodeToolCount,
                     activeTools,
                     MmuFilamentSync.loadedGates(title),
-                    IntArray(gcodeToolCount) { tool -> MmuFilamentSync.defaultGateForTool(title, tool) },
+                    MmuFilamentSync.toolToGateMap(title),
                     MmuFilamentSync.getSelectedGates(title, gcodeToolCount),
                 )
                 val invalidTool = routing.unavailableTool
@@ -118,7 +118,7 @@ object SlicePrintPreparationDialog {
                 val selectedGates = MmuFilamentSync.getSelectedGates(title, gcodeToolCount)
                 val mapping = AnycubicAceRoutingPolicy.resolve(
                     gcodeToolCount, activeTools, MmuFilamentSync.loadedGates(title),
-                    IntArray(gcodeToolCount) { tool -> MmuFilamentSync.defaultGateForTool(title, tool) },
+                    MmuFilamentSync.toolToGateMap(title),
                     selectedGates,
                 )
                 val mismatch = firstMaterialMismatch(title, activeTools, sourceFilamentTypes, mapping.gates)

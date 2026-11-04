@@ -64,6 +64,7 @@ class SlicePrintPreparationComposeDeviceTest {
         val activity = compose.activity
         val bed = activity.navigationDelegate.getCurrentFragment() as BedFragment
         val acknowledged = AtomicInteger()
+        compose.waitUntil(timeoutMillis = 15_000) { bed.canShowWorkspaceComposeDialog() }
         activity.runOnUiThread {
             bed.showWorkspaceComposeDialog {
                 PrintPreparationWarningDialog(
