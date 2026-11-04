@@ -1,5 +1,17 @@
 # Nightly 2.5 Fortsetzung — Batch 11, Punkt 4/10 verifiziert — 2026-11-04
 
+## ACE-/Dialogregression erneut verifiziert — 2026-11-04
+
+- `AnycubicAceRoutingPolicyTest` 8/8 und `SparseAceRoutingOutputTest` 5/5 bestanden; zusammen
+  13/13 JVM-Tests ohne Fehler oder Skips. Abgedeckt sind T0 → zweites ACE-Fach → Firmware-T1
+  sowie die G-Code-Zuordnung für 1 bis 16 logische Werkzeuge.
+- `SlicePrintPreparationComposeDeviceTest` auf Android 16/API 36 erneut vollständig bestanden:
+  11/11, 0 Fehler, 0 Skips. Damit ist auch `sharedAceGateWarningResolvesItsPluralResource`
+  auf dem aktuellen Arbeitsstand bestanden; die Warnung verschwindet nach Bestätigung, während
+  der übergeordnete Workspace-Sendedialog sichtbar bleibt.
+- Diese Verifikation bestätigt den bereits veröffentlichten Routing-Fix; sie ist kein neuer
+  Orca-Portierungspunkt und ändert Batch 11 nicht (weiterhin 4/10).
+
 ## Batch 11, Punkt 4 — Kopien im sequentiellen Druck behalten ihre Listenreihenfolge
 
 - Android-Port von Orca `8cdc68a6a0`: Die kollisionsgeprüfte By-Object-Warteschlange löst
@@ -29,10 +41,10 @@
 - Fokusierte JVM-Prüfung: `AnycubicAceRoutingPolicyTest` 8/8 und `SparseAceRoutingOutputTest`
   5/5. Die G-Code-Matrix prüft 1–16 Werkzeuge mit nichtidentischer Firmware-Gate-Zuordnung;
   ein separater Fall prüft ausdrücklich T0 → ACE-Fach 2 → Firmwarebefehl T1.
-- Compose-Instrumentierung `SlicePrintPreparationComposeDeviceTest`: 10/11. Die individuelle
-  ACE-Auswahl sowie weitere Send-/Abbruchpfade bestanden. `sharedAceGateWarningResolvesItsPluralResource`
-  scheiterte im Klassenlauf und isoliert beim Warten auf den aktiven MESSAGE_DIALOG, obwohl der
-  Workspace-Host bereit war. Ursache noch nicht geklärt; nicht als ACE-Routing-Fehler gewertet.
+- Früherer Compose-Instrumentierungslauf: 10/11; die Warnungsdialog-Prüfung wartete auf das
+  Schließen des gesamten Hostdialogs, obwohl nur der Hinweis bestätigt werden sollte. Der Test
+  modelliert jetzt den lokalen Warnungszustand und prüft, dass der Eltern-Dialog offen bleibt.
+  Der aktuelle vollständige Lauf besteht 11/11 (siehe erneute Verifikation oben).
 - Kein physischer Xiaomi-/Druckertest in diesem Durchgang. Orca-Batch 11 bleibt 3/10; der
   ACE-Zwischenrelease zählt nicht als Orca-Portierung. Nächster Schritt: den separaten
   Compose-Warnungsdialog-Test/Hostzustand untersuchen und danach den nächsten fehlenden

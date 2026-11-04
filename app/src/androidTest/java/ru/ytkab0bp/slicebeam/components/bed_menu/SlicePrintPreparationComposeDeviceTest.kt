@@ -64,16 +64,24 @@ class SlicePrintPreparationComposeDeviceTest {
         val activity = compose.activity
         val bed = activity.navigationDelegate.getCurrentFragment() as BedFragment
         val acknowledged = AtomicInteger()
+        val warning = mutableStateOf<PrintPreparationWarning?>(
+            PrintPreparationWarning.SharedAceGate(tool = 1),
+        )
         compose.waitUntil(timeoutMillis = 15_000) { bed.canShowWorkspaceComposeDialog() }
         activity.runOnUiThread {
             bed.showWorkspaceComposeDialog {
-                PrintPreparationWarningDialog(
-                    warning = PrintPreparationWarning.SharedAceGate(tool = 1),
-                    onDismiss = {},
-                    onAcknowledge = { acknowledged.incrementAndGet() },
-                    onUploadOnly = {},
-                    onFirmwareChecked = {},
-                )
+                warning.value?.let { activeWarning ->
+                    PrintPreparationWarningDialog(
+                        warning = activeWarning,
+                        onDismiss = { warning.value = null },
+                        onAcknowledge = {
+                            acknowledged.incrementAndGet()
+                            warning.value = null
+                        },
+                        onUploadOnly = {},
+                        onFirmwareChecked = {},
+                    )
+                }
             }
         }
         compose.waitUntil(timeoutMillis = 5_000) { bed.isWorkspaceMessageDialogAttached() }
@@ -84,7 +92,10 @@ class SlicePrintPreparationComposeDeviceTest {
         )
         compose.onNodeWithText(expectedMessage).assertIsDisplayed()
         compose.onNodeWithText(activity.getString(android.R.string.ok)).performClick()
-        compose.waitUntil(timeoutMillis = 5_000) { !bed.isWorkspaceMessageDialogAttached() }
+        compose.waitUntil(timeoutMillis = 5_000) { warning.value == null }
+        compose.onNodeWithText(expectedMessage).assertDoesNotExist()
+        assertTrue("the parent workspace send dialog remains open after acknowledging its warning",
+            bed.isWorkspaceMessageDialogAttached())
         assertEquals(1, acknowledged.get())
     }
 
