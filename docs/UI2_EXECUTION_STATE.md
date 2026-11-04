@@ -1,4 +1,4 @@
-# Nightly 2.5 Fortsetzung — Batch 11: 3/10 verifiziert, Punkt 4 implementiert — 2026-11-04
+# Nightly 2.5 Fortsetzung — Batch 11, Punkt 4/10 verifiziert — 2026-11-04
 
 ## Batch 11, Punkt 4 — Kopien im sequentiellen Druck behalten ihre Listenreihenfolge
 
@@ -9,13 +9,14 @@
 - Produktionscode verwendet jetzt dieselbe Listenpositionsregel sowohl beim Sortieren der
   wartenden Instanzen als auch beim Einfügen neu freigegebener Instanzen.
 - `:app:externalNativeBuildSliceTest :app:assembleSliceTestAndroidTest` erfolgreich; ARM64-
-  Nativecode und neuer API-Test kompilieren. `NativeSliceDeviceTest#sequentialCopiesOfOneObjectKeepTheirListOrder`
-  ist ergänzt, aber noch nicht ausgeführt.
-- Der einzige aktuell laufende Emulator ist x86_64; die Nightly-Testvariante ist auf ARM64
-  beschränkt. Das vorhandene ARM64-AVD kann auf diesem x86_64-Host nicht gestartet werden.
-  Kein physisches ARM64-Gerät ist verbunden. Daher zählt Punkt 4 noch nicht als verifiziert.
-- Nächster konkreter Schritt: Test `sequentialCopiesOfOneObjectKeepTheirListOrder` auf einem
-  ARM64-Gerät/kompatiblen Runner ausführen. Erst nach bestandenem Lauf Batch 11 auf 4/10 setzen.
+  Nativecode und API-Test kompilieren. `NativeSliceDeviceTest#sequentialCopiesOfOneObjectKeepTheirListOrder`
+  bestand auf API 36 (1/1, 0 Fehler/Skips). XML-Bericht: `app/build/outputs/androidTest-results/connected/sliceTest/TEST-solidcraft_port_test_clean_20261101(AVD) - 16-_app-.xml`.
+- Der Instrumentierungstest lief auf dem x86_64-AVD mit ARM64-Übersetzung. Zusätzlich lief
+  ein direkter Android-Runner gegen denselben produktiven Header und bestätigte 200/200
+  Kopien in Listenreihenfolge. Das ist ein fokussierter Queue-/Komparatortest; kein Test eines
+  realen Druckers und kein physischer Xiaomi-Test.
+- Batch 11 steht nun bei 4/10 fokussiert verifizierten Punkten. Nächster Schritt: nächsten
+  unabhängigen Android-relevanten Orca-2.5-Punkt aus dem offenen Upstream-Backlog auswählen.
 
 ## ACE-Routing-Zwischenrelease 0.8.433 — 2026-11-04
 
