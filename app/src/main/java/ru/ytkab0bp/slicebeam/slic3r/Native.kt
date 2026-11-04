@@ -42,6 +42,9 @@ class Native {
     /** Verifies Orca sequential placement keeps short objects inside the bed and clear. */
     @JvmStatic
     external fun short_object_arrangement_regression(): DoubleArray
+    /** Verifies sequential print copies sharing an object index retain their object-list order. */
+    @JvmStatic
+    external fun sequential_copy_order_regression(): IntArray
     /** Verifies an almost bed-filling object is not rejected by the default arrange margin. */
     @JvmStatic
     external fun near_bed_size_arrangement_regression(): DoubleArray

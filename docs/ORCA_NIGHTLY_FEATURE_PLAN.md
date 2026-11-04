@@ -1,4 +1,18 @@
-## Nightly Batch 11 — Punkt 3/10 (Stand 2026-11-03)
+## Nightly Batch 11 — 3/10 verifiziert; Punkt 4 wartet auf Laufzeittest (Stand 2026-11-04)
+
+### Punkt 4 — Kopien im sequentiellen Druck behalten ihre Listenreihenfolge — Implementiert, Laufzeittest offen
+
+Android-Port von Orca `8cdc68a6a0`: Die kollisionsgeprüfte By-Object-Druckreihenfolge
+verwendet bei Gleichständen die Position in der Instanzliste. Kopien desselben Modellobjekts
+haben denselben Objektindex; die vorherige Sortierung konnte sie deshalb vertauschen und
+unnötige Warnungen über vermeintlich zurückgestellte Kopien auslösen.
+
+Die gemeinsame Listenpositionsregel wird in Produktion für die Sortierung und das Einfügen
+der freigegebenen Instanzen verwendet. `NativeSliceDeviceTest#sequentialCopiesOfOneObjectKeepTheirListOrder`
+prüft 200 Kopien mit einem gemeinsamen Objektindex. ARM64-Nativebuild und Android-Testkompilierung
+bestanden. Der Laufzeittest ist offen: verfügbar ist nur ein x86_64-Emulator, die Nightly-Testvariante
+enthält ARM64, und das ARM64-AVD ist auf diesem x86_64-Host nicht ausführbar. Punkt 4 wird erst
+nach einem echten Gerätetest zu den drei verifizierten Punkten gezählt.
 
 ### Punkt 3/10 — Originale 3MF-Körpernamen in importierten Baugruppen
 

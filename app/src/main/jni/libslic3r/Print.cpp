@@ -1,6 +1,7 @@
 #include "Config.hpp"
 #include "Exception.hpp"
 #include "Print.hpp"
+#include "SequentialPrintOrder.hpp"
 #include "BoundingBox.hpp"
 #include "Brim.hpp"
 #include "ClipperUtils.hpp"
@@ -746,6 +747,8 @@ StringObjectException Print::sequential_print_clearance_valid(const Print &print
     for (size_t i = 0; i < instance_count; ++i)
         fallback_order[i] = i;
     std::stable_sort(fallback_order.begin(), fallback_order.end(), by_object_index);
+    const std::vector<size_t> list_position = sequential_print_list_positions(fallback_order);
+    const SequentialPrintListPositionLess by_list_position{list_position};
 
     const float skirt_offset = object_skirt_offset;
     const auto overlaps_in_y = [&](size_t tall_idx, size_t other_idx) {
@@ -788,7 +791,7 @@ StringObjectException Print::sequential_print_clearance_valid(const Print &print
             for (size_t i = 0; i < instance_count; ++i)
                 if (i != last_idx && indegree[i] == 0)
                     ready.push_back(i);
-            std::sort(ready.begin(), ready.end(), by_object_index);
+            std::sort(ready.begin(), ready.end(), by_list_position);
 
             std::vector<size_t> order;
             order.reserve(instance_count);
@@ -798,8 +801,7 @@ StringObjectException Print::sequential_print_clearance_valid(const Print &print
                 order.push_back(current);
                 for (size_t next : adjacency[current]) {
                     if (--indegree[next] == 0) {
-                        const auto position = std::upper_bound(ready.begin(), ready.end(), next, by_object_index);
-                        ready.insert(position, next);
+                        insert_sequential_print_ready_instance(ready, next, by_list_position);
                     }
                 }
             }
@@ -814,11 +816,8 @@ StringObjectException Print::sequential_print_clearance_valid(const Print &print
 
     const std::vector<size_t> &print_order = solved ? solved_order : fallback_order;
     if (warning != nullptr && solved && solved_order != fallback_order) {
-        std::vector<size_t> original_position(instance_count);
-        for (size_t i = 0; i < instance_count; ++i)
-            original_position[fallback_order[i]] = i;
         for (size_t i = 0; i < instance_count; ++i) {
-            if (i <= original_position[solved_order[i]])
+            if (i <= list_position[solved_order[i]])
                 continue;
             const ModelInstance *held_back = print_instance_with_bounding_box[solved_order[i]].print_instance->model_instance;
             const std::string line = (boost::format(L("%1% is printed later than its place in the object list, to avoid a collision.")) % held_back->get_object()->name).str();

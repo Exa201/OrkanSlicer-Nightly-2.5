@@ -25,6 +25,7 @@
 #include "libslic3r/Emboss.hpp"
 #include "libslic3r/NSVGUtils.hpp"
 #include "libslic3r/Print.hpp"
+#include "libslic3r/SequentialPrintOrder.hpp"
 #include "libslic3r/CurledExtrusionUtils.hpp"
 #include "libslic3r/PaintedSegmentationPolicy.hpp"
 #include "libslic3r/ExtrusionEntity.hpp"
@@ -5455,6 +5456,36 @@ extern "C" {
             static_cast<double>(placed), static_cast<double>(outside), static_cast<double>(overlapping_clearance_pairs)};
         jdoubleArray result = env->NewDoubleArray(15);
         if (result != nullptr) env->SetDoubleArrayRegion(result, 0, 15, values);
+        return result;
+    }
+
+    // Verifies the production ready-queue tie-break preserves the list order of many copies
+    // that share one model-object index, as happens in sequential by-object printing.
+    JNIEXPORT jintArray JNICALL Java_ru_ytkab0bp_slicebeam_slic3r_Native_sequential_1copy_1order_1regression(JNIEnv* env, jclass) {
+        using namespace Slic3r;
+        constexpr size_t copy_count = 200;
+        std::vector<size_t> fallback_order(copy_count);
+        std::vector<size_t> object_index(copy_count, 0); // All copies belong to object 0.
+        for (size_t i = 0; i < copy_count; ++i) fallback_order[i] = i;
+        std::stable_sort(fallback_order.begin(), fallback_order.end(), [&](size_t lhs, size_t rhs) {
+            return object_index[lhs] == object_index[rhs] ? lhs < rhs : object_index[lhs] < object_index[rhs];
+        });
+
+        const auto list_positions = sequential_print_list_positions(fallback_order);
+        const SequentialPrintListPositionLess by_list_position{list_positions};
+        std::vector<size_t> ready;
+        // Simulate the Kahn queue receiving newly ready copies in reverse adjacency order.
+        for (size_t i = copy_count; i > 0; --i)
+            insert_sequential_print_ready_instance(ready, i - 1, by_list_position);
+
+        jint reordered = 0;
+        for (size_t i = 0; i < ready.size(); ++i)
+            if (ready[i] != i) ++reordered;
+        const jint values[] = {static_cast<jint>(ready.size()), reordered,
+            ready.empty() ? -1 : static_cast<jint>(ready.front()),
+            ready.empty() ? -1 : static_cast<jint>(ready.back())};
+        jintArray result = env->NewIntArray(4);
+        if (result != nullptr) env->SetIntArrayRegion(result, 0, 4, values);
         return result;
     }
 

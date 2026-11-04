@@ -1018,6 +1018,15 @@ class NativeSliceDeviceTest {
     }
 
     @Test
+    fun sequentialCopiesOfOneObjectKeepTheirListOrder() {
+        assertArrayEquals(
+            "200 copies sharing one object index must stay in their incoming list order",
+            intArrayOf(200, 0, 0, 199),
+            Native.sequential_copy_order_regression(),
+        )
+    }
+
+    @Test
     fun arrangementUsesAvailableBedAreaForNearBedSizeObjects() {
         val result = Native.near_bed_size_arrangement_regression()
         assertEquals("a 197 mm object with a 1 mm brim must fit on a 200 mm bed: ${result.contentToString()}",

@@ -1,4 +1,21 @@
-# Nightly 2.5 Fortsetzung — Batch 11, Punkt 3/10 verifiziert — 2026-11-04
+# Nightly 2.5 Fortsetzung — Batch 11: 3/10 verifiziert, Punkt 4 implementiert — 2026-11-04
+
+## Batch 11, Punkt 4 — Kopien im sequentiellen Druck behalten ihre Listenreihenfolge
+
+- Android-Port von Orca `8cdc68a6a0`: Die kollisionsgeprüfte By-Object-Warteschlange löst
+  Gleichstände nun über die Position in der ursprünglichen Instanzliste auf. Zuvor teilten
+  Kopien desselben Modellobjekts denselben Objektindex; `std::sort` konnte sie dadurch
+  beliebig umordnen und unnötige Warnungen über zurückgestellte Kopien erzeugen.
+- Produktionscode verwendet jetzt dieselbe Listenpositionsregel sowohl beim Sortieren der
+  wartenden Instanzen als auch beim Einfügen neu freigegebener Instanzen.
+- `:app:externalNativeBuildSliceTest :app:assembleSliceTestAndroidTest` erfolgreich; ARM64-
+  Nativecode und neuer API-Test kompilieren. `NativeSliceDeviceTest#sequentialCopiesOfOneObjectKeepTheirListOrder`
+  ist ergänzt, aber noch nicht ausgeführt.
+- Der einzige aktuell laufende Emulator ist x86_64; die Nightly-Testvariante ist auf ARM64
+  beschränkt. Das vorhandene ARM64-AVD kann auf diesem x86_64-Host nicht gestartet werden.
+  Kein physisches ARM64-Gerät ist verbunden. Daher zählt Punkt 4 noch nicht als verifiziert.
+- Nächster konkreter Schritt: Test `sequentialCopiesOfOneObjectKeepTheirListOrder` auf einem
+  ARM64-Gerät/kompatiblen Runner ausführen. Erst nach bestandenem Lauf Batch 11 auf 4/10 setzen.
 
 ## ACE-Routing-Zwischenrelease 0.8.433 — 2026-11-04
 
