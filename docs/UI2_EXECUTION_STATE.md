@@ -1,4 +1,18 @@
-# Nightly 2.5 Fortsetzung — Batch 11, Punkt 3/10 verifiziert — 2026-11-03
+# Nightly 2.5 Fortsetzung — Batch 11, Punkt 5/10 verifiziert — 2026-11-04
+
+## Batch 11 — Punkt 5/10: Gap-Fill nach angrenzender Oberflächenbahn
+
+- Orca-Port `88c4c1e91`: Bei Füllungen mit festgelegter Pfadreihenfolge wird Gap-Fill erst nach den nahen Linien eingesetzt, die den Spalt begrenzen. Die Travel-Optimierung bleibt innerhalb dieser Reihenfolgebedingung aktiv.
+- `NativeSliceDeviceTest#monotonicTopSurfaceGapFillIsInterleavedWithoutReorderingSurfaceLines` slicet das vorhandene Letter-A-Modell. API 36: 1/1 bestanden. Der Test bestätigt unveränderte Oberflächen-Endpunkte, reale Gap-Fill-Extrusionen und keine spätere direkt benachbarte Top-Surface-Bahn (0,55-mm-Prüfradius).
+- ARM64-Release-Native-Build, Instrumentierungs-APK und `git diff --check` erfolgreich. Ein erster Prüfradius von 0,7 mm schlug wegen einer späteren benachbarten Bahn aus einer separaten Füllgruppe an; die Prüfung ist auf die tatsächliche unmittelbare Nachbarschaft begrenzt. Keine Produktionsregression bekannt.
+- Batch 11: 5/10. Noch kein Commit, Gesamtregression, APK oder Release. Nächster Schritt: weiteren Android-erreichbaren Orca-Punkt auswählen.
+
+## Batch 11 — Punkt 4/10: AMF-Baugruppen als benannte Multipart-Objekte
+
+- Orca-Port `fa5f7e3db`: AMF-Konstellationen werden als einzelne Assembly mit separat bearbeitbaren, benannten Teilen importiert. Wiederholte Instanzen und Transformationen bleiben erhalten; Zyklen werden sicher abgewiesen. `LoadConfig`-Importe schalten die Assemble-Option entsprechend Orca aus.
+- API-36-Instrumentierung: `amfConstellationImportsAsOneNamedMultipartAssembly`, `amfConstellationsKeepRepeatedOccurrencesAndSeparateAssemblies` und `amfAssemblyImportRejectsCyclicConstellations` bestanden 3/3 nach der finalen Änderung.
+- ARM64-Release-Native-Build, Instrumentierungs-APK und `git diff --check` erfolgreich. Kein Xiaomi-Gerät angeschlossen.
+- Batch 11: 4/10. Noch kein Commit, vollständiger Regressionstest, APK oder Release. Nächster Schritt: aktuellen Orca-Upstream-Diff prüfen und Punkt 5 auswählen.
 
 ## Batch 11 — Punkt 3/10: Originale 3MF-Körpernamen in importierten Baugruppen
 

@@ -46,6 +46,130 @@ import java.util.zip.CRC32
 @RunWith(AndroidJUnit4::class)
 class NativeSliceDeviceTest {
     @Test
+    fun amfConstellationImportsAsOneNamedMultipartAssembly() {
+        val context = InstrumentationRegistry.getInstrumentation().targetContext
+        val source = File(context.cacheDir, "nightly-amf-assembly.amf")
+        fun tetrahedron(volumeName: String) = """
+            <vertices>
+              <vertex><coordinates><x>0</x><y>0</y><z>0</z></coordinates></vertex>
+              <vertex><coordinates><x>10</x><y>0</y><z>0</z></coordinates></vertex>
+              <vertex><coordinates><x>0</x><y>10</y><z>0</z></coordinates></vertex>
+              <vertex><coordinates><x>0</x><y>0</y><z>10</z></coordinates></vertex>
+            </vertices>
+            <volume>
+              <metadata type="name">$volumeName</metadata>
+              <triangle><v1>0</v1><v2>2</v2><v3>1</v3></triangle>
+              <triangle><v1>0</v1><v2>1</v2><v3>3</v3></triangle>
+              <triangle><v1>0</v1><v2>3</v2><v3>2</v3></triangle>
+              <triangle><v1>1</v1><v2>2</v2><v3>3</v3></triangle>
+            </volume>
+        """.trimIndent()
+        source.writeText("""
+            <amf unit="millimeter">
+              <object id="1"><metadata type="name">Parent A</metadata><mesh>${tetrahedron("Named Part A")}</mesh></object>
+              <object id="2"><metadata type="name">Parent B</metadata><mesh>${tetrahedron("Named Part B")}</mesh></object>
+              <constellation id="10">
+                <instance objectid="1"/>
+                <instance objectid="2"><deltax>15</deltax></instance>
+              </constellation>
+            </amf>
+        """.trimIndent())
+        val model = Model(source)
+        try {
+            assertEquals("A constellation should be one object-list entry", 1, model.objectsCount)
+            assertEquals("Both bodies should remain independently selectable parts", 2, model.getObjectPartCount(0))
+            assertEquals("Named Part A", model.getObjectPartName(0, 0))
+            assertEquals("Named Part B", model.getObjectPartName(0, 1))
+            assertEquals("nightly-amf-assembly.amf", model.getObjectName(0))
+            val min = Vec3d()
+            val max = Vec3d()
+            model.getBoundingBoxExact(0, min, max)
+            assertEquals("the first body's source placement should be retained", 0.0, min.x, 0.001)
+            assertEquals("the second body's constellation offset should be retained", 25.0, max.x, 0.001)
+        } finally {
+            model.release()
+            source.delete()
+        }
+    }
+
+    @Test
+    fun amfConstellationsKeepRepeatedOccurrencesAndSeparateAssemblies() {
+        val context = InstrumentationRegistry.getInstrumentation().targetContext
+        val source = File(context.cacheDir, "nightly-amf-repeated-assembly.amf")
+        fun objectXml(id: Int, objectName: String, volumeName: String) = """
+            <object id="$id">
+              <metadata type="name">$objectName</metadata>
+              <mesh>
+                <vertices>
+                  <vertex><coordinates><x>0</x><y>0</y><z>0</z></coordinates></vertex>
+                  <vertex><coordinates><x>10</x><y>0</y><z>0</z></coordinates></vertex>
+                  <vertex><coordinates><x>0</x><y>10</y><z>0</z></coordinates></vertex>
+                  <vertex><coordinates><x>0</x><y>0</y><z>10</z></coordinates></vertex>
+                </vertices>
+                <volume>
+                  <metadata type="name">$volumeName</metadata>
+                  <triangle><v1>0</v1><v2>2</v2><v3>1</v3></triangle>
+                  <triangle><v1>0</v1><v2>1</v2><v3>3</v3></triangle>
+                  <triangle><v1>0</v1><v2>3</v2><v3>2</v3></triangle>
+                  <triangle><v1>1</v1><v2>2</v2><v3>3</v3></triangle>
+                </volume>
+              </mesh>
+            </object>
+        """.trimIndent()
+        source.writeText("""
+            <amf unit="millimeter">
+              ${objectXml(1, "Shared Parent", "Shared Part")}
+              ${objectXml(2, "Standalone", "Standalone Part")}
+              <constellation id="10">
+                <instance objectid="1"/>
+                <instance objectid="1"><deltax>12</deltax></instance>
+              </constellation>
+              <constellation id="20"><instance objectid="1"><deltax>30</deltax></instance></constellation>
+            </amf>
+        """.trimIndent())
+        val model = Model(source)
+        try {
+            assertEquals("each independent constellation should retain its own object-list entry", 3,
+                model.objectsCount)
+            assertEquals("two occurrences in one assembly should become two editable parts", 2,
+                model.getObjectPartCount(0))
+            assertEquals("Shared Part", model.getObjectPartName(0, 0))
+            assertEquals("Shared Part", model.getObjectPartName(0, 1))
+            assertEquals("separate one-occurrence assembly should stay independent", 1,
+                model.getObjectPartCount(1))
+            assertEquals("Shared Part", model.getObjectPartName(1, 0))
+            assertEquals("unreferenced definitions should remain independent", "Standalone",
+                model.getObjectName(2))
+            assertEquals("Standalone Part", model.getObjectPartName(2, 0))
+            val min = Vec3d()
+            model.getBoundingBoxExact(1, min, Vec3d())
+            assertEquals("the separate assembly should keep its own instance offset", 30.0, min.x, 0.001)
+        } finally {
+            model.release()
+            source.delete()
+        }
+    }
+
+    @Test
+    fun amfAssemblyImportRejectsCyclicConstellations() {
+        val context = InstrumentationRegistry.getInstrumentation().targetContext
+        val source = File(context.cacheDir, "nightly-amf-cyclic-assembly.amf")
+        source.writeText("""
+            <amf unit="millimeter">
+              <constellation id="10"><instance objectid="20"/></constellation>
+              <constellation id="20"><instance objectid="10"/></constellation>
+            </amf>
+        """.trimIndent())
+        try {
+            val failure = runCatching { Model(source).release() }.exceptionOrNull()
+            assertTrue("cyclic constellation references must fail safely instead of recursing indefinitely",
+                failure is Slic3rRuntimeError)
+        } finally {
+            source.delete()
+        }
+    }
+
+    @Test
     fun worldTranslationKeepsRotatedAndScaledObjectBoundsAlignedWithDragDelta() = withKobraProfile {
         val context = InstrumentationRegistry.getInstrumentation().targetContext
         val modelFile = copyCube(context, "nightly-world-translation-transform.stl")
@@ -3671,9 +3795,54 @@ class NativeSliceDeviceTest {
             )
             assertTrue("gap interleaving must preserve every top-surface endpoint", withGapFill.first == withoutGapFill)
             assertTrue("the fixture must generate top-surface gap fill", withGapFill.second.contains("Gap infill"))
+            data class ExtrusionSegment(val role: String, val layer: Int, val x1: Double, val y1: Double, val x2: Double, val y2: Double)
+            var x = 0.0
+            var y = 0.0
+            var layer = -1
+            var role = ""
+            val segments = mutableListOf<ExtrusionSegment>()
+            val coordinate = Regex("(?:^|\\s)([XY])(-?\\d+(?:\\.\\d+)?)")
+            output.forEachLine { line ->
+                if (line.startsWith(";LAYER_CHANGE")) layer++
+                if (line.startsWith(";TYPE:")) role = line.removePrefix(";TYPE:").trim()
+                val command = line.trimStart()
+                if (command.startsWith("G0 ") || command.startsWith("G1 ") || command.startsWith("G2 ") || command.startsWith("G3 ")) {
+                    val nextX = coordinate.findAll(command).firstOrNull { it.groupValues[1] == "X" }?.groupValues?.get(2)?.toDoubleOrNull() ?: x
+                    val nextY = coordinate.findAll(command).firstOrNull { it.groupValues[1] == "Y" }?.groupValues?.get(2)?.toDoubleOrNull() ?: y
+                    if (command.contains(" E") && role in setOf("Top surface", "Gap infill") && (nextX != x || nextY != y))
+                        segments += ExtrusionSegment(role, layer, x, y, nextX, nextY)
+                    x = nextX
+                    y = nextY
+                }
+            }
+            fun pointToSegment(px: Double, py: Double, ax: Double, ay: Double, bx: Double, by: Double): Double {
+                val dx = bx - ax
+                val dy = by - ay
+                val lengthSquared = dx * dx + dy * dy
+                val t = if (lengthSquared == 0.0) 0.0 else (((px - ax) * dx + (py - ay) * dy) / lengthSquared).coerceIn(0.0, 1.0)
+                return kotlin.math.hypot(px - (ax + t * dx), py - (ay + t * dy))
+            }
+            fun segmentDistance(a: ExtrusionSegment, b: ExtrusionSegment): Double = minOf(
+                pointToSegment(a.x1, a.y1, b.x1, b.y1, b.x2, b.y2),
+                pointToSegment(a.x2, a.y2, b.x1, b.y1, b.x2, b.y2),
+                pointToSegment(b.x1, b.y1, a.x1, a.y1, a.x2, a.y2),
+                pointToSegment(b.x2, b.y2, a.x1, a.y1, a.x2, a.y2),
+            )
+            val lateTouchingSurfaceLines = buildList {
+                for (index in segments.indices) {
+                    val gap = segments[index]
+                    if (gap.role != "Gap infill") continue
+                    for (later in segments.drop(index + 1)) {
+                        if (later.role != "Top surface" || later.layer != gap.layer) continue
+                        val distance = segmentDistance(gap, later)
+                        if (distance <= 0.55) add("gap=(${gap.x1},${gap.y1})->(${gap.x2},${gap.y2}) later=(${later.x1},${later.y1})->(${later.x2},${later.y2}) d=$distance")
+                    }
+                }
+            }
+            assertTrue("the fixture must produce real gap-fill extrusion moves", segments.any { it.role == "Gap infill" })
             assertTrue(
-                "nearby gap-fill paths should be interleaved between monotonic surface lines: ${withGapFill.second}",
-                withGapFill.second.windowed(3).any { it == listOf("Top surface", "Gap infill", "Top surface") },
+                "gap paths must be scheduled after nearby top-surface extrusions; found $lateTouchingSurfaceLines later neighboring lines in ${withGapFill.second}",
+                lateTouchingSurfaceLines.isEmpty(),
             )
         } finally {
             model.release()

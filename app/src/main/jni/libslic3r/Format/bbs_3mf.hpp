@@ -172,6 +172,7 @@ enum class LoadStrategy
     Silence = 32,
     ImperialUnits = 64,
     KeepOriginalNames = 128,
+    AssembleParts = 256,
 
     Restore = 0x10000 | LoadModel | LoadConfig | LoadAuxiliary | Silence,
 };

@@ -318,7 +318,9 @@ Model Model::read_from_file(const std::string&                                  
         result = load_drc(input_file.c_str(), &model);
     else if (boost::algorithm::iends_with(input_file, ".amf"))
         //BBS: is_xxx is used for is_inches when load amf
-        result = load_amf(input_file.c_str(), config, config_substitutions, &model, is_xxx);
+        result = load_amf(input_file.c_str(), config, config_substitutions, &model, is_xxx,
+                          (options & LoadStrategy::AssembleParts) && !(options & LoadStrategy::LoadConfig),
+                          options & LoadStrategy::KeepOriginalNames);
     else if (boost::algorithm::iends_with(input_file, ".3mf")) {
         // Route files carrying Slic3r per-volume metadata through the matching
         // importer. The BBS importer treats legacy store_3mf output as a flattened
@@ -402,7 +404,9 @@ Model Model::read_from_archive(const std::string& input_file, DynamicPrintConfig
         }
     }
     else if (boost::algorithm::iends_with(input_file, ".zip.amf"))
-        result = load_amf(input_file.c_str(), config, config_substitutions, &model, &is_bbl_3mf);
+        result = load_amf(input_file.c_str(), config, config_substitutions, &model, &is_bbl_3mf,
+                          (options & LoadStrategy::AssembleParts) && !(options & LoadStrategy::LoadConfig),
+                          options & LoadStrategy::KeepOriginalNames);
     else
         throw Slic3r::RuntimeError(_L("Unknown file format. Input file must have .3mf or .zip.amf extension."));
 
@@ -782,7 +786,7 @@ static inline int auto_extruder_id(unsigned int max_extruders, unsigned int &cnt
     return out;
 }
 
-void Model::convert_multipart_object(unsigned int max_extruders)
+void Model::convert_multipart_object(unsigned int max_extruders, bool keep_volume_names)
 {
     assert(this->objects.size() >= 2);
     if (this->objects.size() < 2)
@@ -804,9 +808,11 @@ void Model::convert_multipart_object(unsigned int max_extruders)
             // Revert the centering operation.
             trafo_volume.set_offset(trafo_volume.get_offset() - o->origin_translation);
             int counter = 1;
-            auto copy_volume = [o, v, max_extruders, &counter, &extruder_counter](ModelVolume *new_v) {
+            auto copy_volume = [o, v, max_extruders, keep_volume_names, &counter, &extruder_counter](ModelVolume *new_v) {
                 assert(new_v != nullptr);
-                new_v->name = (counter > 1) ? o->name + "_" + std::to_string(counter++) : o->name;
+                const std::string generated_name = (counter > 1) ? o->name + "_" + std::to_string(counter) : o->name;
+                if (!keep_volume_names || v->name.empty()) new_v->name = generated_name;
+                ++counter;
                 //BBS: Use extruder priority: volumn > object > default
                 if (v->config.option("extruder"))
                     new_v->config.set("extruder", v->config.extruder());

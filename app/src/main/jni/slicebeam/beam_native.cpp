@@ -821,6 +821,10 @@ extern "C" {
             if (boost::algorithm::iends_with(std::string(chars), ".3mf")) {
                 load_strategy = LoadStrategy::AddDefaultInstances | LoadStrategy::LoadModel |
                     LoadStrategy::KeepOriginalNames;
+            } else if (boost::algorithm::iends_with(std::string(chars), ".amf")) {
+                // Orca imports AMF constellation groups as one multipart model by default.
+                load_strategy = LoadStrategy::AddDefaultInstances | LoadStrategy::AssembleParts |
+                    LoadStrategy::KeepOriginalNames;
             }
             const std::string inputPath(chars);
             if (boost::algorithm::iends_with(inputPath, ".step") || boost::algorithm::iends_with(inputPath, ".stp")) {

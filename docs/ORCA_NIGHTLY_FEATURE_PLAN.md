@@ -1,4 +1,37 @@
-## Nightly Batch 11 — Punkt 3/10 (Stand 2026-11-03)
+## Nightly Batch 11 — Punkt 5/10 (Stand 2026-11-04)
+
+### Punkt 5/10 — Gap-Fill wartet auf angrenzende Oberflächenbahnen
+
+Orca `88c4c1e91` verhindert bei Füllungen, deren Linienreihenfolge feststehen muss, dass eine
+Gap-Fill-Bahn vor den Oberflächenlinien gedruckt wird, die diesen Spalt begrenzen. Android
+ermittelt dafür die letzte benachbarte Ausgangsbahn und beschränkt die Travel-Optimierung auf
+gültige Einfügepositionen hinter dieser Bahn.
+
+`NativeSliceDeviceTest#monotonicTopSurfaceGapFillIsInterleavedWithoutReorderingSurfaceLines`
+führt einen echten API-36-Slice des Letter-A-Fixtures aus. 1/1 bestanden: bestehende
+Oberflächen-Endpunkte sind unverändert, Gap-Fill wird erzeugt, und innerhalb 0,55 mm liegt
+keine später gedruckte Top-Surface-Bahn. ARM64-Release-Native-Build und
+Instrumentierungs-APK erfolgreich. Der Radius ist bewusst enger als die maximale interne
+Suchdistanz, weil eine 0,7-mm-Prüfung eine getrennte, nahe Füllgruppe als Nachbar erfasste.
+
+### Punkt 4/10 — AMF-Konstellationen als benannte Multipart-Baugruppen
+
+### Punkt 4/10 — AMF-Konstellationen als benannte Multipart-Baugruppen
+
+Android-Port von Orca `fa5f7e3db`: Gruppen in AMF-Konstellationen werden zu einem
+zusammengefassten Modell mit separat bearbeitbaren Volumes. Importierte Körpernamen,
+wiederholte Instanzen und ihre Transformationsmatrizen bleiben erhalten; zyklische
+Gruppenverweise werden mit einer begrenzten Rekursion sicher zurückgewiesen. Wie bei Orca
+bleibt der Assemble-Schritt bei `LoadConfig` deaktiviert.
+
+Die drei API-36-Gerätetests `amfConstellationImportsAsOneNamedMultipartAssembly`,
+`amfConstellationsKeepRepeatedOccurrencesAndSeparateAssemblies` und
+`amfAssemblyImportRejectsCyclicConstellations` bestanden nach dem finalen Native-Build 3/3.
+ARM64-Release-Native-Build, Instrumentierungs-APK und `git diff --check` erfolgreich.
+Kein physisches Xiaomi-Gerät angeschlossen. Batch 11: **4/10**; Regression, APK und Release
+bleiben bis zum 10/10-Gate offen.
+
+### Punkt 3/10 — Originale 3MF-Körpernamen in importierten Baugruppen
 
 ### Punkt 3/10 — Originale 3MF-Körpernamen in importierten Baugruppen
 
