@@ -120,8 +120,13 @@ static unsigned int region_filament(const ExtrusionEntityCollection &extrusions,
         return config.internal_solid_filament_id.value;
     }
 
-    // Gap fill between walls uses the wall filament. Inset metadata distinguishes inner
-    // overhang segments whose extrusion role alone cannot identify the wall level.
+    // Classic gap fill sits inside the outer wall. With multiple walls it belongs to the
+    // inner-wall tool; with one wall, the inner-wall filament is not part of the print.
+    if (extrusions.role() == erGapFill)
+        return config.wall_loops.value > 1 ? config.inner_wall_filament_id.value : config.outer_wall_filament_id.value;
+
+    // Inset metadata distinguishes inner overhang segments whose extrusion role alone cannot
+    // identify the wall level.
     const ExtrusionEntitiesPtr &walls = extrusions.entities;
     const bool all_inner = !walls.empty() && std::all_of(walls.begin(), walls.end(), [](const ExtrusionEntity *entity) {
         return is_inner_wall(*entity);

@@ -1,4 +1,18 @@
-## Nightly Batch 11 — Punkt 5/10 (Stand 2026-11-04)
+## Nightly Batch 11 — Punkt 6/10 (Stand 2026-11-04)
+
+### Punkt 6/10 — klassisches Gap-Fill folgt der Wandfilament-Zuordnung
+
+Orca `d607d7f4a` korrigiert die G-Code-Werkzeugwahl für klassisches Gap-Fill. Bei mehr als
+einer Wandlinie folgt es dem Innenwand-Filament; bei genau einer Wandlinie dem Außenwand-
+Filament, weil das Innenwand-Werkzeug dann nicht verwendet wird.
+
+Der erweiterte echte Slice-Test
+`NativeSliceDeviceTest#gapFillBetweenWallsDoesNotScheduleTheSparseInfillFilament` prüft
+beide Fälle auf Android 16/API 36: Bei 1,9 mm Plattenbreite und zwei Wandlinien ist Gap-Fill
+T1; bei 1,1 mm und einer Wand ist Gap-Fill T0 und es erfolgt kein T1-Wechsel. 1/1 bestanden;
+ARM64-Release-Native-Build und Android-Testkompilierung erfolgreich.
+
+### Punkt 5/10 — Gap-Fill wartet auf angrenzende Oberflächenbahnen
 
 ### Punkt 5/10 — Gap-Fill wartet auf angrenzende Oberflächenbahnen
 

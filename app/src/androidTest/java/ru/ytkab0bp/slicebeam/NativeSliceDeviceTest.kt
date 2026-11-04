@@ -3701,37 +3701,51 @@ class NativeSliceDeviceTest {
         val process = requireNotNull(SliceBeam.CONFIG?.findPrint("0.20mm Standard"))
         val modelFile = createThinCubeFixture("gap-fill-between-walls.stl", 20.0, 1.9, 5.0)
         val model = Model(modelFile)
+        val singleWallFile = createThinCubeFixture("gap-fill-single-wall.stl", 20.0, 1.1, 5.0)
+        val singleWallModel = Model(singleWallFile)
         try {
-            model.setUniformFilament(0, 1)
+            model.setUniformFilament(0, 2)
             process.put("wall_generator", "classic")
-            process.put("wall_loops", "2")
             process.put("outer_wall_filament_id", "1")
-            process.put("inner_wall_filament_id", "1")
+            process.put("inner_wall_filament_id", "2")
             process.put("sparse_infill_filament_id", "2")
             process.put("internal_solid_filament_id", "1")
             process.put("top_surface_filament_id", "1")
             process.put("bottom_surface_filament_id", "1")
             process.put("skirt_loops", "0")
             process.put("brim_type", "no_brim")
-            SliceBeam.genCurrentConfig(model)
-            val configFile = SliceBeam.getCurrentConfigFile()
-            val gcodeFile = File(context.cacheDir, "gap-fill-between-walls.gcode")
-            var result: GCodeProcessorResult? = null
-            try {
-                result = model.slice(configFile.absolutePath, gcodeFile.absolutePath, null)
-                val gcode = gcodeFile.readText()
-                assertHasExtrusion(gcode)
-                assertTrue("the narrow model must contain wall-to-wall gap fill", toolsForFeature(gcode, "Gap infill").isNotEmpty())
-                assertEquals("gap fill between walls must use the wall filament T0", setOf(0), toolsForFeature(gcode, "Gap infill"))
-                assertTrue("there must not be a sparse infill path/tool change", toolsForFeature(gcode, "Sparse infill").isEmpty())
-                assertFalse("unused sparse-infill filament T1 must not trigger a tool change", Regex("(?m)^T1(?:\\s|$)").containsMatchIn(gcode))
-            } finally {
-                result?.release()
-                configFile.delete()
-                gcodeFile.delete()
+            fun sliceWithWallCount(sourceModel: Model, wallLoops: Int): String {
+                process.put("wall_loops", wallLoops.toString())
+                SliceBeam.genCurrentConfig(sourceModel)
+                val configFile = SliceBeam.getCurrentConfigFile()
+                val gcodeFile = File(context.cacheDir, "gap-fill-between-walls-$wallLoops.gcode")
+                var result: GCodeProcessorResult? = null
+                try {
+                    result = sourceModel.slice(configFile.absolutePath, gcodeFile.absolutePath, null)
+                    return gcodeFile.readText()
+                } finally {
+                    result?.release()
+                    configFile.delete()
+                    gcodeFile.delete()
+                }
             }
+
+            val twoWalls = sliceWithWallCount(model, 2)
+            assertHasExtrusion(twoWalls)
+            assertTrue("the narrow model must contain wall-to-wall gap fill", toolsForFeature(twoWalls, "Gap infill").isNotEmpty())
+            assertEquals("gap fill inside multiple walls must use the inner-wall filament T1", setOf(1), toolsForFeature(twoWalls, "Gap infill"))
+            assertTrue("there must not be a sparse infill path", toolsForFeature(twoWalls, "Sparse infill").isEmpty())
+
+            val oneWall = sliceWithWallCount(singleWallModel, 1)
+            assertHasExtrusion(oneWall)
+            assertTrue("the narrow single-wall model must still contain gap fill", toolsForFeature(oneWall, "Gap infill").isNotEmpty())
+            assertEquals("gap fill with one wall must use the outer-wall filament T0", setOf(0), toolsForFeature(oneWall, "Gap infill"))
+            assertTrue("one-wall slicing must not select the unused inner-wall or sparse-infill tool", toolsForFeature(oneWall, "Sparse infill").isEmpty())
+            assertFalse("unused T1 must not trigger a tool change in the one-wall case", Regex("(?m)^T1(?:\\s|$)").containsMatchIn(oneWall))
         } finally {
+            singleWallModel.release()
             model.release()
+            singleWallFile.delete()
             modelFile.delete()
         }
     }

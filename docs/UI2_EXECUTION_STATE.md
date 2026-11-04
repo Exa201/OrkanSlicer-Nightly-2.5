@@ -1,4 +1,10 @@
-# Nightly 2.5 Fortsetzung — Batch 11, Punkt 5/10 verifiziert — 2026-11-04
+# Nightly 2.5 Fortsetzung — Batch 11, Punkt 6/10 verifiziert — 2026-11-04
+
+## Batch 11 — Punkt 6/10: klassisches Gap-Fill wählt das zugehörige Wandfilament
+
+- Orca `d607d7f4a`: Klassisches Gap-Fill nutzt bei mehr als einer Wandlinie das Innenwand-Filament; bei nur einer Wandlinie nutzt es das Außenwand-Filament, da kein Innenwand-Extrusionspfad existiert.
+- Erweiterter echter Slice-Test `NativeSliceDeviceTest#gapFillBetweenWallsDoesNotScheduleTheSparseInfillFilament`: API 36 1/1 bestanden. 1,9-mm-Platte mit zwei Wänden: Gap infill T1. 1,1-mm-Platte mit einer Wand: Gap infill T0, kein T1-Wechsel. Keine Sparse-infill-Bahn in beiden kontrollierten Fixtures.
+- ARM64-Release-Native-Build, Android-Testkompilierung und API-36-Slice erfolgreich. Batch 11: 6/10; noch kein vollständiger Regressionslauf, APK oder Release.
 
 ## ACE-Routing-Zwischenrelease 0.8.433 — 2026-11-04
 
