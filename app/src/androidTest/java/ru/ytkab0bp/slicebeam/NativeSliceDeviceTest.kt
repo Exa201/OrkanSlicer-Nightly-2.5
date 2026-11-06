@@ -2635,26 +2635,31 @@ class NativeSliceDeviceTest {
         var result: GCodeProcessorResult? = null
         try {
             model.ensureOnBed(0)
-            val interfacePathCounts = (1..2).map { run ->
-                SliceBeam.genCurrentConfig(model)
-                val nativeConfig = SliceBeam.getCurrentConfigFile().readText()
-                assertTrue("two bottom interface layers must reach native slicing", nativeConfig.contains("support_interface_bottom_layers = 2"))
-                assertTrue("the 0.2 mm object/support gap must reach native slicing", nativeConfig.contains("support_bottom_z_distance = 0.2"))
-                result = model.slice(SliceBeam.getCurrentConfigFile().absolutePath, output.absolutePath, null)
-                val gcode = output.readText()
-                assertHasExtrusion(gcode)
-                val interfaceSegments = supportExtrusionSegments(gcode).filter { it.type.contains("support interface") }
-                val bottomContactZs = interfaceSegments.map { it.z }.filter { it > 3.0 && it < 4.5 }
-                    .map { kotlin.math.round(it * 1000.0).toLong() }.distinct().sorted()
-                assertEquals("tree support must retain exactly the configured two bottom-contact interface layers (run $run)",
-                    2, bottomContactZs.size)
-                result?.release()
-                result = null
-                output.delete()
-                SliceBeam.getCurrentConfigFile().delete()
-                bottomContactZs.size
+            val interfacePathCounts = listOf("0", "1").associateWith { wallCount ->
+                process.put("tree_support_wall_count", wallCount)
+                (1..2).map { run ->
+                    SliceBeam.genCurrentConfig(model)
+                    val nativeConfig = SliceBeam.getCurrentConfigFile().readText()
+                    assertTrue("two bottom interface layers must reach native slicing", nativeConfig.contains("support_interface_bottom_layers = 2"))
+                    assertTrue("the 0.2 mm object/support gap must reach native slicing", nativeConfig.contains("support_bottom_z_distance = 0.2"))
+                    assertTrue("tree support wall count $wallCount must reach native slicing",
+                        nativeConfig.contains("tree_support_wall_count = $wallCount"))
+                    result = model.slice(SliceBeam.getCurrentConfigFile().absolutePath, output.absolutePath, null)
+                    val gcode = output.readText()
+                    assertHasExtrusion(gcode)
+                    val interfaceSegments = supportExtrusionSegments(gcode).filter { it.type.contains("support interface") }
+                    val bottomContactZs = interfaceSegments.map { it.z }.filter { it > 3.0 && it < 4.5 }
+                        .map { kotlin.math.round(it * 1000.0).toLong() }.distinct().sorted()
+                    assertEquals("tree support must retain exactly the configured two bottom-contact interface layers (walls=$wallCount run=$run)",
+                        2, bottomContactZs.size)
+                    result?.release()
+                    result = null
+                    output.delete()
+                    SliceBeam.getCurrentConfigFile().delete()
+                    bottomContactZs.size
+                }
             }
-            Log.i("NativeSliceDeviceTest", "PASS tree bottom-contact slices retained interface paths: $interfacePathCounts")
+            Log.i("NativeSliceDeviceTest", "PASS tree bottom-contact slices retained interface paths for wall counts 0/1: $interfacePathCounts")
         } finally {
             result?.release()
             model.release()

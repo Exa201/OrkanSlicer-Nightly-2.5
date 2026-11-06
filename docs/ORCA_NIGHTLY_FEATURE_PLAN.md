@@ -1,12 +1,18 @@
-# Aktueller Stand — Nightly Batch 15, 1/10 — 2026-11-07
+# Aktueller Stand — Nightly Batch 15, 2/10 — 2026-11-07
 
-Batch 14 bleibt mit 10/10 Punkten veröffentlicht unter `v0.8.452-nightly.1`. Batch 15 Punkt 1 portiert Orca `d4e57d8606`: Prim-Minimum-Spanning-Tree für Tree-Support verwendet indexierte Arrays statt pointerbasierter Hash-Tabellen und bricht Distanzgleichstände deterministisch nach Koordinaten. ARM64 Slice-Build erfolgreich; `organicTreeSupportPathsAreStableAcrossRepeatedSlices` und `treeSupportBottomContactCachePreservesInterfaceToolpaths` bestehen auf Android 16/API 36, je 1/1. Keine Laufzeitsteigerung quantifiziert. Nächster Schritt: weiteren neuen Orca-Commit mit echtem Android-Aufrufpfad auswählen, bereits portierte Verhaltensweisen ausschließen und fokussiert abnehmen. Kein APK/Release vor Batch 15 10/10.
+Batch 14 bleibt mit 10/10 Punkten veröffentlicht unter `v0.8.452-nightly.1`. Batch 15 Punkt 1 portiert Orca `d4e57d8606`: Prim-Minimum-Spanning-Tree für Tree-Support verwendet indexierte Arrays statt pointerbasierter Hash-Tabellen und bricht Distanzgleichstände deterministisch nach Koordinaten. ARM64 Slice-Build erfolgreich; `organicTreeSupportPathsAreStableAcrossRepeatedSlices` und `treeSupportBottomContactCachePreservesInterfaceToolpaths` bestehen auf Android 16/API 36, je 1/1. Keine Laufzeitsteigerung quantifiziert. Punkt 2 portiert Orca `5250597380`: der Tree-Support-Schrumpftest läuft nur noch, wenn `tree_support_wall_count=0`; bei gesetzter Wandzahl wird sein Ergebnis nicht benötigt. Der API-36-Test slicet die zweistufige Fixture mit Wandzahl 0 und 1, jeweils zweimal, und erhält Extrusion plus zwei untere Kontakt-Interface-Schichten (1/1). Batch 15 steht bei **2/10**, noch kein APK/Release. Nächster Schritt: weiteren Orca-Commit mit echtem Android-Aufrufpfad auswählen, bereits portierte Verhaltensweisen ausschließen und fokussiert abnehmen. Kein APK/Release vor Batch 15 10/10.
 
 ### Batch 15, Punkt 1/10 — Tree-Support MST mit indexierten Arrays
 
 Orca `d4e57d8606`: Prim hält Kandidaten, kürzeste Distanzen und Vorgänger jetzt in Arrays nach Vertexindex statt in pointer-keyed Hash-Maps. Gleichstände werden nach Koordinaten entschieden. Der Algorithmus bleibt O(V²), reduziert aber Hash-Lookups/Allokationen in einem tatsächlich aktiven Tree-Support-Pfad.
 
 `NativeSliceDeviceTest#organicTreeSupportPathsAreStableAcrossRepeatedSlices` bestand auf API 36 (1/1; drei echte Slices mit identischen geordneten Support-Extrusionspfaden). `#treeSupportBottomContactCachePreservesInterfaceToolpaths` bestand zusätzlich 1/1 und erhält Kontakt-Interface-Layer samt ausführbaren G-Code-Bewegungen. Der ARM64 Slice-Nativbuild ist Bestandteil beider erfolgreichen `connectedSliceTestAndroidTest`-Läufe. Kein Timing-Benchmark oder quantifizierte Beschleunigung behauptet.
+
+### Batch 15, Punkt 2/10 — unnötigen Tree-Support-Schrumpftest überspringen
+
+Orca `5250597380`: `offset(poly, -scale_(support_spacing * 1.5))` entscheidet nur, ob ohne konfigurierte Wände eine einzelne Mindestwand ergänzt werden muss. Bei gesetzter Wandzahl wird das Ergebnis von `std::max(min_wall_count, wall_count)` ohnehin überstimmt; der Offset-Test wird daher nur noch bei `wall_count == 0` ausgewertet.
+
+`NativeSliceDeviceTest#treeSupportBottomContactCachePreservesInterfaceToolpaths` bestand auf Android 16/API 36 (1/1). Die zweistufige Fixture wurde mit `tree_support_wall_count=0` und `=1` je zweimal gesliced; alle vier G-Codes enthalten Extrusion und die zwei konfigurierten unteren Kontakt-Interface-Schichten. ARM64 Slice-Nativbuild und Instrumentierungs-Kotlin-Build erfolgreich. Kein Performance-Benchmark behauptet.
 
 ## Batch 14 — 10/10 abgeschlossen; letzter Release v0.8.452-nightly.1
 
