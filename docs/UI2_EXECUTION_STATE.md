@@ -1,4 +1,12 @@
-# Nightly execution state — 2026-11-06
+# Nightly execution state — 2026-11-07
+
+## Nightly Orca Batch 15 — Punkt 1/10 verifiziert
+
+- Orca `d4e57d8606` ist im Android-Tree-Support-MST aktiv: indexierte Arrays ersetzen pointer-keyed Hash-Maps; Distanzgleichstände werden deterministisch nach Koordinaten behandelt. Keine gemessene Laufzeitsteigerung behauptet.
+- Android 16/API 36: `NativeSliceDeviceTest#organicTreeSupportPathsAreStableAcrossRepeatedSlices` 1/1 und `#treeSupportBottomContactCachePreservesInterfaceToolpaths` 1/1. ARM64 Slice-/Instrumentierungs-Build erfolgreich; beide Tests liefen durch den echten nativen Slice-Pfad.
+- Vorheriger, bereits committeter Skalierungsfix: Commit `1ef4541febfce84cea0e2e01ac26e78bb7f83309`, gedrehte Modelle behalten bei entkoppelter Achsenskalierung plate-lokale X/Y/Z-Unabhängigkeit. Instrumentierung für X, Y und Z, Rotation, Übernehmen/Abbrechen und Undo/Redo ist in diesem Commit enthalten.
+- Aktueller Nightly-HEAD zu Beginn des MST-Follow-ups: `1ef4541febfce84cea0e2e01ac26e78bb7f83309`. Der MST-Punkt ist noch nicht committet/gepusht. Kein APK-/Release-Build; Batch 15 steht bei 1/10.
+- Nächster Schritt: den nächsten neuen Orca-2.5-Commit gegen den Android-Codepfad prüfen und als unabhängigen, regressionsprüfbaren Punkt umsetzen. Batch-APK/Release erst bei 10/10.
 
 ## Orca Batch 15 — Kandidatenauswahl beginnt; Batch 14 veröffentlicht
 
