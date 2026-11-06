@@ -708,6 +708,11 @@ and JNI package migration. SAF files explicitly selected by the user remain shar
 The Nightly updater queries the Nightly repository and selects published prereleases rather
 than the stable app's `/releases/latest` endpoint.
 
+Side-by-side installation was exercised on the API-36 emulator with Stable 0.8.414 and Nightly
+0.8.452 both installed. Android assigned separate UIDs and private data roots, and both packages
+resolved their own FileProvider authorities. `NightlyIdentityDeviceTest` now guards the Nightly
+package ID, config/model-cache roots, default preference file, and provider authority (1/1 passed).
+
 ## Existing Android parity verified from source
 
 Already present: Move, Rotate, Scale, Mirror, auto-orient, flatten/lay-on-face, arrange,
