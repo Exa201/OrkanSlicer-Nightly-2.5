@@ -1,10 +1,11 @@
 # Nightly execution state — 2026-11-06
 
-## Orca Batch 15 — Kandidatenauswahl beginnt; Batch 14 Code-Gate abgeschlossen
+## Orca Batch 15 — Kandidatenauswahl beginnt; Batch 14 veröffentlicht
 
 - Batch 14 Code-Commit `e1d1af639ae1c3cd94f059d7e0fc07f1e8754cbb` ist auf `codex/nightly-batch11-next` gepusht. Version 0.8.452 / versionCode 487: Debug- und Slice-Unit-Suiten je 764/764 bestanden; API-36-Installation und Start erfolgreich, Logcat ohne Fatal/ANR/OOM. APK SHA-256 `A6D9A8582CF71EE89AED1A60017B48544FDD59D199E87598CD64A7D6CD1D9601`.
-- Release-Versuch `v0.8.452-nightly.1` bleibt Draft, weil GitHub über die aktuelle Verbindung den 240-MB-APK-Asset nicht registriert. Die `.sha256`-Sidecar ist im Draft. `gh release create`, gezielter `gh release upload` und Asset-API-Upload wurden versucht; die großen Dateiübertragungen hingen bzw. endeten mit 404. Draft nicht veröffentlicht und bestehende fünf Releases nicht gelöscht. Erneuter Upload mit stabiler Verbindung ist offen.
-- Nächster Schritt: den nächsten Orca-2.5-Kandidaten anhand des aktuellen Nightly-Aufrufpfads auswählen und für Batch 15 Punkt 1/10 portieren und regressionsprüfen. Parallel bleibt der erneute Upload von APK 0.8.452 zu `v0.8.452-nightly.1` offen.
+- Draft `v0.8.452-nightly.1` wurde beim Nachprüfen vollständig verfügbar: APK 240,670,708 Byte und SHA-256 `A6D9A8582CF71EE89AED1A60017B48544FDD59D199E87598CD64A7D6CD1D9601`; die GitHub-Asset-Digest stimmt überein. Prerelease veröffentlicht: https://github.com/Exa201/OrkanSlicer-Nightly-2.5/releases/tag/v0.8.452-nightly.1.
+- Aufbewahrung danach verifiziert: die fünf jüngsten Releases sind 0.8.452 bis 0.8.448; 0.8.447 samt Tag wurde entfernt.
+- Nächster Schritt: den nächsten Orca-2.5-Kandidaten anhand des aktuellen Nightly-Aufrufpfads auswählen und für Batch 15 Punkt 1/10 portieren und regressionsprüfen.
 
 ## Orca Batch 14 — 10/10 abgeschlossen; Release-Gate läuft
 
