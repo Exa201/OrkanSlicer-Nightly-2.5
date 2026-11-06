@@ -1933,26 +1933,71 @@ extern "C" {
         if (volumes.empty() || volumes.front() == nullptr ||
             std::any_of(volumes.begin(), volumes.end(), [](const ModelVolume* volume) { return volume == nullptr; })) return;
 
-        // The UI supplies an absolute scale for the first volume. Apply its relative change
-        // to every volume AND its local offset, so imported 3MF assemblies scale as one model.
+        // The UI's X/Y/Z values describe the visible build-plate axes. Applying a diagonal
+        // scale to each volume's local scale vector makes a rotated object change a different
+        // visible axis (for example, Y changes the world X bounds after a 90-degree turn).
+        // Keep the native scale factors in sync with the UI, but bake the conjugated affine
+        // correction into each volume mesh so the assembled object is scaled in plate space.
         const Vec3d target(x, y, z);
         const Vec3d reference = volumes.front()->get_scaling_factor();
         if (!target.allFinite() || !reference.allFinite() ||
             (target.array() <= 0.0).any() || (reference.array() <= 0.0).any()) return;
         const Vec3d ratio = target.cwiseQuotient(reference);
         if (!ratio.allFinite()) return;
-        struct ScaleUpdate { ModelVolume* volume; Vec3d scale; Vec3d offset; };
+        const Vec3d center = object->bounding_box_exact().center().cast<double>();
+        if (!center.allFinite()) return;
+        Transform3d plate_scale = Transform3d::Identity();
+        plate_scale.linear() = ratio.asDiagonal();
+        plate_scale.translation() = center - ratio.cwiseProduct(center);
+        const Transform3d instance_matrix = object->instances.empty()
+            ? Transform3d::Identity()
+            : object->instances.front()->get_matrix();
+
+        struct ScaleUpdate {
+            ModelVolume* volume;
+            Vec3d scale;
+            Transform3d correction;
+            Vec3d offset;
+            bool transform_mesh;
+        };
         std::vector<ScaleUpdate> updates;
         updates.reserve(volumes.size());
         for (ModelVolume* volume : volumes) {
+            const Vec3d old_scale = volume->get_scaling_factor();
+            const Transform3d old_matrix = volume->get_matrix();
             Vec3d new_scale = volume->get_scaling_factor().cwiseProduct(ratio);
-            Vec3d new_offset = volume->get_offset().cwiseProduct(ratio);
-            if (!new_scale.allFinite() || !new_offset.allFinite()) return;
-            updates.push_back({volume, new_scale, new_offset});
+            if (!new_scale.allFinite() || (new_scale.array() <= 0.0).any()) return;
+
+            // Read the matrix that Slic3r will use for the target scale without leaving any
+            // volume partially modified if a later volume fails validation.
+            volume->set_scaling_factor(new_scale);
+            const Transform3d new_matrix = volume->get_matrix();
+            volume->set_scaling_factor(old_scale);
+            if (!new_matrix.matrix().allFinite() || std::abs(new_matrix.linear().determinant()) < 1e-12)
+                return;
+            const Transform3d old_placement = instance_matrix * old_matrix;
+            const Transform3d new_placement = instance_matrix * new_matrix;
+            const Transform3d correction = new_placement.inverse() * plate_scale * old_placement;
+            if (!correction.matrix().allFinite() || std::abs(correction.linear().determinant()) < 1e-12)
+                return;
+            const bool transform_mesh = !correction.linear().isApprox(Matrix3d::Identity(), 1e-10);
+            const Vec3d new_offset = transform_mesh
+                ? volume->get_offset()
+                : volume->get_offset() + new_matrix.linear() * correction.translation();
+            if (!new_offset.allFinite()) return;
+            updates.push_back({volume, new_scale, correction, new_offset, transform_mesh});
         }
         for (const ScaleUpdate& update : updates) {
             update.volume->set_scaling_factor(update.scale);
-            update.volume->set_offset(update.offset);
+            if (update.transform_mesh) {
+                TriangleMesh corrected_mesh = update.volume->mesh();
+                corrected_mesh.transform(update.correction, false);
+                update.volume->set_mesh(std::move(corrected_mesh));
+                update.volume->calculate_convex_hull();
+                update.volume->invalidate_convex_hull_2d();
+            } else {
+                update.volume->set_offset(update.offset);
+            }
         }
         object->invalidate_bounding_box();
     }

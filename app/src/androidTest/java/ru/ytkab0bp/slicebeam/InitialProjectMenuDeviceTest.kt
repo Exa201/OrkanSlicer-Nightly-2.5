@@ -7954,7 +7954,7 @@ class InitialProjectMenuDeviceTest {
         Prefs.setScaleLinked(true)
         Prefs.setScaleInputInMM(false)
         try {
-            activity.assets.open("models/xyz_cube.stl").use { source ->
+            activity.assets.open("models/pa_test.stl").use { source ->
                 modelFile.outputStream().use(source::copyTo)
             }
             val model = loadSingleTestModel(bed, modelFile)
@@ -7962,6 +7962,7 @@ class InitialProjectMenuDeviceTest {
             glView.selectModel(0, Runnable {})
             instrumentationWaitForGlIdle()
             val original = readScaleOnGl(glView, 0)
+            val boundsBefore = readExactBoundsOnGl(glView, 0).single()
 
             openSelectedObjectMenu(activity)
             revealMenuAction(activity, R.string.MenuTransformScale)
@@ -7985,6 +7986,13 @@ class InitialProjectMenuDeviceTest {
             assertEquals("Y=150% should scale only native Y", original.y * 1.5, afterY.y, 0.002)
             assertEquals("switching Keep proportions off must preserve native X", original.x, afterY.x, 0.002)
             assertEquals("switching Keep proportions off must preserve native Z", original.z, afterY.z, 0.002)
+            val boundsAfterY = readExactBoundsOnGl(glView, 0).single()
+            assertEquals("unlinked Y scaling must not change the model's X bounds",
+                boundsBefore[3] - boundsBefore[0], boundsAfterY[3] - boundsAfterY[0], 0.02)
+            assertEquals("unlinked Y scaling must change the model's Y bounds by 50%",
+                (boundsBefore[4] - boundsBefore[1]) * 1.5, boundsAfterY[4] - boundsAfterY[1], 0.02)
+            assertEquals("unlinked Y scaling must preserve the model's Z bounds",
+                boundsBefore[5] - boundsBefore[2], boundsAfterY[5] - boundsAfterY[2], 0.02)
             compose.runOnUiThread { bed.undoModelEdit() }
             compose.waitUntil(timeoutMillis = 10_000) {
                 kotlin.math.abs(readScaleOnGl(glView, 0).y - original.y) < 0.002
@@ -8036,6 +8044,7 @@ class InitialProjectMenuDeviceTest {
             rotationFailure.get()?.let { throw AssertionError("Could not rotate the test model", it) }
             instrumentationWaitForGlIdle()
             val original = readScaleOnGl(glView, 0)
+            val rotatedBoundsBefore = readExactBoundsOnGl(glView, 0).single()
 
             openSelectedObjectMenu(activity)
             revealMenuAction(activity, R.string.MenuTransformScale)
@@ -8055,6 +8064,77 @@ class InitialProjectMenuDeviceTest {
                 original.y * 1.5, scaled.y, 0.002)
             assertEquals("rotated Y scaling must leave native X unchanged", original.x, scaled.x, 0.002)
             assertEquals("rotated Y scaling must leave native Z unchanged", original.z, scaled.z, 0.002)
+            val rotatedBoundsAfter = readExactBoundsOnGl(glView, 0).single()
+            assertEquals("after rotation, unlinked Y scaling must preserve plate-space X bounds",
+                rotatedBoundsBefore[3] - rotatedBoundsBefore[0],
+                rotatedBoundsAfter[3] - rotatedBoundsAfter[0], 0.02)
+            assertEquals("after rotation, unlinked Y scaling must change plate-space Y bounds by 50%",
+                (rotatedBoundsBefore[4] - rotatedBoundsBefore[1]) * 1.5,
+                rotatedBoundsAfter[4] - rotatedBoundsAfter[1], 0.02)
+            assertEquals("after rotation, unlinked Y scaling must preserve plate-space Z bounds",
+                rotatedBoundsBefore[5] - rotatedBoundsBefore[2],
+                rotatedBoundsAfter[5] - rotatedBoundsAfter[2], 0.02)
+        } finally {
+            Prefs.setScaleLinked(previousLinked)
+            Prefs.setScaleInputInMM(previousMillimeters)
+            modelFile.delete()
+        }
+    }
+
+    @Test
+    fun unlinkedScaleRulerChangesOnlyTheChosenPlateAxis() {
+        val activity = compose.activity
+        val bed = activity.navigationDelegate.getCurrentFragment() as BedFragment
+        val modelFile = File(activity.cacheDir, "scale-unlinked-y-ruler-test.stl")
+        val previousLinked = Prefs.isScaleLinked()
+        val previousMillimeters = Prefs.isScaleInputInMM()
+        Prefs.setScaleLinked(false)
+        Prefs.setScaleInputInMM(false)
+        try {
+            activity.assets.open("models/pa_test.stl").use { source ->
+                modelFile.outputStream().use(source::copyTo)
+            }
+            loadSingleTestModel(bed, modelFile)
+            val glView = requireNotNull(bed.glView)
+            glView.selectModel(0, Runnable {})
+            instrumentationWaitForGlIdle()
+            val originalScale = readScaleOnGl(glView, 0)
+            val boundsBefore = readExactBoundsOnGl(glView, 0).single()
+
+            openSelectedObjectMenu(activity)
+            revealMenuAction(activity, R.string.MenuTransformScale)
+            compose.onNodeWithContentDescription(activity.getString(R.string.MenuTransformScale))
+                .performScrollTo().assertIsDisplayed().performClick()
+            assertFalse("the ruler case must use independent axis scaling", Prefs.isScaleLinked())
+            compose.onNodeWithTag("scale-Y").performScrollTo().performSemanticsAction(SemanticsActions.SetProgress) {
+                setProgress -> assertTrue("Y scale ruler accepts 140%", setProgress(140f))
+            }
+            compose.waitUntil(timeoutMillis = 10_000) {
+                kotlin.math.abs(readScaleOnGl(glView, 0).y - originalScale.y * 1.4) < 0.002
+            }
+
+            val actualScale = readScaleOnGl(glView, 0)
+            assertEquals("unlinked ruler Y must preserve the X factor", originalScale.x, actualScale.x, 0.002)
+            assertEquals("unlinked ruler Y must preserve the Z factor", originalScale.z, actualScale.z, 0.002)
+            val boundsAfter = readExactBoundsOnGl(glView, 0).single()
+            assertEquals("unlinked ruler Y must preserve plate-space X bounds",
+                boundsBefore[3] - boundsBefore[0], boundsAfter[3] - boundsAfter[0], 0.02)
+            assertEquals("unlinked ruler Y must scale plate-space Y bounds by 40%",
+                (boundsBefore[4] - boundsBefore[1]) * 1.4, boundsAfter[4] - boundsAfter[1], 0.02)
+            assertEquals("unlinked ruler Y must preserve plate-space Z bounds",
+                boundsBefore[5] - boundsBefore[2], boundsAfter[5] - boundsAfter[2], 0.02)
+
+            val filamentAssigned = CountDownLatch(1)
+            glView.queueEvent {
+                requireNotNull(glView.renderer.model).setUniformFilament(0, 2)
+                glView.requestRender()
+                filamentAssigned.countDown()
+            }
+            assertTrue("test model filament assignment should finish", filamentAssigned.await(10, TimeUnit.SECONDS))
+            assertCurrentWorkspaceModelRoundTripsAndSlices(
+                "scale-unlinked-y-ruler",
+                expectedObjectFilaments = listOf(intArrayOf(2)),
+            )
         } finally {
             Prefs.setScaleLinked(previousLinked)
             Prefs.setScaleInputInMM(previousMillimeters)

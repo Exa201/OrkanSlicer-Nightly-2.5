@@ -24,6 +24,7 @@ import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalView
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.ProgressBarRangeInfo
 import androidx.compose.ui.semantics.contentDescription
@@ -74,6 +75,7 @@ internal fun SteppedRuler(
         modifier = Modifier
             .fillMaxWidth()
             .height(76.dp)
+            .testTag(key)
             .pointerInput(key, density, enabled, min, max) {
                 if (!enabled || min > max) return@pointerInput
                 detectHorizontalDragGestures(
