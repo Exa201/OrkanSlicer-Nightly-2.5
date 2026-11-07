@@ -2174,13 +2174,19 @@ class NativeSliceDeviceTest {
             }
             val config = requireNotNull(SliceBeam.CONFIG)
             val expectedDefaults = mapOf(
-                "0.4" to "0.20mm Standard",
-                "0.8" to "0.40mm Standard"
+                "0.4" to ("0.20mm Standard @Sovol SV08 0.4 nozzle" to "0.4"),
+                "0.8" to ("0.40mm Standard @Sovol SV08 0.8 nozzle" to "0.8")
             )
-            for ((nozzle, expectedProcess) in expectedDefaults) {
+            for ((nozzle, expected) in expectedDefaults) {
                 val printer = requireNotNull(config.findPrinterVariant("Sovol SV08", nozzle))
-                assertEquals(expectedProcess, printer["default_print_profile"])
-                assertNotNull("SV08 $nozzle mm process must be bundled", config.findPrint(expectedProcess))
+                val expectedProcess = expected.first
+                assertEquals("SV08 $nozzle mm printer selects its nozzle-matched process",
+                    expectedProcess, printer["default_print_profile"])
+                val process = requireNotNull(config.findPrint(expectedProcess))
+                assertEquals("SV08 $nozzle mm process uses the matching line width", expected.second,
+                    process["line_width"])
+                assertTrue("SV08 process is only offered for its matching nozzle variant",
+                    process["compatible_printers"].orEmpty().split(';').contains(printer.title))
             }
         } finally {
             SliceBeam.CONFIG = previousConfig
