@@ -1,5 +1,7 @@
 # Nightly execution state — 2026-11-07
 
+- Nachweisergänzung zum Texture-Displacement-Port: `NativeSliceDeviceTest#textureDisplacementLayersPaintMasksAndImageRoundTripThroughThreeMf` besteht erneut auf API 36. Der Test nutzt zusätzlich die Android-Undo-Snapshot-Bausteine `Model.merge()` und `replaceContentsFrom()`: Er sichert Layer, PNG, Paintmasken und Optionen, löscht sie aus dem aktiven Modell und bestätigt nach Wiederherstellung die identischen Werte. Das ist kein UI-Undo-End-to-End-Test. Die Compose-Werkzeugoberfläche und ein produktiver asynchroner Bake-/Commit-/Abbruchpfad fehlen weiter; daher bleibt Batch 15 bei 3/10 und es entsteht noch kein APK/Release. Ein erster isolierter Cereal-BinaryArchive-Test wurde verworfen, weil er nicht dem internen Orca-Snapshotpfad entspricht und `ModelVolume`/Mesh-Spezialisierungen nicht direkt so archivierbar sind. Nächster sinnvoller Schritt ist die bestehende Compose-/Renderer-Integration samt Undo-End-to-End-Test zu untersuchen; Texture Displacement erst als Batchpunkt zählen, wenn die Bedienung tatsächlich benutzbar ist.
+
 ## Nightly Orca Batch 15 — Punkt 3/10 verifiziert
 
 - Orca `d4e57d8606` ist im Android-Tree-Support-MST aktiv: indexierte Arrays ersetzen pointer-keyed Hash-Maps; Distanzgleichstände werden deterministisch nach Koordinaten behandelt. Keine gemessene Laufzeitsteigerung behauptet.

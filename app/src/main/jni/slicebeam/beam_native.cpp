@@ -6695,6 +6695,20 @@ extern "C" {
         return result;
     }
 
+    JNIEXPORT jboolean JNICALL Java_ru_ytkab0bp_slicebeam_slic3r_Native_texture_1displacement_1roundtrip_1clear(
+        JNIEnv*, jclass, jlong ptr, jint volumeIndex) {
+        ModelRef* ref = reinterpret_cast<ModelRef*>(intptr_t(ptr));
+        if (ref == nullptr || ref->model.objects.empty() || volumeIndex < 0 ||
+            volumeIndex >= jint(ref->model.objects.front()->volumes.size()))
+            return JNI_FALSE;
+        ModelVolume& volume = *ref->model.objects.front()->volumes[size_t(volumeIndex)];
+        volume.texture_displacement_layers.clear();
+        for (int slot = 0; slot < int(TEXTURE_DISPLACEMENT_MAX_LAYERS); ++slot)
+            volume.texture_displacement_facet(slot).reset();
+        volume.texture_displacement_options = TextureDisplacementOptions{};
+        return JNI_TRUE;
+    }
+
     JNIEXPORT jboolean JNICALL Java_ru_ytkab0bp_slicebeam_slic3r_Native_model_1has_1paint(JNIEnv* env, jclass, jlong modelPtr, jint objIdx) {
         ModelRef* m = (ModelRef*) (intptr_t) modelPtr;
         if (objIdx < 0 || objIdx >= (int) m->model.objects.size()) return false;

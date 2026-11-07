@@ -72,6 +72,7 @@ class NativeSliceDeviceTest {
         val project = File(context.cacheDir, "texture-displacement-roundtrip.3mf")
         var model: Model? = null
         var restored: Model? = null
+        var undoSnapshot: Model? = null
         val bitmap = Bitmap.createBitmap(8, 8, Bitmap.Config.ARGB_8888).apply {
             eraseColor(android.graphics.Color.WHITE)
         }
@@ -101,6 +102,19 @@ class NativeSliceDeviceTest {
             assertEquals("the second volume keeps its own panel mode", 0, secondVolumeBefore[3])
             assertArrayEquals("cloning a volume copies the texture stack, image and paint mask",
                 before.copyOfRange(0, 6), clonedVolumeBefore.copyOfRange(0, 6))
+
+            // BedFragment's undo history stores Model.merge() snapshots and restores them via
+            // replaceContentsFrom(). Exercise that exact Android snapshot path around a mutation.
+            undoSnapshot = Model.merge(requireNotNull(model))
+            assertArrayEquals("Model.merge undo snapshot copies texture state",
+                before, Native.texture_displacement_roundtrip_inspect(requireNotNull(undoSnapshot).pointer, 0))
+            assertTrue("fixture mutation clears texture data before restore",
+                Native.texture_displacement_roundtrip_clear(requireNotNull(model).pointer, 0))
+            assertEquals("mutation actually removed texture layers", 0,
+                Native.texture_displacement_roundtrip_inspect(requireNotNull(model).pointer, 0)[0])
+            requireNotNull(model).replaceContentsFrom(requireNotNull(undoSnapshot))
+            assertArrayEquals("model restore path recovers the complete texture state",
+                before, Native.texture_displacement_roundtrip_inspect(requireNotNull(model).pointer, 0))
 
             SliceBeam.genCurrentConfig(requireNotNull(model))
             assertEquals("model survives native config preparation", 1, requireNotNull(model).objectsCount)
@@ -134,6 +148,7 @@ class NativeSliceDeviceTest {
         } finally {
             model?.release()
             restored?.release()
+            undoSnapshot?.release()
             source.delete()
             project.delete()
             SliceBeam.getCurrentConfigFile().delete()

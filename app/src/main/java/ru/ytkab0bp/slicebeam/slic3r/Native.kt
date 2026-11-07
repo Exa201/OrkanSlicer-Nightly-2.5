@@ -132,6 +132,8 @@ class Native {
     @JvmStatic
     external fun texture_displacement_roundtrip_inspect(model: Long, volumeIndex: Int): IntArray
     @JvmStatic
+    external fun texture_displacement_roundtrip_clear(model: Long, volumeIndex: Int): Boolean
+    @JvmStatic
     external fun set_svg_path_prefix(prefix: String): Unit
     @JvmStatic
     external fun shader_init_from_texts(name: String, fragment: String, vertex: String): Long
