@@ -223,6 +223,13 @@ const std::string PROJECT_EMBEDDED_SLICE_PRESETS_FILE = "Metadata/process_settin
 const std::string PROJECT_EMBEDDED_FILAMENT_PRESETS_FILE = "Metadata/filament_settings_";
 const std::string PROJECT_EMBEDDED_PRINTER_PRESETS_FILE = "Metadata/machine_settings_";
 const std::string CUT_INFORMATION_FILE = "Metadata/cut_information.xml";
+const std::string TEXTURE_DISPLACEMENT_KEY = "texture_displacement";
+const std::string TEXTURE_DISPLACEMENT_DIR = "Metadata/texture_displacement/";
+
+static constexpr const char* TEXTURE_DISPLACEMENT_ATTRS[] = {
+    "paint_texture_0", "paint_texture_1", "paint_texture_2", "paint_texture_3",
+    "paint_texture_4", "paint_texture_5", "paint_texture_6", "paint_texture_7"
+};
 
 const unsigned int AUXILIARY_STR_LEN = 12;
 const unsigned int METADATA_STR_LEN = 9;
@@ -766,6 +773,7 @@ void PlateData::parse_filament_info(GCodeProcessorResult *result)
         {
             std::vector<Vec3f> vertices;
             std::vector<Vec3i32> triangles;
+            std::array<std::vector<std::string>, TEXTURE_DISPLACEMENT_MAX_LAYERS> texture_displacement;
             std::vector<std::string> custom_supports;
             std::vector<std::string> custom_seam;
             std::vector<std::string> mmu_segmentation;
@@ -775,12 +783,21 @@ void PlateData::parse_filament_info(GCodeProcessorResult *result)
 
             bool empty() { return vertices.empty() || triangles.empty(); }
 
+            void push_texture_displacement(size_t slot, std::string mask)
+            {
+                auto &paint = texture_displacement[slot];
+                if (mask.empty() && paint.empty()) return;
+                paint.resize(triangles.size() - 1);
+                paint.push_back(std::move(mask));
+            }
+
             // backup & restore
             void swap(Geometry& o) {
                 std::swap(vertices, o.vertices);
                 std::swap(triangles, o.triangles);
                 std::swap(custom_supports, o.custom_supports);
                 std::swap(custom_seam, o.custom_seam);
+                std::swap(texture_displacement, o.texture_displacement);
             }
 
             void reset() {
@@ -790,6 +807,7 @@ void PlateData::parse_filament_info(GCodeProcessorResult *result)
                 custom_seam.clear();
                 mmu_segmentation.clear();
                 fuzzy_skin.clear();
+                for (auto &paint : texture_displacement) paint.clear();
             }
         };
 
@@ -1124,6 +1142,7 @@ void PlateData::parse_filament_info(GCodeProcessorResult *result)
         /*IdToSlaSupportPointsMap m_sla_support_points;
         IdToSlaDrainHolesMap    m_sla_drain_holes;*/
         PathToEmbossShapeFileMap m_path_to_emboss_shape_files;
+        std::map<std::string, std::shared_ptr<std::vector<unsigned char>>> m_texture_displacement_files;
         std::string m_curr_metadata_name;
         std::string m_curr_characters;
         std::string m_name;
@@ -1201,6 +1220,8 @@ void PlateData::parse_filament_info(GCodeProcessorResult *result)
         void _extract_auxiliary_file_from_archive(mz_zip_archive& archive, const mz_zip_archive_file_stat& stat, Model& model);
         void _extract_file_from_archive(mz_zip_archive& archive, const mz_zip_archive_file_stat& stat);
         void _extract_embossed_svg_shape_file(const std::string &filename, mz_zip_archive &archive, const mz_zip_archive_file_stat &stat);
+        void _extract_texture_displacement_file(mz_zip_archive &archive, const mz_zip_archive_file_stat &stat);
+        void _apply_texture_displacement(ModelVolume &volume, const std::string &json_path);
 
         // handlers to parse the .model file
         void _handle_start_model_xml_element(const char* name, const char** attributes);
@@ -1958,6 +1979,9 @@ void PlateData::parse_filament_info(GCodeProcessorResult *result)
                             return false;
                         }
                     }
+                }
+                else if (boost::algorithm::istarts_with(name, TEXTURE_DISPLACEMENT_DIR)) {
+                    _extract_texture_displacement_file(archive, stat);
                 }
                 else if (_is_svg_shape_file(name)) {
                     _extract_embossed_svg_shape_file(name, archive, stat);
@@ -3211,6 +3235,50 @@ void PlateData::parse_filament_info(GCodeProcessorResult *result)
         }
     }
 
+    void _BBS_3MF_Importer::_extract_texture_displacement_file(mz_zip_archive &archive,
+                                                                 const mz_zip_archive_file_stat &stat)
+    {
+        if (stat.m_uncomp_size == 0 || !stat.m_filename ||
+            stat.m_uncomp_size > std::numeric_limits<size_t>::max())
+            return;
+        const std::string path = stat.m_filename;
+        if (!boost::algorithm::istarts_with(path, TEXTURE_DISPLACEMENT_DIR))
+            return;
+        auto bytes = std::make_shared<std::vector<unsigned char>>(size_t(stat.m_uncomp_size));
+        if (!mz_zip_reader_extract_to_mem(&archive, stat.m_file_index, bytes->data(),
+                                          size_t(stat.m_uncomp_size), 0)) {
+            add_error("Error while reading texture displacement project data");
+            return;
+        }
+        m_texture_displacement_files[path] = std::move(bytes);
+    }
+
+    void _BBS_3MF_Importer::_apply_texture_displacement(ModelVolume &volume,
+                                                         const std::string &json_path)
+    {
+        const auto json_file = m_texture_displacement_files.find(json_path);
+        if (json_file == m_texture_displacement_files.end() || !json_file->second)
+            return;
+        const std::string json(json_file->second->begin(), json_file->second->end());
+        std::vector<TextureDisplacementLayer> layers;
+        TextureDisplacementOptions options;
+        if (!texture_displacement_layers_from_json(json, layers, options)) {
+            BOOST_LOG_TRIVIAL(warning) << "Ignoring invalid texture displacement metadata in 3MF: " << json_path;
+            return;
+        }
+        for (TextureDisplacementLayer &layer : layers) {
+            if (layer.path_in_3mf.empty())
+                continue;
+            const auto image = m_texture_displacement_files.find(layer.path_in_3mf);
+            if (image != m_texture_displacement_files.end())
+                layer.image_data = image->second;
+            else
+                BOOST_LOG_TRIVIAL(warning) << "Texture displacement image is missing in 3MF: " << layer.path_in_3mf;
+        }
+        volume.texture_displacement_layers = std::move(layers);
+        volume.texture_displacement_options = options;
+    }
+
     void _BBS_3MF_Importer::_extract_custom_gcode_per_print_z_from_archive(::mz_zip_archive &archive, const mz_zip_archive_file_stat &stat)
     {
         //BBS: add plate tree related logic
@@ -3831,6 +3899,9 @@ void PlateData::parse_filament_info(GCodeProcessorResult *result)
                 mmu_painting = bbs_get_attribute_value_string(attributes, num_attributes, "slic3rpe:mmu_segmentation");
             m_curr_object->geometry.mmu_segmentation.push_back(std::move(mmu_painting));
             m_curr_object->geometry.fuzzy_skin.push_back(bbs_get_attribute_value_string(attributes, num_attributes, CUSTOM_FUZZY_SKIN_ATTR));
+        for (size_t slot = 0; slot < TEXTURE_DISPLACEMENT_MAX_LAYERS; ++slot)
+            m_curr_object->geometry.push_texture_displacement(
+                slot, bbs_get_attribute_value_string(attributes, num_attributes, TEXTURE_DISPLACEMENT_ATTRS[slot]));
             // BBS
             m_curr_object->geometry.face_properties.push_back(bbs_get_attribute_value_string(attributes, num_attributes, FACE_PROPERTY_ATTR));
         }
@@ -5080,6 +5151,11 @@ void PlateData::parse_filament_info(GCodeProcessorResult *result)
                         volume->mmu_segmentation_facets.set_triangle_from_string(i, sub_object->geometry.mmu_segmentation[i]);
                     if (!sub_object->geometry.fuzzy_skin[i].empty())
                         volume->fuzzy_skin_facets.set_triangle_from_string(i, sub_object->geometry.fuzzy_skin[i]);
+                    for (size_t slot = 0; slot < TEXTURE_DISPLACEMENT_MAX_LAYERS; ++slot) {
+                        const auto &paint = sub_object->geometry.texture_displacement[slot];
+                        if (i < paint.size() && !paint[i].empty())
+                            volume->texture_displacement_facet(int(slot)).set_triangle_from_string(i, paint[i]);
+                    }
                 }
                 volume->supported_facets.shrink_to_fit();
                 volume->seam_facets.shrink_to_fit();
@@ -5121,6 +5197,8 @@ void PlateData::parse_filament_info(GCodeProcessorResult *result)
                     volume->source.is_converted_from_inches = metadata.value == "1";
                 else if (metadata.key == SOURCE_IN_METERS)
                     volume->source.is_converted_from_meters = metadata.value == "1";
+                else if (metadata.key == TEXTURE_DISPLACEMENT_KEY)
+                    _apply_texture_displacement(*volume, metadata.value);
                 else if ((metadata.key == MATRIX_KEY) || (metadata.key == MESH_SHARED_KEY))
                     continue;
                 else
@@ -5243,10 +5321,17 @@ void PlateData::parse_filament_info(GCodeProcessorResult *result)
                     volume->seam_facets.set_triangle_from_string(i, geometry.custom_seam[index]);
                 if (! geometry.mmu_segmentation[index].empty())
                     volume->mmu_segmentation_facets.set_triangle_from_string(i, geometry.mmu_segmentation[index]);
+                for (size_t slot = 0; slot < TEXTURE_DISPLACEMENT_MAX_LAYERS; ++slot) {
+                    const auto &paint = geometry.texture_displacement[slot];
+                    if (index < paint.size() && !paint[index].empty())
+                        volume->texture_displacement_facet(int(slot)).set_triangle_from_string(i, paint[index]);
+                }
             }
             volume->supported_facets.shrink_to_fit();
             volume->seam_facets.shrink_to_fit();
             volume->mmu_segmentation_facets.shrink_to_fit();
+            for (int slot = 0; slot < int(TEXTURE_DISPLACEMENT_MAX_LAYERS); ++slot)
+                volume->texture_displacement_facet(slot).shrink_to_fit();
 
             volume->set_type(volume_data.part_type);
 
@@ -5275,6 +5360,8 @@ void PlateData::parse_filament_info(GCodeProcessorResult *result)
                     volume->source.is_converted_from_inches = metadata.value == "1";
                 else if (metadata.key == SOURCE_IN_METERS)
                     volume->source.is_converted_from_meters = metadata.value == "1";
+                else if (metadata.key == TEXTURE_DISPLACEMENT_KEY)
+                    _apply_texture_displacement(*volume, metadata.value);
                 else
                     volume->config.set_deserialize(metadata.key, metadata.value, config_substitutions);
             }
@@ -5553,6 +5640,9 @@ void PlateData::parse_filament_info(GCodeProcessorResult *result)
                 mmu_painting = bbs_get_attribute_value_string(attributes, num_attributes, "slic3rpe:mmu_segmentation");
             current_object->geometry.mmu_segmentation.push_back(std::move(mmu_painting));
             current_object->geometry.fuzzy_skin.push_back(bbs_get_attribute_value_string(attributes, num_attributes, CUSTOM_FUZZY_SKIN_ATTR));
+        for (size_t slot = 0; slot < TEXTURE_DISPLACEMENT_MAX_LAYERS; ++slot)
+            current_object->geometry.push_texture_displacement(
+                slot, bbs_get_attribute_value_string(attributes, num_attributes, TEXTURE_DISPLACEMENT_ATTRS[slot]));
             // BBS
             current_object->geometry.face_properties.push_back(bbs_get_attribute_value_string(attributes, num_attributes, FACE_PROPERTY_ATTR));
         }
@@ -7363,6 +7453,17 @@ void PlateData::parse_filament_info(GCodeProcessorResult *result)
                     output_buffer += "\"";
                 }
 
+                for (size_t slot = 0; slot < TEXTURE_DISPLACEMENT_MAX_LAYERS; ++slot) {
+                    const std::string paint = volume->texture_displacement_facet(int(slot)).get_triangle_as_string(i);
+                    if (!paint.empty()) {
+                        output_buffer += " ";
+                        output_buffer += TEXTURE_DISPLACEMENT_ATTRS[slot];
+                        output_buffer += "=\"";
+                        output_buffer += paint;
+                        output_buffer += "\"";
+                    }
+                }
+
                 // BBS
                 if (i < its.properties.size()) {
                     std::string prop_str = its.properties[i].to_string();
@@ -7899,6 +8000,36 @@ void PlateData::parse_filament_info(GCodeProcessorResult *result)
 
                             if (const std::optional<EmbossShape> &es = volume->emboss_shape; es.has_value()) {
                                 to_xml(stream, *es, *volume, archive, m_fullpath_sources);
+                            }
+
+                            if (!volume->texture_displacement_layers.empty()) {
+                                std::vector<TextureDisplacementLayer> layers = volume->texture_displacement_layers;
+                                for (TextureDisplacementLayer &layer : layers) {
+                                    layer.path.clear();
+                                    if (!layer.image_data || layer.image_data->empty()) {
+                                        layer.path_in_3mf.clear();
+                                        continue;
+                                    }
+                                    layer.path_in_3mf = TEXTURE_DISPLACEMENT_DIR +
+                                        std::to_string(object_data.object_id) + "_" +
+                                        std::to_string(volume_id) + "_" + std::to_string(layer.slot) + ".png";
+                                    if (!mz_zip_writer_add_mem(&archive, layer.path_in_3mf.c_str(),
+                                            layer.image_data->data(), layer.image_data->size(), MZ_NO_COMPRESSION)) {
+                                        BOOST_LOG_TRIVIAL(error) << "Unable to write texture displacement image to 3MF: " << layer.path_in_3mf;
+                                        return false;
+                                    }
+                                }
+                                const std::string json_path = TEXTURE_DISPLACEMENT_DIR +
+                                    std::to_string(object_data.object_id) + "_" + std::to_string(volume_id) + ".json";
+                                const std::string json = texture_displacement_layers_to_json(
+                                    layers, volume->texture_displacement_options);
+                                if (!mz_zip_writer_add_mem(&archive, json_path.c_str(), json.data(), json.size(), MZ_DEFAULT_COMPRESSION)) {
+                                    BOOST_LOG_TRIVIAL(error) << "Unable to write texture displacement metadata to 3MF: " << json_path;
+                                    return false;
+                                }
+                                stream << "      <" << METADATA_TAG << " " << KEY_ATTR << "=\""
+                                       << TEXTURE_DISPLACEMENT_KEY << "\" " << VALUE_ATTR << "=\""
+                                       << xml_escape(json_path) << "\"/>\n";
                             }
                     
                             if (const std::optional<TextConfiguration> &tc = volume->text_configuration;

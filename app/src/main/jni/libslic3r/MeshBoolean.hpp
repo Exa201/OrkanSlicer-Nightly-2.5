@@ -3,6 +3,7 @@
 
 #include <memory>
 #include <exception>
+#include <optional>
 
 #include <libslic3r/TriangleMesh.hpp>
 #include <Eigen/Geometry>
@@ -70,6 +71,7 @@ TriangleMesh merge(std::vector<TriangleMesh> meshes);
 
 bool does_bound_a_volume(const CGALMesh &mesh);
 bool empty(const CGALMesh &mesh);
+std::optional<std::vector<Vec2f>> parameterize_lscm(const indexed_triangle_set &mesh);
 
 // Repair a mesh using CGAL. Returns true on success. Optionally returns a summary of repairs and an error string.
 bool repair(TriangleMesh &mesh, RepairedMeshErrors *repaired_errors = nullptr, std::string *error = nullptr);

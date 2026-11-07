@@ -3,6 +3,7 @@ package ru.ytkab0bp.slicebeam
 import android.app.Application
 import android.content.Context
 import android.util.Log
+import android.graphics.Bitmap
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import org.junit.Assert.assertNotNull
@@ -47,6 +48,98 @@ import java.util.zip.CRC32
 /** Runs an ARM64 native slice in an isolated app id, away from production app data. */
 @RunWith(AndroidJUnit4::class)
 class NativeSliceDeviceTest {
+    @Test
+    fun textureDisplacementBakeMovesPaintedMeshAndCancellationCannotBeCommitted() {
+        val bitmap = Bitmap.createBitmap(16, 16, Bitmap.Config.ARGB_8888).apply {
+            eraseColor(android.graphics.Color.WHITE)
+        }
+        val png = java.io.ByteArrayOutputStream().use { stream ->
+            bitmap.compress(Bitmap.CompressFormat.PNG, 100, stream)
+            stream.toByteArray()
+        }
+        bitmap.recycle()
+
+        val result = Native.texture_displacement_bake_regression(png)
+        assertEquals("The classic bake preserves the mesh vertex count", result[0].toInt(), result[1].toInt())
+        assertTrue("White height texture should displace the painted plane", result[2] > 0.1)
+        assertEquals("Cancellation must return an empty, uncommittable mesh", 1.0, result[3], 0.0)
+    }
+
+    @Test(timeout = 120_000)
+    fun textureDisplacementLayersPaintMasksAndImageRoundTripThroughThreeMf() = withKobraProfile {
+        val context = InstrumentationRegistry.getInstrumentation().targetContext
+        val source = copyCube(context, "texture-displacement-roundtrip.stl")
+        val project = File(context.cacheDir, "texture-displacement-roundtrip.3mf")
+        var model: Model? = null
+        var restored: Model? = null
+        val bitmap = Bitmap.createBitmap(8, 8, Bitmap.Config.ARGB_8888).apply {
+            eraseColor(android.graphics.Color.WHITE)
+        }
+        val png = java.io.ByteArrayOutputStream().use { stream ->
+            bitmap.compress(Bitmap.CompressFormat.PNG, 100, stream)
+            stream.toByteArray()
+        }
+        bitmap.recycle()
+        try {
+            model = Model(source).also { it.ensureOnBed(0) }
+            assertTrue("Native test layer must attach to the fixture volume",
+                Native.texture_displacement_roundtrip_attach(model.pointer, png))
+            val before = Native.texture_displacement_roundtrip_inspect(model.pointer, 0)
+            val secondVolumeBefore = Native.texture_displacement_roundtrip_inspect(model.pointer, 1)
+            val clonedVolumeBefore = Native.texture_displacement_roundtrip_inspect(model.pointer, 2)
+            assertEquals("3MF fixture has one model object", 1, before[6])
+            assertEquals("3MF fixture has two distinct volumes and one copied volume", 3, before[7])
+            assertEquals("3MF fixture object has an exportable instance", 1, before[8])
+            assertEquals("two displacement layers are present", 2, before[0])
+            assertEquals("the layer remains in slot 2", 2, before[1])
+            assertEquals("active slot is persisted", 2, before[2])
+            assertEquals("panel mode is persisted", 1, before[3])
+            assertTrue("paint mask covers the test volume", before[4] > 0)
+            assertEquals("PNG bytes are attached", png.size, before[5])
+            assertEquals("the second volume keeps one layer in the same slot", 1, secondVolumeBefore[0])
+            assertEquals("the second volume keeps slot 2", 2, secondVolumeBefore[1])
+            assertEquals("the second volume keeps its own panel mode", 0, secondVolumeBefore[3])
+            assertArrayEquals("cloning a volume copies the texture stack, image and paint mask",
+                before.copyOfRange(0, 6), clonedVolumeBefore.copyOfRange(0, 6))
+
+            SliceBeam.genCurrentConfig(requireNotNull(model))
+            assertEquals("model survives native config preparation", 1, requireNotNull(model).objectsCount)
+            assertEquals("model remains a single-instance object", 1,
+                Native.texture_displacement_roundtrip_inspect(model.pointer, 0)[8])
+            model.export3mf(SliceBeam.getCurrentConfigFile().absolutePath, project.absolutePath)
+            val archiveEntries = ZipFile(project).use { archive ->
+                val names = java.util.Collections.list(archive.entries()).map { it.name }
+                  val modelXml = archive.getEntry("3D/3dmodel.model")?.let { entry ->
+                      archive.getInputStream(entry).bufferedReader().use { it.readText() }
+                  }.orEmpty()
+                val modelConfig = archive.getEntry("Metadata/Slic3r_PE_model.config")?.let { entry ->
+                    archive.getInputStream(entry).bufferedReader().use { it.readText() }
+                }.orEmpty()
+                assertTrue("3MF volume config must reference texture JSON; objects=${requireNotNull(model).objectsCount}; model=$modelXml; config=$modelConfig",
+                      modelConfig.contains("key=\"texture_displacement\""))
+                assertTrue("3MF includes the layer JSON; archive entries=$names", names.any { it.startsWith("Metadata/texture_displacement/") && it.endsWith(".json") })
+                assertEquals("each volume and layer has its own embedded PNG", 5,
+                    names.count { it.startsWith("Metadata/texture_displacement/") && it.endsWith(".png") })
+                names
+            }
+            assertTrue("exported 3MF has project configuration", archiveEntries.any { it == "Metadata/Slic3r_PE_model.config" })
+
+            restored = Model(project)
+            assertArrayEquals("layer stack, image, paint mask and options survive reload",
+                before, Native.texture_displacement_roundtrip_inspect(restored.pointer, 0))
+            assertArrayEquals("same-slot data in a second volume survives reload",
+                secondVolumeBefore, Native.texture_displacement_roundtrip_inspect(restored.pointer, 1))
+            assertArrayEquals("copied volume texture data survives reload",
+                clonedVolumeBefore, Native.texture_displacement_roundtrip_inspect(restored.pointer, 2))
+        } finally {
+            model?.release()
+            restored?.release()
+            source.delete()
+            project.delete()
+            SliceBeam.getCurrentConfigFile().delete()
+        }
+    }
+
     @Test
     fun flashforge032ProcessIsLimitedToNozzlesThatFitItsLineWidth() {
         val context = InstrumentationRegistry.getInstrumentation().targetContext

@@ -1160,6 +1160,30 @@ add_library(slic3r
         src/main/jni/libslic3r/Tesselate.cpp
         src/main/jni/libslic3r/Tesselate.hpp
         src/main/jni/libslic3r/TextConfiguration.hpp
+        src/main/jni/libslic3r/TextureDisplacement.cpp
+        src/main/jni/libslic3r/TextureDisplacement.hpp
+        src/main/jni/libslic3r/TextureBake/TextureBakeIndex.cpp
+        src/main/jni/libslic3r/TextureBake/TextureBakeIndex.hpp
+        src/main/jni/libslic3r/TextureBake/TextureBakeSubdivide.cpp
+        src/main/jni/libslic3r/TextureBake/TextureBakeSubdivide.hpp
+        src/main/jni/libslic3r/TextureBake/TextureBakeRegularize.cpp
+        src/main/jni/libslic3r/TextureBake/TextureBakeRegularize.hpp
+        src/main/jni/libslic3r/TextureBake/TextureBakeRelocate.cpp
+        src/main/jni/libslic3r/TextureBake/TextureBakeRelocate.hpp
+        src/main/jni/libslic3r/TextureBake/TextureBakeFlip.cpp
+        src/main/jni/libslic3r/TextureBake/TextureBakeFlip.hpp
+        src/main/jni/libslic3r/TextureBake/TextureBakeDebug.cpp
+        src/main/jni/libslic3r/TextureBake/TextureBakeDebug.hpp
+        src/main/jni/libslic3r/TextureBake/TextureBakeDisplace.cpp
+        src/main/jni/libslic3r/TextureBake/TextureBakeDisplace.hpp
+        src/main/jni/libslic3r/TextureBake/TextureBakeDecimate.cpp
+        src/main/jni/libslic3r/TextureBake/TextureBakeDecimate.hpp
+        src/main/jni/libslic3r/TextureBake/TextureBakeRepair.cpp
+        src/main/jni/libslic3r/TextureBake/TextureBakeRepair.hpp
+        src/main/jni/libslic3r/TextureBake/TextureBakePipeline.cpp
+        src/main/jni/libslic3r/TextureBake/TextureBakePipeline.hpp
+        src/main/jni/libslic3r/TextureBake/TextureBakeMesh.cpp
+        src/main/jni/libslic3r/TextureBake/TextureBakeMesh.hpp
         src/main/jni/libslic3r/Thread.cpp
         src/main/jni/libslic3r/Thread.hpp
         src/main/jni/libslic3r/Time.cpp

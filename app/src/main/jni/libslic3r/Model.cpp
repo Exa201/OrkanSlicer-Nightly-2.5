@@ -2083,6 +2083,9 @@ void ModelVolume::reset_extra_facets()
     this->seam_facets.reset();
     this->mmu_segmentation_facets.reset();
     this->fuzzy_skin_facets.reset();
+    for (int i = 0; i < int(TEXTURE_DISPLACEMENT_MAX_LAYERS); ++i)
+        this->texture_displacement_facet(i).reset();
+    this->reset_texture_uv();
 }
 
 std::optional<TriangleSelector::SavedPainting> ModelVolume::save_painting() const
@@ -2954,6 +2957,8 @@ void ModelVolume::assign_new_unique_ids_recursive()
     seam_facets.set_new_unique_id();
     mmu_segmentation_facets.set_new_unique_id();
     fuzzy_skin_facets.set_new_unique_id();
+    for (int i = 0; i < int(TEXTURE_DISPLACEMENT_MAX_LAYERS); ++i)
+        texture_displacement_facet(i).set_new_unique_id();
 }
 
 void ModelVolume::rotate(double angle, Axis axis)

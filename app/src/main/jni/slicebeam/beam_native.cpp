@@ -6566,6 +6566,135 @@ extern "C" {
         return result;
     }
 
+    JNIEXPORT jdoubleArray JNICALL Java_ru_ytkab0bp_slicebeam_slic3r_Native_texture_1displacement_1bake_1regression(JNIEnv* env, jclass, jbyteArray png) {
+        using namespace Slic3r;
+        if (png == nullptr || env->GetArrayLength(png) <= 0)
+            return nullptr;
+        std::vector<unsigned char> image(size_t(env->GetArrayLength(png)));
+        env->GetByteArrayRegion(png, 0, jsize(image.size()), reinterpret_cast<jbyte*>(image.data()));
+        if (env->ExceptionCheck()) return nullptr;
+
+        constexpr int cells = 8;
+        indexed_triangle_set its;
+        its.vertices.reserve((cells + 1) * (cells + 1));
+        for (int y = 0; y <= cells; ++y)
+            for (int x = 0; x <= cells; ++x)
+                its.vertices.emplace_back(float(x), float(y), 0.f);
+        const auto vertex = [cells](int x, int y) { return y * (cells + 1) + x; };
+        its.indices.reserve(cells * cells * 2);
+        for (int y = 0; y < cells; ++y)
+            for (int x = 0; x < cells; ++x) {
+                its.indices.emplace_back(vertex(x, y), vertex(x + 1, y), vertex(x + 1, y + 1));
+                its.indices.emplace_back(vertex(x, y), vertex(x + 1, y + 1), vertex(x, y + 1));
+            }
+
+        TriangleMesh mesh(its);
+        TriangleSelector selector(mesh);
+        for (int i = 0; i < int(mesh.its.indices.size()); ++i)
+            selector.set_facet(i, EnforcerBlockerType::ENFORCER);
+
+        TextureDisplacementLayer layer;
+        layer.slot = 0;
+        layer.name = "native-regression";
+        layer.image_data = std::make_shared<std::vector<unsigned char>>(std::move(image));
+        layer.depth_mm = 0.8f;
+        layer.tiling_scale = float(cells);
+        TextureDisplacementOptions options;
+        options.pipeline_v2 = false; // Keep this fixture topology fixed and make displacement directly measurable.
+        TextureDisplacementFacetsData masks{};
+        masks[0] = selector.serialize();
+        const std::vector<TextureDisplacementLayer> layers{ layer };
+        const indexed_triangle_set baked = build_texture_displacement(mesh.its, layers, masks, options);
+        float max_z = -std::numeric_limits<float>::infinity();
+        for (const Vec3f &v : baked.vertices) max_z = std::max(max_z, v.z());
+
+        const indexed_triangle_set cancelled = build_texture_displacement(
+            mesh.its, layers, masks, options, [](int) { return false; });
+        const jdouble values[] = {
+            double(mesh.its.vertices.size()),
+            double(baked.vertices.size()),
+            double(max_z),
+            cancelled.vertices.empty() && cancelled.indices.empty() ? 1.0 : 0.0,
+        };
+        jdoubleArray result = env->NewDoubleArray(4);
+        if (result != nullptr) env->SetDoubleArrayRegion(result, 0, 4, values);
+        return result;
+    }
+
+    JNIEXPORT jboolean JNICALL Java_ru_ytkab0bp_slicebeam_slic3r_Native_texture_1displacement_1roundtrip_1attach(
+        JNIEnv* env, jclass, jlong ptr, jbyteArray png) {
+        ModelRef* ref = reinterpret_cast<ModelRef*>(intptr_t(ptr));
+        if (ref == nullptr || png == nullptr || ref->model.objects.empty() ||
+            ref->model.objects.front()->volumes.empty() || env->GetArrayLength(png) <= 0)
+            return JNI_FALSE;
+        std::vector<unsigned char> image(size_t(env->GetArrayLength(png)));
+        env->GetByteArrayRegion(png, 0, jsize(image.size()), reinterpret_cast<jbyte*>(image.data()));
+        if (env->ExceptionCheck()) return JNI_FALSE;
+
+        ModelObject* object = ref->model.objects.front();
+        ModelVolume* volume = object->volumes.front();
+        auto paint_end_facets = [](ModelVolume& target, int slot) {
+            TriangleSelector selector(target.mesh());
+            if (target.mesh().its.indices.empty()) return false;
+            selector.set_facet(0, EnforcerBlockerType::ENFORCER);
+            selector.set_facet(int(target.mesh().its.indices.size()) - 1, EnforcerBlockerType::ENFORCER);
+            return target.texture_displacement_facet(slot).set(selector);
+        };
+        if (!paint_end_facets(*volume, 2)) return JNI_FALSE;
+
+        TextureDisplacementLayer layer;
+        layer.slot = 2;
+        layer.name = "3MF texture persistence regression";
+        layer.depth_mm = 0.73f;
+        layer.image_data = std::make_shared<std::vector<unsigned char>>(std::move(image));
+        TextureDisplacementLayer second_layer = layer;
+        second_layer.slot = 6;
+        second_layer.name = "Second texture persistence regression";
+        second_layer.depth_mm = 0.41f;
+        volume->texture_displacement_layers = { std::move(layer), std::move(second_layer) };
+        volume->texture_displacement_options.active_slot = 2;
+        volume->texture_displacement_options.panel_mode = 1;
+
+        ModelVolume* second_volume = object->add_volume(
+            TriangleMesh(volume->mesh()), ModelVolumeType::MODEL_PART, false);
+        if (second_volume == nullptr || !paint_end_facets(*second_volume, 2)) return JNI_FALSE;
+        TextureDisplacementLayer shared_slot_layer;
+        shared_slot_layer.slot = 2;
+        shared_slot_layer.name = "Same slot, separate volume";
+        shared_slot_layer.depth_mm = 1.07f;
+        shared_slot_layer.image_data = volume->texture_displacement_layers.front().image_data;
+        second_volume->texture_displacement_layers = { std::move(shared_slot_layer) };
+        second_volume->texture_displacement_options.active_slot = 2;
+        second_volume->texture_displacement_options.panel_mode = 0;
+        if (object->add_volume(*volume) == nullptr) return JNI_FALSE;
+        return JNI_TRUE;
+    }
+
+    JNIEXPORT jintArray JNICALL Java_ru_ytkab0bp_slicebeam_slic3r_Native_texture_1displacement_1roundtrip_1inspect(
+        JNIEnv* env, jclass, jlong ptr, jint volumeIndex) {
+        ModelRef* ref = reinterpret_cast<ModelRef*>(intptr_t(ptr));
+        jint values[9] = {0, 0, -1, -1, 0, 0, 0, 0, 0};
+        if (ref != nullptr) values[6] = jint(ref->model.objects.size());
+        if (ref != nullptr && !ref->model.objects.empty() && volumeIndex >= 0 &&
+            volumeIndex < jint(ref->model.objects.front()->volumes.size())) {
+            values[7] = jint(ref->model.objects.front()->volumes.size());
+            values[8] = jint(ref->model.objects.front()->instances.size());
+            const ModelVolume* volume = ref->model.objects.front()->volumes[size_t(volumeIndex)];
+            values[0] = jint(volume->texture_displacement_layers.size());
+            values[2] = volume->texture_displacement_options.active_slot;
+            values[3] = volume->texture_displacement_options.panel_mode;
+            values[4] = jint(volume->texture_displacement_facet(2).get_data().triangles_to_split.size());
+            if (!volume->texture_displacement_layers.empty()) {
+                const TextureDisplacementLayer& layer = volume->texture_displacement_layers.front();
+                values[1] = layer.slot;
+                values[5] = layer.image_data ? jint(layer.image_data->size()) : 0;
+            }
+        }
+        jintArray result = env->NewIntArray(9);
+        if (result != nullptr) env->SetIntArrayRegion(result, 0, 9, values);
+        return result;
+    }
+
     JNIEXPORT jboolean JNICALL Java_ru_ytkab0bp_slicebeam_slic3r_Native_model_1has_1paint(JNIEnv* env, jclass, jlong modelPtr, jint objIdx) {
         ModelRef* m = (ModelRef*) (intptr_t) modelPtr;
         if (objIdx < 0 || objIdx >= (int) m->model.objects.size()) return false;

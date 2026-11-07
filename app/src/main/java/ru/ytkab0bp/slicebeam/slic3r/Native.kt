@@ -124,6 +124,13 @@ class Native {
     /** Confirms painted facet states follow filament count even if the color palette is shorter. */
     @JvmStatic
     external fun painted_segmentation_state_count_probe(filamentCount: Int, colorCount: Int): IntArray
+    /** Bakes a generated grayscale PNG onto a synthetic mesh and verifies that cancellation returns no committable mesh. */
+    @JvmStatic
+    external fun texture_displacement_bake_regression(png: ByteArray): DoubleArray
+    @JvmStatic
+    external fun texture_displacement_roundtrip_attach(model: Long, png: ByteArray): Boolean
+    @JvmStatic
+    external fun texture_displacement_roundtrip_inspect(model: Long, volumeIndex: Int): IntArray
     @JvmStatic
     external fun set_svg_path_prefix(prefix: String): Unit
     @JvmStatic

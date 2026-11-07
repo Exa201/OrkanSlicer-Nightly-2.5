@@ -113,6 +113,12 @@ static constexpr const char* CUSTOM_SUPPORTS_ATTR = "slic3rpe:custom_supports";
 static constexpr const char* CUSTOM_SEAM_ATTR = "slic3rpe:custom_seam";
 static constexpr const char* MMU_SEGMENTATION_ATTR = "slic3rpe:mmu_segmentation";
 static constexpr const char* FUZZY_SKIN_ATTR = "slic3rpe:fuzzy_skin";
+static constexpr const char* TEXTURE_DISPLACEMENT_ATTRS[] = {
+    "paint_texture_0", "paint_texture_1", "paint_texture_2", "paint_texture_3",
+    "paint_texture_4", "paint_texture_5", "paint_texture_6", "paint_texture_7"
+};
+static const std::string TEXTURE_DISPLACEMENT_KEY = "texture_displacement";
+static const std::string TEXTURE_DISPLACEMENT_DIR = "Metadata/texture_displacement/";
 
 static constexpr const char* KEY_ATTR = "key";
 static constexpr const char* VALUE_ATTR = "value";
@@ -447,8 +453,17 @@ ModelVolumeType type_from_string(const std::string &s)
             std::vector<std::string> custom_seam;
             std::vector<std::string> mmu_segmentation;
             std::vector<std::string> fuzzy_skin;
+            std::array<std::vector<std::string>, TEXTURE_DISPLACEMENT_MAX_LAYERS> texture_displacement;
 
             bool empty() { return vertices.empty() || triangles.empty(); }
+
+            void push_texture_displacement(size_t slot, std::string mask)
+            {
+                auto &paint = texture_displacement[slot];
+                if (mask.empty() && paint.empty()) return;
+                paint.resize(triangles.size() - 1);
+                paint.push_back(std::move(mask));
+            }
 
             void reset() {
                 vertices.clear();
@@ -457,6 +472,7 @@ ModelVolumeType type_from_string(const std::string &s)
                 custom_seam.clear();
                 mmu_segmentation.clear();
                 fuzzy_skin.clear();
+                for (auto &paint : texture_displacement) paint.clear();
             }
         };
 
@@ -574,6 +590,7 @@ ModelVolumeType type_from_string(const std::string &s)
         IdToLayerConfigRangesMap m_layer_config_ranges;
         IdToSlaSupportPointsMap m_sla_support_points;
         IdToSlaDrainHolesMap    m_sla_drain_holes;
+        std::map<std::string, std::shared_ptr<std::vector<unsigned char>>> m_texture_displacement_files;
         std::string m_curr_metadata_name;
         std::string m_curr_characters;
         std::string m_name;
@@ -604,6 +621,8 @@ ModelVolumeType type_from_string(const std::string &s)
         void _extract_layer_config_ranges_from_archive(mz_zip_archive& archive, const mz_zip_archive_file_stat& stat, ConfigSubstitutionContext& config_substitutions);
         void _extract_sla_support_points_from_archive(mz_zip_archive& archive, const mz_zip_archive_file_stat& stat);
         void _extract_sla_drain_holes_from_archive(mz_zip_archive& archive, const mz_zip_archive_file_stat& stat);
+        void _extract_texture_displacement_file(mz_zip_archive& archive, const mz_zip_archive_file_stat& stat);
+        void _apply_texture_displacement(ModelVolume& volume, const std::string& json_path);
 
         void _extract_custom_gcode_per_print_z_from_archive(mz_zip_archive& archive, const mz_zip_archive_file_stat& stat);
 
@@ -797,6 +816,11 @@ ModelVolumeType type_from_string(const std::string &s)
             if (mz_zip_reader_file_stat(&archive, i, &stat)) {
                 std::string name(stat.m_filename);
                 std::replace(name.begin(), name.end(), '\\', '/');
+
+                if (boost::algorithm::istarts_with(name, TEXTURE_DISPLACEMENT_DIR)) {
+                    _extract_texture_displacement_file(archive, stat);
+                    continue;
+                }
 
                 /*
                 if (boost::algorithm::iequals(name, LAYER_HEIGHTS_PROFILE_FILE)) {
@@ -1068,6 +1092,45 @@ ModelVolumeType type_from_string(const std::string &s)
             //config_substitutions.substitutions = config.load_from_ini_string_commented(std::move(buffer), config_substitutions.rule);
             ConfigBase::load_from_gcode_string_legacy(config, buffer.data(), config_substitutions);
         }
+    }
+
+    void _3MF_Importer::_extract_texture_displacement_file(mz_zip_archive& archive, const mz_zip_archive_file_stat& stat)
+    {
+        if (stat.m_uncomp_size == 0 || !stat.m_filename ||
+            stat.m_uncomp_size > std::numeric_limits<size_t>::max())
+            return;
+        const std::string path = stat.m_filename;
+        if (!boost::algorithm::istarts_with(path, TEXTURE_DISPLACEMENT_DIR))
+            return;
+        auto bytes = std::make_shared<std::vector<unsigned char>>(size_t(stat.m_uncomp_size));
+        if (!mz_zip_reader_extract_to_mem(&archive, stat.m_file_index, bytes->data(),
+                                          size_t(stat.m_uncomp_size), 0)) {
+            add_error("Error while reading texture displacement project data");
+            return;
+        }
+        m_texture_displacement_files[path] = std::move(bytes);
+    }
+
+    void _3MF_Importer::_apply_texture_displacement(ModelVolume& volume, const std::string& json_path)
+    {
+        const auto json_file = m_texture_displacement_files.find(json_path);
+        if (json_file == m_texture_displacement_files.end() || !json_file->second)
+            return;
+        const std::string json(json_file->second->begin(), json_file->second->end());
+        std::vector<TextureDisplacementLayer> layers;
+        TextureDisplacementOptions options;
+        if (!texture_displacement_layers_from_json(json, layers, options)) {
+            BOOST_LOG_TRIVIAL(warning) << "Ignoring invalid texture displacement metadata in 3MF: " << json_path;
+            return;
+        }
+        for (TextureDisplacementLayer& layer : layers) {
+            if (layer.path_in_3mf.empty()) continue;
+            const auto image = m_texture_displacement_files.find(layer.path_in_3mf);
+            if (image != m_texture_displacement_files.end()) layer.image_data = image->second;
+            else BOOST_LOG_TRIVIAL(warning) << "Texture displacement image is missing in 3MF: " << layer.path_in_3mf;
+        }
+        volume.texture_displacement_layers = std::move(layers);
+        volume.texture_displacement_options = options;
     }
 
     void _3MF_Importer::_extract_layer_heights_profile_config_from_archive(mz_zip_archive& archive, const mz_zip_archive_file_stat& stat)
@@ -1777,6 +1840,9 @@ ModelVolumeType type_from_string(const std::string &s)
         m_curr_object.geometry.custom_seam.push_back(get_attribute_value_string(attributes, num_attributes, CUSTOM_SEAM_ATTR));
         m_curr_object.geometry.fuzzy_skin.push_back(get_attribute_value_string(attributes, num_attributes, FUZZY_SKIN_ATTR));
         m_curr_object.geometry.mmu_segmentation.push_back(get_attribute_value_string(attributes, num_attributes, MMU_SEGMENTATION_ATTR));
+        for (size_t slot = 0; slot < TEXTURE_DISPLACEMENT_MAX_LAYERS; ++slot)
+            m_curr_object.geometry.push_texture_displacement(
+                slot, get_attribute_value_string(attributes, num_attributes, TEXTURE_DISPLACEMENT_ATTRS[slot]));
         return true;
     }
 
@@ -2076,7 +2142,8 @@ ModelVolumeType type_from_string(const std::string &s)
             "source_offset_y",
             "source_offset_z",
             "extruder",
-            "modifier"
+            "modifier",
+            TEXTURE_DISPLACEMENT_KEY
         };
 
         PrintObjectConfig object_config;
@@ -2203,6 +2270,8 @@ ModelVolumeType type_from_string(const std::string &s)
             volume->seam_facets.reserve(triangles_count);
             volume->mmu_segmentation_facets.reserve(triangles_count);
             volume->fuzzy_skin_facets.reserve(triangles_count);
+            for (int slot = 0; slot < int(TEXTURE_DISPLACEMENT_MAX_LAYERS); ++slot)
+                volume->texture_displacement_facet(slot).reserve(triangles_count);
             for (size_t i=0; i<triangles_count; ++i) {
                 size_t index = volume_data.first_triangle_id + i;
                 assert(index < geometry.custom_supports.size());
@@ -2216,11 +2285,18 @@ ModelVolumeType type_from_string(const std::string &s)
                     volume->mmu_segmentation_facets.set_triangle_from_string(i, geometry.mmu_segmentation[index]);
                 if (! geometry.fuzzy_skin[index].empty())
                 	volume->fuzzy_skin_facets.set_triangle_from_string(i, geometry.fuzzy_skin[index]);
+                for (size_t slot = 0; slot < TEXTURE_DISPLACEMENT_MAX_LAYERS; ++slot) {
+                    const auto &paint = geometry.texture_displacement[slot];
+                    if (index < paint.size() && !paint[index].empty())
+                        volume->texture_displacement_facet(int(slot)).set_triangle_from_string(i, paint[index]);
+                }
             }
             volume->supported_facets.shrink_to_fit();
             volume->seam_facets.shrink_to_fit();
             volume->mmu_segmentation_facets.shrink_to_fit();
             volume->fuzzy_skin_facets.shrink_to_fit();
+            for (int slot = 0; slot < int(TEXTURE_DISPLACEMENT_MAX_LAYERS); ++slot)
+                volume->texture_displacement_facet(slot).shrink_to_fit();
 
             // apply the remaining volume's metadata
             for (const Metadata& metadata : volume_data.metadata) {
@@ -2246,6 +2322,8 @@ ModelVolumeType type_from_string(const std::string &s)
                     volume->source.is_converted_from_inches = metadata.value == "1";
                 else if (metadata.key == SOURCE_IN_METERS)
                     volume->source.is_converted_from_meters = metadata.value == "1";
+                else if (metadata.key == TEXTURE_DISPLACEMENT_KEY)
+                    _apply_texture_displacement(*volume, metadata.value);
                 else
                     volume->config.set_deserialize(metadata.key, metadata.value, config_substitutions);
             }
@@ -2883,6 +2961,16 @@ ModelVolumeType type_from_string(const std::string &s)
                     output_buffer += "\"";
                 }
 
+                for (size_t slot = 0; slot < TEXTURE_DISPLACEMENT_MAX_LAYERS; ++slot) {
+                    const std::string paint = volume->texture_displacement_facet(int(slot)).get_triangle_as_string(i);
+                    if (paint.empty()) continue;
+                    output_buffer += " ";
+                    output_buffer += TEXTURE_DISPLACEMENT_ATTRS[slot];
+                    output_buffer += "=\"";
+                    output_buffer += paint;
+                    output_buffer += "\"";
+                }
+
                 output_buffer += "/>\n";
 
                 if (! flush())
@@ -3150,6 +3238,7 @@ ModelVolumeType type_from_string(const std::string &s)
                     stream << "  <" << METADATA_TAG << " " << TYPE_ATTR << "=\"" << OBJECT_TYPE << "\" " << KEY_ATTR << "=\"" << key << "\" " << VALUE_ATTR << "=\"" << obj->config.opt_serialize(key) << "\"/>\n";
                 }
 
+                int volume_id = 0;
                 for (const ModelVolume* volume : obj_metadata.second.object->volumes) {
                     if (volume != nullptr) {
                         const VolumeToOffsetsMap& offsets = obj_metadata.second.volumes_offsets;
@@ -3207,6 +3296,36 @@ ModelVolumeType type_from_string(const std::string &s)
                                 stream << "   <" << METADATA_TAG << " " << TYPE_ATTR << "=\"" << VOLUME_TYPE << "\" " << KEY_ATTR << "=\"" << key << "\" " << VALUE_ATTR << "=\"" << volume->config.opt_serialize(key) << "\"/>\n";
                             }
 
+                            if (!volume->texture_displacement_layers.empty()) {
+                                std::vector<TextureDisplacementLayer> layers = volume->texture_displacement_layers;
+                                for (TextureDisplacementLayer& layer : layers) {
+                                    layer.path.clear();
+                                    if (!layer.image_data || layer.image_data->empty()) {
+                                        layer.path_in_3mf.clear();
+                                        continue;
+                                    }
+                                    layer.path_in_3mf = TEXTURE_DISPLACEMENT_DIR +
+                                        std::to_string(obj_metadata.first) + "_" +
+                                        std::to_string(volume_id) + "_" + std::to_string(layer.slot) + ".png";
+                                    if (!mz_zip_writer_add_mem(&archive, layer.path_in_3mf.c_str(),
+                                            layer.image_data->data(), layer.image_data->size(), MZ_NO_COMPRESSION)) {
+                                        add_error("Unable to write texture displacement image to archive");
+                                        return false;
+                                    }
+                                }
+                                const std::string json_path = TEXTURE_DISPLACEMENT_DIR +
+                                    std::to_string(obj_metadata.first) + "_" + std::to_string(volume_id) + ".json";
+                                const std::string json = texture_displacement_layers_to_json(
+                                    layers, volume->texture_displacement_options);
+                                if (!mz_zip_writer_add_mem(&archive, json_path.c_str(), json.data(), json.size(), MZ_DEFAULT_COMPRESSION)) {
+                                    add_error("Unable to write texture displacement metadata to archive");
+                                    return false;
+                                }
+                                stream << "   <" << METADATA_TAG << " " << TYPE_ATTR << "=\"" << VOLUME_TYPE
+                                       << "\" " << KEY_ATTR << "=\"" << TEXTURE_DISPLACEMENT_KEY << "\" "
+                                       << VALUE_ATTR << "=\"" << xml_escape(json_path) << "\"/>\n";
+                            }
+
                             // stores mesh's statistics
                             const RepairedMeshErrors& stats = volume->mesh().stats().repaired_errors;
                             stream << "   <" << MESH_TAG << " ";
@@ -3219,6 +3338,7 @@ ModelVolumeType type_from_string(const std::string &s)
                             stream << "  </" << VOLUME_TAG << ">\n";
                         }
                     }
+                    ++volume_id;
                 }
 
                 stream << " </" << OBJECT_TAG << ">\n";

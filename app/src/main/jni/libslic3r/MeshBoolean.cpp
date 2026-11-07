@@ -21,6 +21,11 @@
 #include <CGAL/Polygon_mesh_processing/remesh.h>
 #include <CGAL/Polygon_mesh_processing/repair_polygon_soup.h>
 #include <CGAL/Polygon_mesh_processing/orientation.h>
+#include <CGAL/Polygon_mesh_processing/border.h>
+#include <CGAL/Polygon_mesh_processing/connected_components.h>
+#include <CGAL/Surface_mesh_parameterization/Error_code.h>
+#include <CGAL/Surface_mesh_parameterization/LSCM_parameterizer_3.h>
+#include <CGAL/Surface_mesh_parameterization/parameterize.h>
 // BBS: for segment
 #if 0
 #include <CGAL/mesh_segmentation.h>
@@ -302,6 +307,37 @@ void minus(CGALMesh &A, CGALMesh &B) { _cgal_do(_cgal_diff, A, B); }
 void plus(CGALMesh &A, CGALMesh &B) { _cgal_do(_cgal_union, A, B); }
 void intersect(CGALMesh &A, CGALMesh &B) { _cgal_do(_cgal_intersection, A, B); }
 bool does_self_intersect(const CGALMesh &mesh) { return CGALProc::does_self_intersect(mesh.m); }
+std::optional<std::vector<Vec2f>> parameterize_lscm(const indexed_triangle_set &mesh)
+{
+    namespace SMP = CGAL::Surface_mesh_parameterization;
+    if (mesh.indices.empty()) return std::nullopt;
+    _EpicMesh cgal_mesh;
+    triangle_mesh_to_cgal(mesh.vertices, mesh.indices, cgal_mesh);
+    using vertex_descriptor = boost::graph_traits<_EpicMesh>::vertex_descriptor;
+    using halfedge_descriptor = boost::graph_traits<_EpicMesh>::halfedge_descriptor;
+    std::vector<std::size_t> component_id(num_faces(cgal_mesh));
+    if (CGALProc::connected_components(cgal_mesh, CGAL::make_property_map(component_id)) != 1)
+        return std::nullopt;
+    const halfedge_descriptor border = CGALProc::longest_border(cgal_mesh).first;
+    if (border == halfedge_descriptor()) return std::nullopt;
+    size_t border_count = 0;
+    for (halfedge_descriptor h : halfedges(cgal_mesh)) if (is_border(h, cgal_mesh)) ++border_count;
+    size_t loop_count = 0;
+    halfedge_descriptor h = border;
+    do { ++loop_count; h = next(h, cgal_mesh); } while (h != border && loop_count <= border_count);
+    if (loop_count != border_count) return std::nullopt;
+    using Point_2 = EpicKernel::Point_2;
+    using UV_pmap = _EpicMesh::Property_map<vertex_descriptor, Point_2>;
+    UV_pmap uv_map = cgal_mesh.add_property_map<vertex_descriptor, Point_2>("h:uv", Point_2(0, 0)).first;
+    using Parameterizer = SMP::LSCM_parameterizer_3<_EpicMesh>;
+    if (SMP::parameterize(cgal_mesh, Parameterizer(), border, uv_map) != SMP::OK) return std::nullopt;
+    std::vector<Vec2f> result(mesh.vertices.size(), Vec2f::Zero());
+    for (vertex_descriptor vd : vertices(cgal_mesh)) {
+        const size_t idx = size_t(vd);
+        if (idx < result.size()) result[idx] = Vec2f(float(uv_map[vd].x()), float(uv_map[vd].y()));
+    }
+    return result;
+}
 // BBS
 #if 0
 void segment(CGALMesh& src, std::vector<CGALMesh>& dst, double smoothing_alpha = 0.5, int segment_number=5)

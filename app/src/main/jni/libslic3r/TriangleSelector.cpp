@@ -1540,9 +1540,10 @@ void TriangleSelector::get_facets(std::vector<indexed_triangle_set>& facets_per_
     }
 }
 
-indexed_triangle_set TriangleSelector::get_facets_strict(EnforcerBlockerType state) const
+indexed_triangle_set TriangleSelector::get_facets_strict(EnforcerBlockerType state, std::vector<int> *out_source) const
 {
     indexed_triangle_set out;
+    if (out_source) out_source->clear();
 
     size_t num_vertices = 0;
     for (const Vertex &v : m_vertices)
@@ -1556,8 +1557,10 @@ indexed_triangle_set TriangleSelector::get_facets_strict(EnforcerBlockerType sta
             out.vertices.emplace_back(v.v);
         }
 
-    for (int itriangle = 0; itriangle < m_orig_size_indices; ++ itriangle)
+    for (int itriangle = 0; itriangle < m_orig_size_indices; ++ itriangle) {
         this->get_facets_strict_recursive(m_triangles[itriangle], m_neighbors[itriangle], state, out.indices);
+        if (out_source) out_source->resize(out.indices.size(), itriangle);
+    }
 
     for (auto &triangle : out.indices)
         for (int i = 0; i < 3; ++ i)
