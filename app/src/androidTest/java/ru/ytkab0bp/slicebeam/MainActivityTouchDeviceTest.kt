@@ -107,14 +107,17 @@ class MainActivityTouchDeviceTest {
             assertTrue("Generated M12 should load", loaded.await(60, TimeUnit.SECONDS))
             loadFailure.get()?.let { throw AssertionError("Generated M12 could not load", it) }
 
-            for (qualityPercent in listOf(50, 65, 100)) {
+            assertTrue("The real GL renderer must be identified before selecting automatic viewport quality",
+                !Prefs.getGlRendererName().isNullOrBlank())
+            for (qualityPercent in listOf(0, 50, 65, 100)) {
                 if (qualityPercent != Prefs.getRenderScaleOverridePercent()) {
                     scenario.onActivity {
                         Prefs.setRenderScaleOverridePercent(qualityPercent)
                         SliceBeam.EVENT_BUS.fireEvent(ru.ytkab0bp.slicebeam.events.ViewportRenderScaleChangedEvent())
                     }
                 }
-                val expectedScale = qualityPercent / 100f
+                val expectedScale = if (qualityPercent == 0) Prefs.getAutomaticRenderScale()
+                    else qualityPercent / 100f
                 val surfaceDeadline = SystemClock.uptimeMillis() + 10_000L
                 while (SystemClock.uptimeMillis() < surfaceDeadline &&
                     glView.renderer.viewportWidth != (glView.width * expectedScale).toInt()
