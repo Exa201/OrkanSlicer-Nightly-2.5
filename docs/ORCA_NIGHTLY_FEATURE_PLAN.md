@@ -6,7 +6,7 @@ Batch 14 bleibt mit 10/10 Punkten veröffentlicht unter `v0.8.452-nightly.1`. Ba
 
 Port von Orca `c01ac8ff44`: `bed_exclude_area` wird vor der Erzeugung von Ausschluss- und Kollisionspolygonen validiert. Die Punkte müssen endlich sein; das Polygon muss mindestens drei eindeutige Punkte, eine von null verschiedene Fläche und keine Selbstüberschneidung haben. Ungültige gespeicherte Werte werden beim Android-Arrangement und bei der Druckbereichsberechnung ignoriert, statt fehlerhafte Geometrie an Clipper/Arrangement weiterzugeben.
 
-`NativeSliceDeviceTest#legacyBedExcludeAreaRejectsMalformedPolygonsBeforeArrangement` besteht auf Android 16/API 36 (1/1): gültige Fläche akzeptiert, selbstschneidende, doppelte und nicht endliche Punktfolgen abgewiesen; der produktive `get_bed_excluded_area()`-Pfad gibt für die ungültige Fixture keine Fläche zurück. Der erste ARM64-Build fand einen fehlenden direkten `Geometry.hpp`-Include; nach Ergänzung bestanden der Slice-Instrumentierungsbuild und Gerätetest. Kein APK/Release vor 10/10.
+`NativeSliceDeviceTest#legacyBedExcludeAreaRejectsMalformedPolygonsFromProductionGeometry` besteht auf Android 16/API 36 (1/1): gültige Fläche akzeptiert, selbstschneidende, doppelte und nicht endliche Punktfolgen abgewiesen; `get_bed_excluded_area()` und `get_bed_excluded_regions()` liefern für die ungültige Fixture keine Fläche/Region. Der erste ARM64-Build fand einen fehlenden direkten `Geometry.hpp`-Include; nach Ergänzung bestanden der Slice-Instrumentierungsbuild und Gerätetest. Vollständiges Arrange ist mit diesem Test nicht abgedeckt. Kein APK/Release vor 10/10.
 
 ### Batch 15, Punkt 3/10 — Tree-Support-Pfade und lokale Verstärkung
 

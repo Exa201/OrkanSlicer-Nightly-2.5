@@ -1367,9 +1367,9 @@ class NativeSliceDeviceTest {
     }
 
     @Test
-    fun legacyBedExcludeAreaRejectsMalformedPolygonsBeforeArrangement() {
+    fun legacyBedExcludeAreaRejectsMalformedPolygonsFromProductionGeometry() {
         assertArrayEquals(
-            intArrayOf(1, 0, 0, 0, 0),
+            intArrayOf(1, 0, 0, 0, 1, 0, 0),
             Native.bed_exclude_area_validation_regression(),
         )
     }

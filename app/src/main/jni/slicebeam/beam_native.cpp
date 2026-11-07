@@ -6447,17 +6447,21 @@ extern "C" {
         Pointfs duplicate {{0., 0.}, {20., 0.}, {20., 20.}, {20., 0.}};
         Pointfs non_finite {{0., 0.}, {20., 0.}, {std::numeric_limits<double>::quiet_NaN(), 20.}};
         PrintConfig config;
+        config.bed_exclude_area.values = valid;
+        const jint valid_area_count = static_cast<jint>(get_bed_excluded_area(config).size());
         config.bed_exclude_area.values = self_intersecting;
         const jint checks[] = {
             is_valid_bed_exclude_area(valid) ? 1 : 0,
             is_valid_bed_exclude_area(self_intersecting) ? 1 : 0,
             is_valid_bed_exclude_area(duplicate) ? 1 : 0,
             is_valid_bed_exclude_area(non_finite) ? 1 : 0,
-            static_cast<jint>(get_bed_excluded_area(config).size())
+            valid_area_count,
+            static_cast<jint>(get_bed_excluded_area(config).size()),
+            static_cast<jint>(get_bed_excluded_regions(config).size())
         };
-        jintArray result = env->NewIntArray(5);
+        jintArray result = env->NewIntArray(7);
         if (result != nullptr)
-            env->SetIntArrayRegion(result, 0, 5, checks);
+            env->SetIntArrayRegion(result, 0, 7, checks);
         return result;
     }
 
