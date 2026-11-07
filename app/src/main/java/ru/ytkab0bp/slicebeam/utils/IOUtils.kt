@@ -198,6 +198,10 @@ class IOUtils {
         }
 
         val keys = json.keys()
+        // Orca's source profile files use `name`; exported config bundles may also carry
+        // *_settings_id. The human-readable preset name must win (printer_settings_id is
+        // commonly only the vendor name, e.g. "Qidi").
+        json.optString("name").takeIf { it.isNotBlank() }?.let(config::setTitle)
         while (keys.hasNext()) {
             val key = keys.next()
             if (key == "print_settings_id" || key == "filament_settings_id" || key == "printer_settings_id") {

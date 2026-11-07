@@ -54,6 +54,7 @@ import ru.ytkab0bp.slicebeam.cloud.CloudController
 import ru.ytkab0bp.slicebeam.components.CloudManageDialog
 import ru.ytkab0bp.slicebeam.config.ConfigObject
 import ru.ytkab0bp.slicebeam.config.ProfileConfigSnapshot
+import ru.ytkab0bp.slicebeam.config.QidiXSmart5ProfileBundle
 import ru.ytkab0bp.slicebeam.events.BeamServerDataUpdatedEvent
 import ru.ytkab0bp.slicebeam.events.CloudFeaturesUpdatedEvent
 import ru.ytkab0bp.slicebeam.events.CloudLoginStateUpdatedEvent
@@ -627,6 +628,17 @@ selectedAnycubic.printerModels.add(v2Model) })
 catch (e:Exception) {
 Log.w(TAG, "Failed to load bundled Kobra 3 V2 profile", e)
 }
+}
+try {
+val bundledXSmart5 = QidiXSmart5ProfileBundle.load(assets)
+val qidiVendor = vendorProfiles.firstOrNull { it.vendor?.get("name") == "Qidi" }
+if (qidiVendor == null) {
+    Log.w(TAG, "Qidi profile vendor is missing; built-in X-Smart 5 profiles are not available in setup")
+} else {
+    QidiXSmart5ProfileBundle.mergeInto(qidiVendor, bundledXSmart5)
+}
+} catch (e:Exception) {
+Log.w(TAG, "Failed to load bundled Qidi X-Smart 5 profiles", e)
 }
 }
 ViewUtils.postOnMainThread({ profilesMap.put(repo, vendorProfiles)

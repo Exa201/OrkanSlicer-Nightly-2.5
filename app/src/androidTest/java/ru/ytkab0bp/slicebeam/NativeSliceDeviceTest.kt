@@ -18,6 +18,7 @@ import org.junit.runner.RunWith
 import ru.ytkab0bp.slicebeam.config.ConfigObject
 import ru.ytkab0bp.slicebeam.config.AdaptivePAModelValidator
 import ru.ytkab0bp.slicebeam.config.Kobra3V2ProfileMigration
+import ru.ytkab0bp.slicebeam.config.QidiXSmart5ProfileBundle
 import ru.ytkab0bp.slicebeam.slic3r.GCodeProcessorResult
 import ru.ytkab0bp.slicebeam.slic3r.GCodeViewer
 import ru.ytkab0bp.slicebeam.slic3r.BooleanOperation
@@ -7096,6 +7097,75 @@ class NativeSliceDeviceTest {
             model.release()
             source.delete()
             SliceBeam.getCurrentConfigFile().delete()
+        }
+    }
+
+    @Test(timeout = 120_000)
+    fun qidiXSmart5Orca25ProfileFamilyMergesAndSlicesOnAndroid() {
+        val context = InstrumentationRegistry.getInstrumentation().targetContext
+        val application = context.applicationContext as Application
+        SliceBeam.INSTANCE = application as SliceBeam
+        Prefs.init(application)
+        val previousConfig = SliceBeam.CONFIG
+        val source = copyCube(context, "qidi-xsmart5-orca25-profile-source.stl")
+        val gcodeFile = File(context.cacheDir, "qidi-xsmart5-orca25-profile.gcode")
+        var model: Model? = null
+        var result: GCodeProcessorResult? = null
+        try {
+            context.assets.open("orca_profiles/Qidi.ini").use {
+                SliceBeam.CONFIG = Slic3rConfigWrapper(it)
+            }
+            val config = requireNotNull(SliceBeam.CONFIG)
+            val bundle = QidiXSmart5ProfileBundle.load(context.assets)
+
+            assertEquals("all four X-Smart 5 nozzle profiles are bundled", 4,
+                bundle.printerConfigs.count { it.title?.startsWith("Qidi X-Smart 5 ") == true })
+            assertEquals("all Orca X-Smart 5 print presets are bundled", 19, bundle.printConfigs.size)
+            assertEquals("all Orca X-Smart 5 filament presets and parents are bundled", 248,
+                bundle.filamentConfigs.size)
+            assertTrue("the machine model is part of the bundle", QidiXSmart5ProfileBundle.mergeInto(config, bundle))
+            assertTrue("repeat installation is idempotent", !QidiXSmart5ProfileBundle.mergeInto(config, bundle))
+
+            for (nozzle in listOf("0.2", "0.4", "0.6", "0.8")) {
+                val variant = requireNotNull(config.findPrinter("Qidi X-Smart 5 $nozzle nozzle"))
+                assertEquals("$nozzle-mm variant retains its nozzle", nozzle, variant["nozzle_diameter"])
+                assertNotNull("$nozzle-mm variant resolves its default process",
+                    config.findPrint(variant["default_print_profile"]))
+                assertNotNull("$nozzle-mm variant resolves its default filament",
+                    config.findFilament(variant["default_filament_profile"]))
+            }
+            val printer = requireNotNull(config.findPrinter("Qidi X-Smart 5 0.4 nozzle"))
+            val process = requireNotNull(config.findPrint(printer["default_print_profile"]))
+            val filament = requireNotNull(config.findFilament(printer["default_filament_profile"]))
+            assertEquals("Orca's X-Smart 5 0.4-mm nozzle is retained", "0.4", printer["nozzle_diameter"])
+            assertEquals("Orca's 180-mm square build plate is retained",
+                "0x0,180x0,180x180,0x180", printer["printable_area"]?.replace(" ", ""))
+            assertEquals("Orca's 180-mm build height is retained", "180", printer["printable_height"])
+            assertTrue("the default process is compatible with the selected printer",
+                process["compatible_printers"].orEmpty().split(',').contains(printer.title))
+            config.presets = ConfigObject("presets").apply {
+                put("printer", requireNotNull(printer.title))
+                put("print", requireNotNull(process.title))
+                put("filament", requireNotNull(filament.title))
+            }
+
+            model = Model(source).also { it.ensureOnBed(0) }
+            SliceBeam.genCurrentConfig(model)
+            val generatedConfig = SliceBeam.getCurrentConfigFile()
+            val generatedText = generatedConfig.readText()
+            assertTrue("generated native config selects the X-Smart 5 bed", generatedText.contains("printable_height = 180"))
+            assertTrue("generated native config selects a 0.4-mm nozzle", generatedText.contains("nozzle_diameter = 0.4"))
+            assertTrue("generated native config retains the Qidi start macro", generatedText.contains("BOX_PRINT_START"))
+            result = model.slice(generatedConfig.absolutePath, gcodeFile.absolutePath, null)
+            val gcode = gcodeFile.readText()
+            assertHasExtrusion(gcode)
+        } finally {
+            result?.release()
+            model?.release()
+            source.delete()
+            gcodeFile.delete()
+            SliceBeam.getCurrentConfigFile().delete()
+            SliceBeam.CONFIG = previousConfig
         }
     }
 

@@ -6,6 +6,8 @@ import ru.ytkab0bp.slicebeam.SliceBeam
 import ru.ytkab0bp.slicebeam.config.ConfigObject
 import ru.ytkab0bp.slicebeam.config.Kobra3V2ProfileMigration
 import ru.ytkab0bp.slicebeam.config.ProfileConfigSchemaMigrator
+import ru.ytkab0bp.slicebeam.config.ProfileConfigSnapshot
+import ru.ytkab0bp.slicebeam.config.QidiXSmart5ProfileBundle
 import ru.ytkab0bp.slicebeam.slic3r.Slic3rConfigWrapper
 import ru.ytkab0bp.slicebeam.utils.IOUtils
 import java.io.File
@@ -36,6 +38,7 @@ open class LoadSlic3rConfigTask : BootTask(Runnable {
                 Log.w("LoadSlic3rConfigTask", warning.toString())
             }
             ensureKobra3V2Available()
+            ensureQidiXSmart5Available()
         } catch (e: IOException) {
             throw RuntimeException(e)
         }
@@ -99,6 +102,27 @@ open class LoadSlic3rConfigTask : BootTask(Runnable {
                 }
             } catch (e: Exception) {
                 Log.w("LoadSlic3rConfigTask", "Could not install bundled Kobra 3 V2 profile", e)
+            }
+        }
+
+        private fun ensureQidiXSmart5Available() {
+            val config = SliceBeam.CONFIG ?: return
+            try {
+                val bundled = QidiXSmart5ProfileBundle.load(SliceBeam.requireInstance().assets)
+                val snapshot = ProfileConfigSnapshot(config)
+                if (!QidiXSmart5ProfileBundle.mergeInto(config, bundled)) return
+                if (!SliceBeam.saveConfig()) {
+                    snapshot.restore()
+                    Log.w("LoadSlic3rConfigTask", "Could not save bundled Qidi X-Smart 5 profiles; restored previous configuration")
+                    return
+                }
+                Log.i(
+                    "LoadSlic3rConfigTask",
+                    "Installed Orca 2.5 Qidi X-Smart 5 profile family (${bundled.printerConfigs.size} printers, " +
+                        "${bundled.printConfigs.size} processes, ${bundled.filamentConfigs.size} filaments)"
+                )
+            } catch (error: Exception) {
+                Log.w("LoadSlic3rConfigTask", "Could not install bundled Qidi X-Smart 5 profiles", error)
             }
         }
     }
