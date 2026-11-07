@@ -2133,32 +2133,53 @@ class NativeSliceDeviceTest {
                 SliceBeam.CONFIG = Slic3rConfigWrapper(it)
             }
             val config = requireNotNull(SliceBeam.CONFIG)
-            val supportedNames = setOf(
-                "Flashforge AD5X 0.25 nozzle", "Flashforge AD5X 0.4 nozzle",
-                "Flashforge AD5X 0.6 nozzle", "Flashforge AD5X 0.8 nozzle",
-                "Flashforge Adventurer 3 Series 0.6 Nozzle",
-                "Flashforge Creator 5 0.4 nozzle", "Flashforge Creator 5 0.6 nozzle",
-                "Flashforge Creator 5 0.8 nozzle", "Flashforge Creator 5 Pro 0.4 nozzle",
-                "Flashforge Creator 5 Pro 0.6 nozzle", "Flashforge Creator 5 Pro 0.8 nozzle",
-                "Flashforge Guider4 0.25 nozzle", "Flashforge Guider4 0.4 HF nozzle",
-                "Flashforge Guider4 0.4 nozzle", "Flashforge Guider4 0.6 HF nozzle",
-                "Flashforge Guider4 0.6 nozzle", "Flashforge Guider4 0.8 HF nozzle",
-                "Flashforge Guider4 Pro 0.25 nozzle", "Flashforge Guider4 Pro 0.4 HF nozzle",
-                "Flashforge Guider4 Pro 0.4 nozzle", "Flashforge Guider4 Pro 0.6 HF nozzle",
-                "Flashforge Guider4 Pro 0.6 nozzle", "Flashforge Guider4 Pro 0.8 HF nozzle"
+            val expectedDefaults = mapOf(
+                "Flashforge AD5X 0.25 nozzle" to "0.12mm Standard @FF AD5X 0.25 nozzle",
+                "Flashforge AD5X 0.4 nozzle" to "0.20mm Standard @FF AD5X",
+                "Flashforge AD5X 0.6 nozzle" to "0.30mm Standard @FF AD5X 0.6 nozzle",
+                "Flashforge AD5X 0.8 nozzle" to "0.40mm Standard @FF AD5X 0.8 nozzle",
+                "Flashforge Adventurer 3 Series 0.6 Nozzle" to "0.30mm Standard @Flashforge AD3 0.6 Nozzle",
+                "Flashforge Creator 5 0.4 nozzle" to "0.20mm Standard @FF C5",
+                "Flashforge Creator 5 0.6 nozzle" to "0.30mm Standard @FF C5 0.6 nozzle",
+                "Flashforge Creator 5 0.8 nozzle" to "0.4mm Standard @FF C5 0.8 nozzle",
+                "Flashforge Creator 5 Pro 0.4 nozzle" to "0.20mm Standard @FF C5",
+                "Flashforge Creator 5 Pro 0.6 nozzle" to "0.30mm Standard @FF C5 0.6 nozzle",
+                "Flashforge Creator 5 Pro 0.8 nozzle" to "0.4mm Standard @FF C5 0.8 nozzle",
+                "Flashforge Guider4 0.25 nozzle" to "0.12mm Standard @FF G4 0.25 nozzle",
+                "Flashforge Guider4 0.4 HF nozzle" to "0.20mm Standard @FF G4 HF",
+                "Flashforge Guider4 0.4 nozzle" to "0.20mm Standard @FF G4",
+                "Flashforge Guider4 0.6 HF nozzle" to "0.3mm Standard @FF G4 0.6 HF nozzle",
+                "Flashforge Guider4 0.6 nozzle" to "0.30mm Standard @FF G4 0.6 nozzle",
+                "Flashforge Guider4 0.8 HF nozzle" to "0.40mm Standard @FF G4 0.8 HF nozzle",
+                "Flashforge Guider4 Pro 0.25 nozzle" to "0.12mm Standard @FF G4P 0.25 nozzle",
+                "Flashforge Guider4 Pro 0.4 HF nozzle" to "0.20mm Standard @FF G4P HF",
+                "Flashforge Guider4 Pro 0.4 nozzle" to "0.20mm Standard @FF G4P",
+                "Flashforge Guider4 Pro 0.6 HF nozzle" to "0.3mm Standard @FF G4P 0.6 HF nozzle",
+                "Flashforge Guider4 Pro 0.6 nozzle" to "0.30mm Standard @FF G4P 0.6 nozzle",
+                "Flashforge Guider4 Pro 0.8 HF nozzle" to "0.40mm Standard @FF G4P 0.8 HF nozzle"
             )
+            val supportedNames = expectedDefaults.keys
             val printers = config.printerConfigs.filter { it.title in supportedNames }
             assertEquals("All bundled printer variants must be present", supportedNames.size, printers.size)
             for (printer in printers) {
-                val processName = requireNotNull(printer["default_print_profile"])
-                assertNotNull("${printer.title} default process '$processName' must resolve", config.findPrint(processName))
+                val expectedProcess = expectedDefaults.getValue(printer.title!!)
+                assertEquals("${printer.title} must use its Orca 2.5 nozzle-matched default",
+                    expectedProcess, printer["default_print_profile"])
+                val process = requireNotNull(config.findPrint(expectedProcess))
+                assertTrue("$expectedProcess must be compatible with ${printer.title}",
+                    process["compatible_printers"].orEmpty().split(';').contains(printer.title))
             }
 
             val creator5Pro = printers.filter { it.title.orEmpty().startsWith("Flashforge Creator 5 Pro ") }
             assertEquals(3, creator5Pro.size)
             assertTrue("Creator 5 Pro must leave chamber temperature available to generated start G-code",
                 creator5Pro.all { !it["start_gcode"].orEmpty().contains("M191 S0") })
-            assertEquals("1", creator5Pro.single { it["printer_variant"] == "0.8" }["support_chamber_temp_control"])
+            assertTrue("Every Creator 5 Pro nozzle must expose chamber control",
+                creator5Pro.all { it["support_chamber_temp_control"] == "1" })
+            val creator5EightTenthWideProcess = requireNotNull(config.findPrint("0.32mm Standard @FF C5 0.8 nozzle"))
+            val compatibleWithWideNozzles = creator5EightTenthWideProcess["compatible_printers"].orEmpty().split(';')
+            assertEquals(setOf("Flashforge Creator 5 0.8 nozzle", "Flashforge Creator 5 Pro 0.8 nozzle"),
+                compatibleWithWideNozzles.toSet())
         } finally {
             SliceBeam.CONFIG = previousConfig
         }
