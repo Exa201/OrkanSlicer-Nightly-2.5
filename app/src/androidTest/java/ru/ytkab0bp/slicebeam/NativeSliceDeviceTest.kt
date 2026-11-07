@@ -2922,13 +2922,15 @@ class NativeSliceDeviceTest {
     }
 
     @Test
-    fun treeSupportClearanceIncreasesMinimumGapToSteppedModelCrossSection() = withKobraProfile {
+    fun treeSupportOverhangClearanceUsesReducedMinimumAndExtrusionWidth() = withKobraProfile {
         val context = InstrumentationRegistry.getInstrumentation().targetContext
         val config = requireNotNull(SliceBeam.CONFIG)
         val process = requireNotNull(config.findPrint("0.16mm Standard"))
         process.put("enable_support", "1")
         process.put("support_type", "tree(auto)")
         process.put("support_on_build_plate_only", "1")
+        process.put("support_line_width", "0.4")
+        process.put("outer_wall_line_width", "0.4")
         val modelFile = createSteppedOverhangFixture("orca25-tree-gap-stepped-model.stl")
         val output = File(context.cacheDir, "orca25-tree-gap-stepped-model.gcode")
         val model = Model(modelFile)
@@ -2953,6 +2955,12 @@ class NativeSliceDeviceTest {
             for (clearance in listOf("0.2", "0.8")) {
                 process.put("support_object_xy_distance", clearance)
                 SliceBeam.genCurrentConfig(model)
+                val generatedConfig = SliceBeam.getCurrentConfigFile().readText()
+                assertTrue("support extrusion width must reach native slicing", generatedConfig.contains("support_line_width = 0.4"))
+                assertTrue("the external wall width used for reduced overhang clearance must be controlled",
+                    generatedConfig.contains("outer_wall_line_width = 0.4"))
+                assertTrue("requested XY clearance must reach native slicing",
+                    generatedConfig.contains("support_object_xy_distance = $clearance"))
                 result = model.slice(SliceBeam.getCurrentConfigFile().absolutePath, output.absolutePath, null)
                 val gcode = output.readText()
                 assertHasExtrusion(gcode)
@@ -2963,15 +2971,20 @@ class NativeSliceDeviceTest {
                 }
                 assertTrue("support paths must exist alongside the stem cross-section", supportSegments.isNotEmpty())
                 // The stem is a constant 10 x 10 mm cross-section throughout this Z range.
-                // Measure against its actual rectangular surface at each support segment's
-                // height, and treat paths passing through the solid as zero clearance.
-                val minGap = supportSegments.minOf { support ->
-                    pathSegmentRectangleDistance(support, stemMinX, stemMinY, stemMaxX, stemMaxY)
+                // Measure the deposited bead edge, not only its centerline, against the
+                // exact rectangular stem cross-section. Tree contacts intentionally use the
+                // smaller of object XY distance and half the external-wall width near an
+                // overhang; the fixture fixes that reduced distance at 0.2 mm.
+                val closest = supportSegments.minBy { support ->
+                    pathSegmentRectangleDistance(support, stemMinX, stemMinY, stemMaxX, stemMaxY) - support.width / 2.0
                 }
+                val minGap = pathSegmentRectangleDistance(closest, stemMinX, stemMinY, stemMaxX, stemMaxY) - closest.width / 2.0
+                val reducedOverhangClearance = minOf(clearance.toDouble(), 0.2)
                 assertTrue(
-                    "positive-length support extrusion must not enter the solid stem cross-section " +
-                        "at clearance $clearance mm (minimum centerline gap=$minGap mm)",
-                    minGap > 1e-4,
+                    "extruded support bead must maintain the reduced tree-overhang XY clearance from the solid stem " +
+                        "(clearance=$clearance mm, minimum bead-surface gap=$minGap mm, " +
+                        "lineWidth=${closest.width}, type=${closest.type}, path=${closest.x0},${closest.y0}->${closest.x1},${closest.y1})",
+                    minGap + 0.02 >= reducedOverhangClearance,
                 )
                 minGapsByClearance[clearance] = minGap
                 Log.i("NativeSliceDeviceTest", "tree clearance=$clearance mm minimum support-to-stem cross-section gap=$minGap mm " +
@@ -2981,8 +2994,10 @@ class NativeSliceDeviceTest {
                 output.delete()
                 SliceBeam.getCurrentConfigFile().delete()
             }
-            assertTrue("increasing XY clearance must increase the minimum measured support-to-stem gap: $minGapsByClearance",
-                minGapsByClearance.getValue("0.8") > minGapsByClearance.getValue("0.2") + 0.1)
+            assertEquals(
+                "when both requested clearances exceed half the 0.4 mm external wall, tree support should use the same reduced overhang gap",
+                minGapsByClearance.getValue("0.2"), minGapsByClearance.getValue("0.8"), 0.02,
+            )
         } finally {
             result?.release()
             model.release()
@@ -8072,7 +8087,10 @@ class NativeSliceDeviceTest {
         }
     }
 
-    private data class GCodePathSegment(val x0: Double, val y0: Double, val x1: Double, val y1: Double, val z: Double, val type: String)
+    private data class GCodePathSegment(
+        val x0: Double, val y0: Double, val x1: Double, val y1: Double, val z: Double, val type: String,
+        val width: Double = 0.0,
+    )
 
     private fun supportExtrusionSegments(gcode: String): List<GCodePathSegment> {
         val axisRegex = Regex("(?:^|\\s)([XYZE])(-?(?:\\d+(?:\\.\\d*)?|\\.\\d+))(?=\\s|$)")
@@ -8081,6 +8099,7 @@ class NativeSliceDeviceTest {
         var x: Double? = null
         var y: Double? = null
         var z = 0.0
+        var width = 0.0
         var relativeExtrusion = false
         var activeTool = 0
         val extrusionByTool = HashMap<Int, Double>()
@@ -8093,6 +8112,10 @@ class NativeSliceDeviceTest {
             toolRegex.find(line.trim())?.let { activeTool = it.groupValues[1].toInt() }
             if (line.startsWith(";TYPE:", ignoreCase = true)) {
                 type = line.substringAfter(':').trim().lowercase()
+                continue
+            }
+            if (line.startsWith(";WIDTH:", ignoreCase = true)) {
+                width = line.substringAfter(':').trim().toDoubleOrNull() ?: width
                 continue
             }
             if (!line.startsWith("G0 ") && !line.startsWith("G1 ") && !line.startsWith("G92 ")) continue
@@ -8113,7 +8136,7 @@ class NativeSliceDeviceTest {
                 if (relativeExtrusion) value > 0.0 else value > previous
             } == true
             if (depositing && x != null && y != null && nextX != null && nextY != null) {
-                val segment = GCodePathSegment(x!!, y!!, nextX, nextY, z, type)
+                val segment = GCodePathSegment(x!!, y!!, nextX, nextY, z, type, width)
                 if (type.contains("support")) supports += segment
             }
             x = nextX
