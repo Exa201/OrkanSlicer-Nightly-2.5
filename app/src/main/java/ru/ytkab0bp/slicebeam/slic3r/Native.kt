@@ -38,6 +38,8 @@ class Native {
     @JvmStatic
     external fun bed_exclude_volumes_regression(): DoubleArray
     @JvmStatic
+    external fun bed_exclude_area_validation_regression(): IntArray
+    @JvmStatic
     external fun bed_exclude_arrangement_regression(): DoubleArray
     /** Verifies Orca sequential placement keeps short objects inside the bed and clear. */
     @JvmStatic

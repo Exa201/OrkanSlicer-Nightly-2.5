@@ -1367,6 +1367,14 @@ class NativeSliceDeviceTest {
     }
 
     @Test
+    fun legacyBedExcludeAreaRejectsMalformedPolygonsBeforeArrangement() {
+        assertArrayEquals(
+            intArrayOf(1, 0, 0, 0, 0),
+            Native.bed_exclude_area_validation_regression(),
+        )
+    }
+
+    @Test
     fun bedCollisionVolumesConstrainArrangementOnlyForIntersectingHeightAndNozzle() {
         val actual = Native.bed_exclude_arrangement_regression()
         assertArrayEquals("blocked, Z-disjoint, nozzle-disjoint, nozzle-match: ${actual.contentToString()}",

@@ -6440,6 +6440,27 @@ extern "C" {
         return result;
     }
 
+    JNIEXPORT jintArray JNICALL Java_ru_ytkab0bp_slicebeam_slic3r_Native_bed_1exclude_1area_1validation_1regression(JNIEnv* env, jclass) {
+        using namespace Slic3r;
+        Pointfs valid {{0., 0.}, {20., 0.}, {20., 20.}, {0., 20.}};
+        Pointfs self_intersecting {{0., 0.}, {20., 20.}, {0., 20.}, {20., 0.}};
+        Pointfs duplicate {{0., 0.}, {20., 0.}, {20., 20.}, {20., 0.}};
+        Pointfs non_finite {{0., 0.}, {20., 0.}, {std::numeric_limits<double>::quiet_NaN(), 20.}};
+        PrintConfig config;
+        config.bed_exclude_area.values = self_intersecting;
+        const jint checks[] = {
+            is_valid_bed_exclude_area(valid) ? 1 : 0,
+            is_valid_bed_exclude_area(self_intersecting) ? 1 : 0,
+            is_valid_bed_exclude_area(duplicate) ? 1 : 0,
+            is_valid_bed_exclude_area(non_finite) ? 1 : 0,
+            static_cast<jint>(get_bed_excluded_area(config).size())
+        };
+        jintArray result = env->NewIntArray(5);
+        if (result != nullptr)
+            env->SetIntArrayRegion(result, 0, 5, checks);
+        return result;
+    }
+
     JNIEXPORT jintArray JNICALL Java_ru_ytkab0bp_slicebeam_slic3r_Native_shortest_1path_1exact_1object_1tour_1regression(JNIEnv* env, jclass) {
         const std::vector<int> encoded = Slic3r::shortest_path_exact_object_tour_regression();
         std::vector<jint> values(encoded.begin(), encoded.end());

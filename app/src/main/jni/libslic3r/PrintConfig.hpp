@@ -2079,6 +2079,8 @@ std::vector<std::vector<BedExcludeRegion>> get_bed_excluded_regions_by_extruder(
 std::vector<BedExcludeRegion> get_bed_excluded_regions(const PrintConfig &cfg, size_t extruder_id);
 std::vector<BedExcludeRegion> get_bed_excluded_regions(const PrintConfig &cfg);
 bool is_valid_bed_exclude_volumes_string(const std::string &value, double printable_height);
+// Legacy excluded bed areas must be finite, non-degenerate simple polygons.
+bool is_valid_bed_exclude_area(const Pointfs &points);
 bool has_bed_exclude_volumes(const PrintConfig &cfg);
 BedExcludeVolumeMode active_bed_exclude_volume_mode(const PrintConfig &cfg);
 Slic3r::Polygons get_bed_excluded_area(const PrintConfig& cfg);

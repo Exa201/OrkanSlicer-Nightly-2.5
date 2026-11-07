@@ -2,6 +2,7 @@
 #include "PrintConfigConstants.hpp"
 #include "ClipperUtils.hpp"
 #include "Config.hpp"
+#include "Geometry.hpp"
 #include "MaterialType.hpp"
 #include "I18N.hpp"
 #include "format.hpp"
@@ -52,6 +53,30 @@ void ReplaceString(std::string &resource_str, const std::string &old_str, const 
 }
 
 namespace Slic3r {
+
+bool is_valid_bed_exclude_area(const Pointfs &points)
+{
+    if (points.size() < 3)
+        return false;
+    for (const Vec2d &point : points)
+        if (!std::isfinite(point.x()) || !std::isfinite(point.y()))
+            return false;
+
+    const Polygon polygon = Polygon::new_scale(points);
+    if (has_duplicate_points(polygon) || polygon.area() == 0.)
+        return false;
+
+    const Points &vertices = polygon.points;
+    const size_t count = vertices.size();
+    for (size_t idx = 0; idx + 2 < count; ++idx) {
+        const size_t end = idx == 0 ? count - 1 : count;
+        for (size_t other = idx + 2; other < end; ++other)
+            if (Geometry::segments_intersect(vertices[idx], vertices[idx + 1],
+                                             vertices[other], vertices[(other + 1) % count]))
+                return false;
+    }
+    return true;
+}
 
 //! macro used to mark string used at localization,
 //! return same string
@@ -11760,7 +11785,7 @@ static void append_exclusion_regions(std::vector<BedExcludeRegion> &out,
 static void append_legacy_exclusion_area(std::vector<BedExcludeRegion> &out,
                                          const Pointfs &points, double printable_height)
 {
-    if (points.size() < 3) return;
+    if (!is_valid_bed_exclude_area(points)) return;
     Polygon polygon;
     polygon.points.reserve(points.size());
     for (const Vec2d &point : points)
@@ -11855,6 +11880,9 @@ std::vector<BedExcludeRegion> get_bed_excluded_regions(const PrintConfig &cfg)
 Polygons get_bed_excluded_area(const PrintConfig& cfg)
 {
     const Pointfs exclude_area_points = cfg.bed_exclude_area.values;
+
+    if (!is_valid_bed_exclude_area(exclude_area_points))
+        return {};
 
     Polygon exclude_poly;
     for (int i = 0; i < exclude_area_points.size(); i++) {
