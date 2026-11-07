@@ -2617,6 +2617,45 @@ class NativeSliceDeviceTest {
     }
 
     @Test(timeout = 180_000)
+    fun tallOrganicTreeSupportUsesMovementAwareReinforcementAndKeepsPathsValid() = withKobraProfile {
+        val context = InstrumentationRegistry.getInstrumentation().targetContext
+        val process = requireNotNull(SliceBeam.CONFIG?.findPrint("0.16mm Standard"))
+        process.put("layer_height", "0.2")
+        process.put("initial_layer_print_height", "0.2")
+        process.put("enable_support", "1")
+        process.put("support_type", "tree(auto)")
+        process.put("support_on_build_plate_only", "1")
+        process.put("support_style", "tree_hybrid")
+        process.put("tree_support_wall_count", "0")
+        process.put("support_interface_top_layers", "0")
+        process.put("support_interface_bottom_layers", "0")
+        val modelFile = createTallStemCapFixture("orca25-tree-movement-aware-reinforcement.stl", 101.0)
+        val output = File(context.cacheDir, "orca25-tree-movement-aware-reinforcement.gcode")
+        val model = Model(modelFile)
+        var result: GCodeProcessorResult? = null
+        try {
+            model.ensureOnBed(0)
+            SliceBeam.genCurrentConfig(model)
+            result = model.slice(SliceBeam.getCurrentConfigFile().absolutePath, output.absolutePath, null)
+            val gcode = output.readText()
+            assertHasExtrusion(gcode)
+            val support = supportExtrusionSegments(gcode)
+            assertTrue("a 101 mm tree support must retain executable support toolpaths", support.isNotEmpty())
+            assertTrue("the tall fixture must exercise support immediately below its cap",
+                support.any { it.z in 99.5..100.9 })
+            assertTrue("generated support paths must contain no non-finite coordinates",
+                support.all { listOf(it.x0, it.y0, it.x1, it.y1, it.z).all(Double::isFinite) })
+            Log.i("NativeSliceDeviceTest", "PASS movement-aware tall organic tree support segments=${support.size}")
+        } finally {
+            result?.release()
+            model.release()
+            modelFile.delete()
+            output.delete()
+            SliceBeam.getCurrentConfigFile().delete()
+        }
+    }
+
+    @Test(timeout = 180_000)
     fun treeSupportBottomContactCachePreservesInterfaceToolpaths() = withKobraProfile {
         val context = InstrumentationRegistry.getInstrumentation().targetContext
         val process = requireNotNull(SliceBeam.CONFIG?.findPrint("0.16mm Standard"))
@@ -8351,6 +8390,35 @@ class NativeSliceDeviceTest {
         box(-4.0, -4.0, 2.0, 4.0, 4.0, 17.0)
         box(-25.0, -25.0, 16.0, 25.0, 25.0, 19.0)
         stl.append("endsolid tree_bottom_contact_tiers\n")
+        target.writeText(stl.toString())
+        return target
+    }
+
+    /** Tall stem plus a broad cap: the upper ledge exercises the former blanket >100 mm wall rule. */
+    private fun createTallStemCapFixture(name: String, stemHeight: Double): File {
+        val target = File(InstrumentationRegistry.getInstrumentation().targetContext.cacheDir, name)
+        data class P(val x: Double, val y: Double, val z: Double)
+        val stl = StringBuilder("solid tree_tall_stem_cap\n")
+        fun triangle(a: P, b: P, c: P) {
+            stl.append("facet normal 0 0 0\nouter loop\n")
+            listOf(a, b, c).forEach { stl.append("vertex ${it.x} ${it.y} ${it.z}\n") }
+            stl.append("endloop\nendfacet\n")
+        }
+        fun box(x0: Double, y0: Double, z0: Double, x1: Double, y1: Double, z1: Double) {
+            val p = listOf(
+                P(x0, y0, z0), P(x1, y0, z0), P(x1, y1, z0), P(x0, y1, z0),
+                P(x0, y0, z1), P(x1, y0, z1), P(x1, y1, z1), P(x0, y1, z1),
+            )
+            val faces = arrayOf(
+                intArrayOf(0, 2, 1), intArrayOf(0, 3, 2), intArrayOf(4, 5, 6), intArrayOf(4, 6, 7),
+                intArrayOf(0, 1, 5), intArrayOf(0, 5, 4), intArrayOf(1, 2, 6), intArrayOf(1, 6, 5),
+                intArrayOf(2, 3, 7), intArrayOf(2, 7, 6), intArrayOf(3, 0, 4), intArrayOf(3, 4, 7),
+            )
+            faces.forEach { face -> triangle(p[face[0]], p[face[1]], p[face[2]]) }
+        }
+        box(-4.0, -4.0, 0.0, 4.0, 4.0, stemHeight)
+        box(-16.0, -16.0, stemHeight, 16.0, 16.0, stemHeight + 3.0)
+        stl.append("endsolid tree_tall_stem_cap\n")
         target.writeText(stl.toString())
         return target
     }
