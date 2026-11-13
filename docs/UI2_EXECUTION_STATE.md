@@ -113,6 +113,22 @@ The earlier mixed-worktree changes remain backed up separately; this follow-up p
   `git diff --check` sauber. Batch 16 steht bei 3/10; nächster Schritt ist ein weiterer
   Android-relevanter Orca-Kernfehler mit echter G-Code- oder Geometrieregression.
 
+## Nightly Batch 16 — Punkt 4/10 — Untere Support-Schnittstellen bei gerundeten synchronisierten Layer-Gaps — 2026-11-13
+
+- Portiert Orca `17431f363a`: beim Entfernen von Modellüberschneidungen wird ein
+  `BottomContact` ab seiner tatsächlichen Unterkante geprüft. Die vorherige allgemeine
+  `bottom_print_z - gap_extra_below`-Schwelle konnte bei synchronisierten Layerhöhen eine
+  untere Support-Schnittstelle abschneiden.
+- Das Android-Tree-Support-Regressionsszenario
+  `NativeSliceDeviceTest#treeSupportBottomContactCachePreservesInterfaceToolpaths` bestand auf
+  API 36 (1/1); ARM64 SliceTest-Instrumentierungs-APK ließ sich bauen. Der Upstream-Fix selbst
+  deckt normalen Support mit einer variablen Layerhöhen-Fixture ab. Ein erster Android-Testversuch
+  mit einer anders aufgebauten Baumstützen-Fixture reproduzierte den Upstream-Fall nicht und wurde
+  entfernt, damit er keine falsche Regression behauptet. Der spezifische variable Layerhöhenfall
+  ist auf Android daher noch nicht direkt instrumentiert.
+- `git diff --check` sauber. Batch 16 steht bei 4/10; nächster Schritt: passenden Orca-2.5-
+  Geometrie-/Slicing-Fix mit verlässlichem Android-Fixturepfad auswählen.
+
 # Nightly execution state — 2026-11-07
 
 - **Batch 15, Punkt 7/10 — Qidi X-Smart 5 aus Orca 2.5:** eingebettetes Offline-Profilpaket (`1433316b55`) für vier Düsen, 17 Prozesse plus zwei gemeinsame Prozessprofile, 247 Filamente plus ein Vererbungsprofil. Import ist im Setup sichtbar und ergänzt bestehende Nightly-Konfigurationen idempotent, auch wenn nur Teilprofile vorhanden sind. `IOUtils.configJsonToIni` bewahrt die lesbaren Orca-Profilnamen. `NativeSliceDeviceTest#qidiXSmart5Orca25ProfileFamilyMergesAndSlicesOnAndroid` bestand auf API 36 (1/1): Profilzahlen, Drucker-/Prozess-/Filament-Defaults, Kompatibilität, 180-mm-Bett und -Höhe, Wiederholungsimport sowie echter ARM64-Testwürfel-Slice mit Extrusion. `:app:testDebugUnitTest` erfolgreich. Keine physische Qidi-Hardware und kein realer Druck getestet. Batch 15 jetzt 7/10; nächster Schritt: den nächsten geeigneten Orca-2.5-Commit gegen den Android-Aufrufpfad prüfen und gezielt portieren; APK/Release erst nach 10/10.
