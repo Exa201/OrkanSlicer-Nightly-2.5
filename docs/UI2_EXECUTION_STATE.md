@@ -1,13 +1,13 @@
 # Nightly execution state — 2026-11-13
 
-## Nightly Batch 15 — 10/10 functional points isolated for release candidate
+## Nightly Batch 15 — 10/10 functional points; code committed, APK verified; GitHub release upload blocked
 
 - Release source branch: `codex/nightly-batch15-release`, starting at remote `5f640f2ad36e6bd56c97757d3717024b8d9f8e58`.
 - Orca `d7534d7fb9`: per-extruder printable-area intersections safely handle overlap, touching, disjoint and unrestricted polygons; placement falls back to full bed when extruders have no shared area, while prime-tower validation rejects an unprintable shared footprint. The native regression covers nine cases.
 - Orca `2c50d15451`: Type-2 toolchanger wipe towers skip a final purge when the tower ends below the final model layer; SEMM behavior is left as upstream.
 - API 36 focused results: printable-area regression 1/1; short Type-2 toolchanger tower G-code regression 1/1. A separate SEMM fixture was inconclusive and is not counted.
 - Full Debug and SliceTest JVM suites: 772/772 each. The original mixed worktree was backed up separately; this candidate includes only these two batch implementations, their native/device regressions and this state entry.
-- Next step: run clean-worktree suites, focused instrumented tests, build/install/start APK, inspect logcat, then commit/push and publish Batch 15 prerelease if all gates pass.
+- Clean-worktree suites passed (Debug and SliceTest 764/764 each); both focused API-36 regressions passed; ARM64 SliceTest APK built, installed and launched without fatal/JNI errors. Commit `81f494054c` is pushed to `codex/nightly-batch15-release`. Pre-release upload is pending because `gh auth status` reports no authenticated GitHub host and this session has no token. Next: publish the verified APK when GitHub authentication is available; continue external-spool/TBB/UI backlog from the backed-up mixed worktree.
 
 The external-spool, TBB initialization, UI, scaling and upload changes from the original mixed worktree are backed up and remain outside this Batch 15 release candidate.# Nightly execution state — 2026-11-07
 
@@ -4561,5 +4561,3 @@ Phase 4 — workspace overlay migration is continuing. The model context menu an
 - Nightly-Release `v0.8.449-nightly.1`: https://github.com/Exa201/OrkanSlicer-Nightly-2.5/releases/tag/v0.8.449-nightly.1. APK `OrkanSlicerNightly25_9f1d744836.apk`, 230,250,410 Byte, SHA-256 `9f088cce47a7b0509fd74a3547816354a97c1f2925d513044913d54560004882`; `apksigner verify` erfolgreich. APK auf dem API-36-Emulator installiert und `MainActivity` gestartet; kein FATAL EXCEPTION, ANR, fatal signal oder OOM in den geprüften Logs.
 - Quell-/Version-Commit `9f1d744836`; Release-Assets auf GitHub stimmen im SHA-256-Digest mit der lokalen APK überein. Release-Aufbewahrung: v0.8.445 bis v0.8.449 sind die fünf neuesten; v0.8.444 samt Tag wurde entfernt.
 - Noch offen: Xiaomi-Hardwareprüfung und der Batch-13-Punkt 10. Der Emulatornachweis schließt einen Xiaomi-Gerätetest nicht ein.
-
-
