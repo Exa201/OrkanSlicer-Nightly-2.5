@@ -34,6 +34,24 @@ The earlier mixed-worktree changes remain backed up separately; this follow-up p
   was made. Next: validate actual `filament_hub` fields from Kobra firmware and continue the next
   pinned Orca 2.5 parity candidate.
 
+### Follow-up verification — 2026-11-13
+
+- The Rinkhals Kobra 3 report documents the explicit external-spool state as `ext_spool=1`,
+  `ext_spool_status=ready`, with `filament_hubs=null`; it also identifies ACE initialization from
+  `T0` and `.acm` metadata as a firmware-side failure mode. Nightly uploads one rewritten G-code
+  file and does not create/upload an `.acm` sidecar. The existing processor removes ACE tool
+  selectors and ACE mapping metadata only in the explicitly-ready, one-tool external route, while
+  preserving material/color, heater commands and comments. Source: https://github.com/rinkhals-community/Rinkhals/issues/3.
+- Rebuilt current HEAD `9930702f41690c7910268a1bd1f3a49e5697d163`: focused external-spool/routing
+  JVM tests 16/16; `:app:assembleDebug` successful. APK `OrkanSlicerNightly25_9930702f41.apk`,
+  241,462,271 bytes, SHA-256 `b26dda12e7f056b6d12cceb7f73f34936d4b1af09d5f2bcbde60bfc8b1b45df6`.
+- Installed and launched the APK on the Android 16 API-36 emulator; process remained alive and
+  inspected 4,000-line Logcat sample had no fatal exception, fatal signal, ANR, OOM or SIGSEGV.
+  No physical Xiaomi or Kobra printer was attached, so the actual firmware print path is not
+  hardware-verified. GitHub release remains blocked: `gh auth status` reports no authenticated
+  host. The next concrete step is API-36 Kobra external-spool upload fixture coverage, then continue
+  the Orca parity backlog; do not claim an actual printer print test.
+
 # Nightly execution state — 2026-11-07
 
 - **Batch 15, Punkt 7/10 — Qidi X-Smart 5 aus Orca 2.5:** eingebettetes Offline-Profilpaket (`1433316b55`) für vier Düsen, 17 Prozesse plus zwei gemeinsame Prozessprofile, 247 Filamente plus ein Vererbungsprofil. Import ist im Setup sichtbar und ergänzt bestehende Nightly-Konfigurationen idempotent, auch wenn nur Teilprofile vorhanden sind. `IOUtils.configJsonToIni` bewahrt die lesbaren Orca-Profilnamen. `NativeSliceDeviceTest#qidiXSmart5Orca25ProfileFamilyMergesAndSlicesOnAndroid` bestand auf API 36 (1/1): Profilzahlen, Drucker-/Prozess-/Filament-Defaults, Kompatibilität, 180-mm-Bett und -Höhe, Wiederholungsimport sowie echter ARM64-Testwürfel-Slice mit Extrusion. `:app:testDebugUnitTest` erfolgreich. Keine physische Qidi-Hardware und kein realer Druck getestet. Batch 15 jetzt 7/10; nächster Schritt: den nächsten geeigneten Orca-2.5-Commit gegen den Android-Aufrufpfad prüfen und gezielt portieren; APK/Release erst nach 10/10.
