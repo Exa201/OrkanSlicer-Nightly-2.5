@@ -1112,7 +1112,8 @@ static void add_cut_volume(TriangleMesh& mesh, ModelObject* object, const ModelV
     vol->config.assign_config(src_volume->config);
     assert(vol->config.id().valid());
     assert(vol->config.id() != src_volume->config.id());
-    vol->set_material(src_volume->material_id(), *src_volume->material());
+    // Keep the existing shared material entry; cloning its value here would replace it.
+    vol->set_material_id(src_volume->material_id());
     vol->cut_info = src_volume->cut_info;
 }
 
@@ -1959,7 +1960,11 @@ void ModelObject::convert_units(ModelObjectPtrs& new_objects, ConversionType con
             vol->config.assign_config(volume->config);
             assert(vol->config.id().valid());
             assert(vol->config.id() != volume->config.id());
-            vol->set_material(volume->material_id(), *volume->material());
+            // The clone is detached while it is rebuilt. Temporarily associate it with the
+            // source model so set_material_id() can retain the existing shared material entry.
+            new_object->set_model(this->get_model());
+            vol->set_material_id(volume->material_id());
+            new_object->set_model(nullptr);
             vol->source.input_file = volume->source.input_file;
             vol->source.object_idx = (int)new_objects.size();
             vol->source.volume_idx = vol_idx;
@@ -2608,13 +2613,6 @@ void ModelVolume::set_material_id(t_model_material_id material_id)
 ModelMaterial* ModelVolume::material() const
 {
     return this->object->get_model()->get_material(m_material_id);
-}
-
-void ModelVolume::set_material(t_model_material_id material_id, const ModelMaterial &material)
-{
-    m_material_id = material_id;
-    if (! material_id.empty())
-        this->object->get_model()->add_material(material_id, material);
 }
 
 // Extract the current extruder ID based on this ModelVolume's config and the parent ModelObject's config.

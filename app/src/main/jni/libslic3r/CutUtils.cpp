@@ -9,6 +9,10 @@
 
 #include <boost/log/trivial.hpp>
 
+#include <algorithm>
+#include <string>
+#include <vector>
+
 namespace Slic3r {
 
 using namespace Geometry;
@@ -56,7 +60,9 @@ static void add_cut_volume(TriangleMesh& mesh, ModelObject* object, const ModelV
     vol->config.assign_config(src_volume->config);
     assert(vol->config.id().valid());
     assert(vol->config.id() != src_volume->config.id());
-    vol->set_material(src_volume->material_id(), *src_volume->material());
+    // The cut result resolves this id against the source model's material table. Copying the
+    // material here would replace that shared entry while cut pieces are still being created.
+    vol->set_material_id(src_volume->material_id());
     vol->cut_info = src_volume->cut_info;
 }
 
@@ -423,30 +429,90 @@ static void distribute_modifiers_from_object(ModelObject* from_obj, const int in
         }
 }
 
+// Values that affect the resulting part's slicing/material identity. A volume inherits its
+// object's options, so explicit volume values override those inherited values.
+static std::string part_group_key(const ModelVolume& volume)
+{
+    std::string key = std::to_string(std::max(1, volume.extruder_id())) + "|";
+    const std::string material_id = volume.material_id();
+    key += std::to_string(material_id.size()) + ":" + material_id + "|";
+
+    const ModelObject& object = *volume.get_object();
+    t_config_option_keys option_keys = object.config.keys();
+    for (const std::string& option_key : volume.config.keys())
+        if (!object.config.has(option_key))
+            option_keys.push_back(option_key);
+    std::sort(option_keys.begin(), option_keys.end());
+    for (const std::string& option_key : option_keys) {
+        if (option_key == "extruder")
+            continue;
+        const std::string value = volume.config.has(option_key)
+            ? volume.config.opt_serialize(option_key)
+            : object.config.opt_serialize(option_key);
+        key += option_key + "=" + std::to_string(value.size()) + ":" + value + ";";
+    }
+    return key;
+}
+
 static void merge_solid_parts_inside_object(ModelObjectPtrs& objects)
 {
-    for (ModelObject* mo : objects) {
+    struct Group {
+        std::string key;
         TriangleMesh mesh;
-        // Merge all SolidPart but not Connectors
-        for (const ModelVolume* mv : mo->volumes) {
-            if (mv->is_model_part() && !mv->is_cut_connector()) {
-                TriangleMesh m = mv->mesh();
-                m.transform(mv->get_matrix());
-                mesh.merge(m);
+        const ModelVolume* representative = nullptr;
+    };
+
+    for (ModelObject* mo : objects) {
+        std::vector<ModelVolume*> originals;
+        std::vector<Group> groups;
+        for (ModelVolume* volume : mo->volumes) {
+            if (!volume->is_model_part() || volume->is_cut_connector())
+                continue;
+            originals.push_back(volume);
+            const std::string key = part_group_key(*volume);
+            auto group = std::find_if(groups.begin(), groups.end(), [&key](const Group& item) { return item.key == key; });
+            if (group == groups.end()) {
+                groups.push_back({key, TriangleMesh(), volume});
+                group = groups.end() - 1;
             }
+            TriangleMesh mesh = volume->mesh();
+            mesh.transform(volume->get_matrix());
+            group->mesh.merge(mesh);
         }
-        if (!mesh.empty()) {
-            ModelVolume* new_volume = mo->add_volume(mesh);
-            new_volume->name = mo->name;
-            // Delete all merged SolidPart but not Connectors
-            for (int i = int(mo->volumes.size()) - 2; i >= 0; --i) {
-                const ModelVolume* mv = mo->volumes[i];
-                if (mv->is_model_part() && !mv->is_cut_connector())
-                    mo->delete_volume(i);
+
+        bool created = false;
+        for (Group& group : groups) {
+            if (group.mesh.empty())
+                continue;
+            ModelVolume* merged = mo->add_volume(std::move(group.mesh));
+            if (!created) {
+                merged->name = mo->name;
+            } else {
+                const auto name_taken = [mo](const std::string& name) {
+                    return std::any_of(mo->volumes.begin(), mo->volumes.end(), [&name](const ModelVolume* volume) {
+                        return volume->name == name;
+                    });
+                };
+                int suffix = 2;
+                std::string name;
+                do {
+                    name = mo->name + "_" + std::to_string(suffix++);
+                } while (name_taken(name));
+                merged->name = name;
             }
-            // Ensuring that volumes start with solid parts for proper slicing
-            mo->sort_volumes(true);
+            // A new volume needs a fresh config identity, but must retain the group's values.
+            merged->config.assign_config(group.representative->config);
+            merged->set_material_id(group.representative->material_id());
+            created = true;
         }
+        if (!created)
+            continue;
+
+        for (size_t i = mo->volumes.size(); i > 0; --i) {
+            if (std::find(originals.begin(), originals.end(), mo->volumes[i - 1]) != originals.end())
+                mo->delete_volume(i - 1);
+        }
+        mo->sort_volumes(true);
     }
 }
 

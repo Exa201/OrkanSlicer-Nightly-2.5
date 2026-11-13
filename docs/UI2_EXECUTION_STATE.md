@@ -52,6 +52,28 @@ The earlier mixed-worktree changes remain backed up separately; this follow-up p
   host. The next concrete step is API-36 Kobra external-spool upload fixture coverage, then continue
   the Orca parity backlog; do not claim an actual printer print test.
 
+## Nightly Batch 16 — Punkt 1/10 — Orca cut parts keep filament identity — 2026-11-13
+
+- Ported Orca `97ee8d9197`'s cut-part merge behavior into the Android native engine. Solid cut
+  volumes are merged only when their effective extruder, model material ID, and effective
+  per-part slicing configuration match. Different identities remain separate printable parts with
+  deterministic names; connectors and modifiers retain their own handling.
+- Cut-volume creation now carries the existing model material ID instead of replacing a shared
+  material-table entry with a copied value. Unit conversion does the same while associating the
+  detached clone with its source model. The slicer safely ignores volumes whose material ID
+  cannot be resolved instead of dereferencing a null material.
+- Added `CutColorPreservationDeviceTest`: on API 36 the model test creates two differently assigned
+  parts, combines them as one object, adds a dowel, performs a planar cut, and verifies both result
+  halves retain filaments 1 and 2. The end-to-end test then slices the cut model and verifies that
+  the emitted G-code selects both T0 and T1. Both instrumentation tests passed: 2/2.
+- ARM64 native SliceTest and Android instrumentation APK build succeeded; full Debug JVM and
+  SliceTest JVM suites each passed 771/771, 0 failures/skips. `git diff --check` clean. The slice
+  test verifies generated tool commands, not a physical printer output.
+- Batch 16 stands at 1/10. Next: select another Android-reachable Orca 2.5 behavior with a native
+  or slice regression. Do not build/publish a release until
+  Batch 16 reaches 10/10. GitHub release upload remains unavailable because no authenticated
+  release API/CLI session is configured.
+
 # Nightly execution state — 2026-11-07
 
 - **Batch 15, Punkt 7/10 — Qidi X-Smart 5 aus Orca 2.5:** eingebettetes Offline-Profilpaket (`1433316b55`) für vier Düsen, 17 Prozesse plus zwei gemeinsame Prozessprofile, 247 Filamente plus ein Vererbungsprofil. Import ist im Setup sichtbar und ergänzt bestehende Nightly-Konfigurationen idempotent, auch wenn nur Teilprofile vorhanden sind. `IOUtils.configJsonToIni` bewahrt die lesbaren Orca-Profilnamen. `NativeSliceDeviceTest#qidiXSmart5Orca25ProfileFamilyMergesAndSlicesOnAndroid` bestand auf API 36 (1/1): Profilzahlen, Drucker-/Prozess-/Filament-Defaults, Kompatibilität, 180-mm-Bett und -Höhe, Wiederholungsimport sowie echter ARM64-Testwürfel-Slice mit Extrusion. `:app:testDebugUnitTest` erfolgreich. Keine physische Qidi-Hardware und kein realer Druck getestet. Batch 15 jetzt 7/10; nächster Schritt: den nächsten geeigneten Orca-2.5-Commit gegen den Android-Aufrufpfad prüfen und gezielt portieren; APK/Release erst nach 10/10.
