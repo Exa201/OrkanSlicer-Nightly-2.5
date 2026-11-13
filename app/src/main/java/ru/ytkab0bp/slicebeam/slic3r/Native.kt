@@ -115,6 +115,8 @@ class Native {
     /** Checks that solid Spiral Inset keeps the Arachne wall paths used by top surfaces. */
     @JvmStatic
     external fun spiral_inset_solid_regression(): IntArray
+    @JvmStatic
+    external fun cut_preserves_part_filaments_regression(): IntArray
     /** Verifies that opened Lightning overhang samples are included in the update-grid bounds. */
     @JvmStatic
     external fun lightning_distance_field_bounds_probe(): IntArray

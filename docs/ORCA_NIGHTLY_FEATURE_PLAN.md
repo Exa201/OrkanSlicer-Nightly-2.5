@@ -1,6 +1,7 @@
-# Aktueller Stand — Nightly 0.8.454; Batch 16: 2/10 verifiziert — 2026-11-13
+# Aktueller Stand — Nightly 0.8.454; Batch 16: 3/10 verifiziert — 2026-11-13
 
 Batch 15 ist funktional mit 10/10 geprüften Punkten abgeschlossen und im Nightly `v0.8.454-nightly.1` veröffentlicht. Der geprüfte Release umfasst zusätzlich den Merge der veröffentlichten 0.8.453-Linie, damit deren Fixes zusammen mit dem neueren Nightly erhalten bleiben. Debug-/SliceTest-Unit jeweils 775/775 und drei gezielte API-36-Instrumentierungstests bestanden. Texture-Displacement-Persistenz bleibt ungezählt, da der produktive Bake-/Abbruch-/Undo-Pfad fehlt. Als Nächstes folgt Batch 16 nach erneutem Abgleich mit dem OrcaSlicer-Upstream.
+Aktueller Batch 16: **3/10**. Punkt 3 portiert Orca `97ee8d9197`: Dovetail-Schnitte gruppieren Volumen nach effektivem Filament, Material und Prozess-Overrides statt unterschiedliche Teile zu verschmelzen. Die API-36-Instrumentierung prüft echte Groove-Schnitte, beide Schnittseiten, identische Einstellungen und Einheitenkonvertierung (1/1). Debug- und SliceTest-Unit jeweils 775/775 bestanden. ARM64-SliceTest-APK-Build erfolgreich; APK/Release erst nach den verbleibenden sieben verifizierten Punkten.
 
 
 ### Batch 16, Punkt 1/10 — relative E und Layer-Cooling-Geschwindigkeiten
@@ -15,7 +16,7 @@ Verifikation: `:app:assembleSliceTestAndroidTest` erfolgreich; der Laufzeittest 
 
 Zusätzlicher geprüfter Kandidat Orca `18ac48ed96` wurde nach einem x64-Hostbenchmark **nicht übernommen**: bei 20.000 gleichzeitig aktiven, nicht kreuzenden Rechtecken waren sieben Läufe mit Orcas Sortier-Skip 56.401 ms gegenüber 56.388 ms ohne Patch; die Polygonzahl und Fläche stimmten in beiden Varianten überein. Der getestete Fall zeigt damit keinen messbaren Nutzen, also wurde der Clipper2-Port wieder entfernt.
 
-Batch 16 steht bei **2/10**. Nächster konkreter Schritt: Orca-Upstream ab `36815b4f03` nach einem weiteren, noch nicht portierten und aktiv Android-erreichbaren Verhalten durchsuchen. Kein APK/Release vor 10/10.
+Batch 16 steht bei **3/10**. Punkt 3 portiert Orca `97ee8d9197` und schützt Material-/Filament-Identität bei Dovetail-Schnitten; API-36-Gerätetest 1/1, beide Unit-Suiten je 775/775. Nächster Schritt: weitere Android-erreichbare Orca-Änderung ab `97ee8d9197` identifizieren und regressionsprüfen. Kein APK/Release vor 10/10.
 
 ### Batch 15, Punkt 8/10 — Prime-Tower-Neuberechnung bei wiederverwendetem Print
 

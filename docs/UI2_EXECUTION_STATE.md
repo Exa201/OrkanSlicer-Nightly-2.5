@@ -2,13 +2,16 @@
 
 ## Fortsetzung — Orca Nightly Batch 16 — 2026-11-13
 
-- Arbeitszweig: `codex/nightly-batch11-next`, Ausgangs-HEAD `d3a68bddb31c552e299f5eafd2aba2a198c8d046`; Nightly 0.8.454 bleibt der letzte veröffentlichte Build. In diesem Schritt wurde keine APK oder Release erstellt.
-- Batch 16 steht bei **2/10**: Punkt 1 relative E / Layer-Cooling und Punkt 2 Orca `97bf1f4d1d` (Nahtmarker für überhängende Außenwände).
-- Punkt 2 portiert `OUTER_OVERHANG_WALL` vom nativen Generator bis zum G-Code-Prozessor und File-Reopen-Pfad. `NativeSliceDeviceTest#overhangingOuterWallsKeepTheirSeamMarkersInGeneratedAndReopenedGcode` bestand auf Android 16/API 36 (1/1); es prüft G-Code-Tag, unveränderte Markerzahl nach erneutem Öffnen und weniger Marker, wenn die Tags entfernt werden. Das erste Fixture wurde wegen ungültiger 0,4-mm-Schichthöhe von Orca abgewiesen; nach Korrektur auf 0,2 mm deckte der Lauf außerdem auf, dass ein globaler Austausch aller „Overhang wall“-Rollen auch nicht markierte Wände verändert und darum kein gültiger Referenzvergleich war. Der Test prüft jetzt den tatsächlichen Tag-Effekt.
-- `:app:assembleSliceTestAndroidTest` erfolgreich; Laufzeittest direkt über Android Instrumentation auf `emulator-5554` (Android 16/API 36, x86_64 mit `libndk_translation.so`) erfolgreich. Der erste Gradle-Connected-Aufruf wartete ohne Instrumentierungsausgabe; nach manuellem APK-Installieren und `am instrument` wurde der Test ausgeführt. `git diff --check` sauber. Orca `18ac48ed96` bleibt nach neutralem x64-Hostbenchmark verworfen (20.000 Rechtecke, 7 Läufe: 56.401 ms gepatcht / 56.388 ms Baseline; gleiche Geometrie).
-- Nächster konkreter Schritt: Orca-Upstream ab `36815b4f03` nach einem weiteren, noch nicht portierten und aktiv Android-erreichbaren G-Code-/Modellverhalten durchsuchen. Kein Druckstart; APK/Release erst nach zehn nachgewiesenen Punkten.
-- Letzter veröffentlichter Code-Commit: `1d35cffb585f0bc67f26f87e6c45cb3ab51e1c4e`; aktueller uncommitteter Seam-Port stammt auf dem Nightly-Arbeitszweig aus `d3a68bddb31c552e299f5eafd2aba2a198c8d046` plus lokalen Änderungen.
-
+- Arbeitszweig `codex/nightly-batch11-next`, letzter Commit `f68d974c2a356b0db7d02ac578282216799b504c`; Nightly 0.8.454 bleibt der letzte veröffentlichte Build. Keine APK oder Release erstellt.
+- Batch 16 steht bei **3/10**: Punkt 1 relative E / Layer-Cooling, Punkt 2 Nahtmarker überhängender Außenwände, Punkt 3 Material-/Filamentidentität beim Dovetail-Schnitt.
+- Punkt 2 portiert Orca `97bf1f4d1d`: `OUTER_OVERHANG_WALL` wird vom nativen Generator bis zum G-Code-Prozessor und Datei-Reopen weitergegeben. `NativeSliceDeviceTest#overhangingOuterWallsKeepTheirSeamMarkersInGeneratedAndReopenedGcode` bestand auf Android 16/API 36 (1/1).
+- Punkt 3 portiert Orca `97ee8d9197`: Dovetail-Schnitte gruppieren Volumen nach effektivem Filament, Material-ID und Prozess-Overrides, statt unterschiedliche Teilidentitäten zu verschmelzen. Material-IDs werden ohne gefährliches Überschreiben der gemeinsamen Quell-Materialtabelle weitergereicht; materiallose Ergebnisse werden beim Slicing null-sicher behandelt; `convert_units()` bewahrt Material-IDs ohne Zugriff auf ein abgetrenntes Model.
+- `NativeSliceDeviceTest#dovetailCutPreservesPerPartFilamentAndMaterialIdentity` bestand auf Android 16/API 36 (1/1): echter Groove-Schnitt, T1/T2 und beide Material-IDs auf beiden Seiten, Zusammenführung gleicher effektiver Einstellungen und Material-ID-Rundlauf bei Einheitenkonvertierung.
+- Debug-Unit **775/775**, SliceTest-Unit **775/775**. `:app:assembleSliceTest` und `:app:assembleSliceTestAndroidTest` erfolgreich; `git diff --check` sauber. Der erste Emulatorlauf deckte einen fehlenden Companion-JNI-Alias auf; korrigiert und der finale Lauf bestanden.
+- Der erste Paketlauf mit Gradle-Heap 2 GiB scheiterte beim APK-Schreiben an `OutOfMemoryError`. Mit `org.gradle.jvmargs=-Xmx6144m` gelang der ARM64-Testbuild auf dem Host mit rund 32 GiB RAM / 15 GiB frei.
+- Orca `18ac48ed96` bleibt nach neutralem x64-Hostbenchmark verworfen (20.000 Rechtecke, 7 Läufe: 56.401 ms gepatcht / 56.388 ms Baseline; gleiche Geometrie).
+- Nächster Schritt: Orca-Upstream ab `36815b4f03` nach einem weiteren noch nicht portierten, aktiv Android-erreichbaren Verhalten durchsuchen. Sieben verifizierte Punkte bis zum Batch-Release-Gate; kein Druckstart.
+- Letzter veröffentlichter Code-Commit: `1d35cffb585f0bc67f26f87e6c45cb3ab51e1c4e`; Punkt-3-Änderungen sind noch nicht committed.
 ## Aktueller Stand — Nightly 0.8.454 veröffentlicht
 
 - Korrigierte Release-Ursache: Das 0.8.452-APK heißt `OrkanSlicerNightly25_e1d1af639a.apk` und wurde aus Commit `e1d1af639a` gebaut, aber Git-Tag `v0.8.452-nightly.1` zeigte auf `efbd829eea`. Diese beiden Quellenlinien waren am Commit `3768f892b5` auseinander gelaufen. 0.8.453 wurde aus `614d44b4b0` gebaut, ohne den tatsächlichen 452-APK-Commit als Vorfahren. Damit fehlten Fixes, die Nutzer in der 452-APK hatten, unter anderem `65358403f3` zum Arrange-/Fill-Ergebnis nach Plattenänderung. Der Tag-zu-Tag-Diff allein zeigte diese Abweichung nicht.
@@ -18,7 +21,7 @@
 - Release-Retention gemäß Nutzerwunsch bereinigt: die fünf jüngsten Nightly-Releases bleiben vorhanden. Ein physisches Xiaomi/HONOR-Gerät war für diese Abnahme nicht per ADB verbunden; Drucker-/ACE-Firmwareverhalten bleibt daher auf echter Hardware ungeprüft.
 
 
-## Nightly Batch 16 — 1/10
+## Nightly Batch 16 — 3/10
 
 - Orca-Upstream wurde bis `36815b4f037390a7aa2bcc066aced7f61698a703` aktualisiert. Die zwei jüngsten Commits wurden bewertet: GUI-Speed-Variant ist für die Android-App nicht einschlägig; der native Layer-Cooling-Bug ist übernommen. Der Short-Wipe-Tower-Fix aus dem Commit davor war bereits vorhanden.
 - Port in `CoolingBuffer.cpp`: Relative E wird vor dem Positionskopieren zurückgesetzt, damit Feedrate-only-Zeilen den vorherigen Extrusionswert nicht als neues Delta wiederverwenden.

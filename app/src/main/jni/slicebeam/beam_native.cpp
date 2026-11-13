@@ -7019,3 +7019,82 @@ extern "C" {
         return result;
     }
 }
+
+extern "C" JNIEXPORT jintArray JNICALL Java_ru_ytkab0bp_slicebeam_slic3r_Native_cut_1preserves_1part_1filaments_1regression(JNIEnv* env, jclass) {
+    Model model;
+    ModelObject* object = model.add_object();
+    auto add_part = [](ModelObject* target, int extruder, const std::string& material_id, double x_offset) {
+        TriangleMesh mesh = make_cube(12.5, 25., 25.);
+        mesh.translate(static_cast<float>(x_offset), -12.5f, -12.5f);
+        ModelVolume* volume = target->add_volume(std::move(mesh));
+        volume->config.set("extruder", extruder);
+        volume->set_material_id(material_id);
+    };
+    add_part(object, 1, "mat_blue", -6.25);
+    add_part(object, 2, "mat_white", 6.25);
+    object->add_instance();
+    Cut cut(object, 0, Transform3d::Identity(), ModelObjectCutAttribute::KeepUpper | ModelObjectCutAttribute::KeepLower);
+    Cut::Groove groove;
+    groove.depth = 3.f;
+    groove.width = 2.f;
+    groove.flaps_angle = 0.5235988f;
+    groove.angle = 0.0872665f;
+    groove.depth_tolerance = 0.1f;
+    groove.width_tolerance = 0.1f;
+    const ModelObjectPtrs& cut_objects = cut.perform_with_groove(groove, Transform3d::Identity(), 1, 0.f, 0.f);
+
+    auto inspect = [](const ModelObject* result) {
+        std::array<int, 3> state{{0, 0, 0}};
+        std::unordered_set<std::string> materials;
+        for (const ModelVolume* volume : result->volumes) {
+            if (!volume->is_model_part() || volume->is_cut_connector()) continue;
+            ++state[0];
+            const int extruder = volume->extruder_id();
+            if (extruder > 0 && extruder < 31) state[1] |= 1 << (extruder - 1);
+            materials.insert(volume->material_id());
+        }
+        state[2] = static_cast<int>(materials.size());
+        return state;
+    };
+
+    Model same_model;
+    ModelObject* same_object = same_model.add_object();
+    same_object->config.set("extruder", 1);
+    add_part(same_object, 1, "", 0.0);
+    ModelVolume* explicit_default = same_object->add_volume(make_cube(12.5, 25., 25.));
+    explicit_default->config.set("extruder", 1);
+    same_object->add_instance();
+    Cut same_cut(same_object, 0, Transform3d::Identity(), ModelObjectCutAttribute::KeepUpper | ModelObjectCutAttribute::KeepLower);
+    const ModelObjectPtrs& same_results = same_cut.perform_by_contour(same_object,
+        {{true, false}, {true, false}}, 0);
+
+    Model unit_source;
+    ModelObject* unit_object = unit_source.add_object();
+    ModelVolume* unit_volume = unit_object->add_volume(make_cube(12.5, 25., 25.));
+    unit_volume->set_material_id("unit_material");
+    unit_object->add_instance();
+    ModelObjectPtrs converted_objects;
+    unit_object->convert_units(converted_objects, ConversionType::CONV_TO_INCH, {});
+    Model converted_owner;
+    converted_owner.objects = std::move(converted_objects);
+    const bool unit_conversion_preserved_material = !converted_owner.objects.empty() &&
+        !converted_owner.objects.front()->volumes.empty() &&
+        converted_owner.objects.front()->volumes.front()->material_id() == "unit_material";
+
+    std::array<jint, 9> state{{static_cast<jint>(cut_objects.size()), 0, 0, 0, 0, 0, 0, 0,
+        unit_conversion_preserved_material ? 1 : 0}};
+    if (cut_objects.size() == 2) {
+        const auto upper = inspect(cut_objects[0]);
+        const auto lower = inspect(cut_objects[1]);
+        state[1] = upper[0]; state[2] = upper[1]; state[3] = upper[2];
+        state[4] = lower[0]; state[5] = lower[1]; state[6] = lower[2];
+    }
+    if (same_results.size() == 1) state[7] = inspect(same_results.front())[0];
+    jintArray result = env->NewIntArray(static_cast<jsize>(state.size()));
+    if (result != nullptr) env->SetIntArrayRegion(result, 0, static_cast<jsize>(state.size()), state.data());
+    return result;
+}
+
+extern "C" JNIEXPORT jintArray JNICALL Java_ru_ytkab0bp_slicebeam_slic3r_Native_00024Companion_cut_1preserves_1part_1filaments_1regression(JNIEnv* env, jobject) {
+    return Java_ru_ytkab0bp_slicebeam_slic3r_Native_cut_1preserves_1part_1filaments_1regression(env, nullptr);
+}

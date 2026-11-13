@@ -55,6 +55,15 @@ class NativeSliceDeviceTest {
     }
 
     @Test
+    fun dovetailCutPreservesPerPartFilamentAndMaterialIdentity() {
+        assertArrayEquals(
+            "Dovetail merge must retain T1/T2 and material-separated parts while merging identical settings",
+            intArrayOf(2, 2, 3, 2, 2, 3, 2, 1, 1),
+            Native.cut_preserves_part_filaments_regression(),
+        )
+    }
+
+    @Test
     fun textureDisplacementBakeMovesPaintedMeshAndCancellationCannotBeCommitted() {
         val bitmap = Bitmap.createBitmap(16, 16, Bitmap.Config.ARGB_8888).apply {
             eraseColor(android.graphics.Color.WHITE)
