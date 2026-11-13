@@ -1,12 +1,13 @@
 # Nightly execution state — 2026-11-13
 
-## Batch 16 release gate and app language — 2026-11-13
+## Batch 16 released; app language added — 2026-11-13
 
-- Current branch `codex/nightly-batch11-next`, source HEAD before this change `52780e815077ad3406b912b8b0af511bece1a7c7`; app identity remains isolated as `com.exa201.orkanslicer.nightly25`, version `0.8.455` / code `490`.
+- Current branch `codex/nightly-batch11-next`; product source commit `e20c0668aeeec92e557727e6636b2e19131aca66`; app identity remains isolated as `com.exa201.orkanslicer.nightly25`, version `0.8.455` / code `490`.
 - Batch 16 is 10/10. Full JVM suites passed after integrating the app-language picker: Debug **778/778**, SliceTest **778/778**, with no failures. The increase from 775 reflects the three language preference/locale mapping tests.
 - On the Android 16/API 36 emulator, all ten focused Batch-16 feature regressions passed together (relative-E cooling, overhang seam tags, dovetail material identity, both slice-cache isolation cases, raft/sequential clearance, first-layer time, painted bridge anchors, empty extruder-area intersection, and T64 validation): **10/10**. The Orca language PO asset test passed **1/1**.
 - Orca language selection is now included on this current branch: 23 native-name choices in App settings, persisted selection and region-aware catalog mapping; 20 catalog assets added (the existing de/en/ru catalogs retained). App-owned Android resources are translated in German, English, and Russian; other selected languages use the English resource fallback for app-specific labels.
-- Batch 16's final Debug APK build, install/start smoke check, and Nightly prerelease upload are the next release-gate actions. No real printer start was performed. Stable OrkanSlicer is unchanged.
+- Release `v0.8.455-nightly.1` is published with the debug-signed ARM64 APK and SHA-256 sidecar; the uploaded APK digest matches local SHA-256 `96e3433114e3f0e14fc6217d8dbf6af9e8025515dec6e7b996faa71b50342616`. Installed and started on Android 16/API 36; inspected startup logs contain no fatal crash, app ANR, or OOM. The five newest prereleases are retained; 0.8.450 and its tag were deleted. No real printer start was performed. Stable OrkanSlicer is unchanged.
+- Next: inspect the locked OrcaSlicer upstream delta since the current Nightly pin, select the next app-reachable features, and begin Batch 17 with behavior-level tests. Keep release cadence at ten verified points.
 
 ## Fortsetzung — Orca Nightly Batch 16 — 2026-11-13
 
