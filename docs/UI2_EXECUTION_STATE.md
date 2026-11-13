@@ -1,5 +1,12 @@
 # Nightly execution state — 2026-11-13
 
+## Orca-Sprachen für Android-Ressourcen — 2026-11-13
+
+- Die Nightly-Sprachauswahl bietet weiterhin alle 23 Sprachen mit den Orca-Katalogen. Für die 20 zusätzlichen Sprachen wurden jetzt passende Android-`strings.xml` aus den vorhandenen Orca-PO-Dateien erzeugt: 172–197 eindeutige UI-Texte je Sprache, insgesamt 3.791 Einträge. Deutsche, englische und russische Android-Ressourcen bleiben bestehen.
+- Der Generator `tools/generate_orca_android_translations.py` übernimmt exakte, nicht mehrdeutige Singular-Treffer, berücksichtigt die bekannten Menü-Kontexte für „Drucken“/„Bearbeiten“, prüft Formatplatzhalter und maskiert Android-Escapezeichen. Nicht im Orca-Katalog vorhandene app-eigene Beschriftungen fallen weiterhin auf Englisch zurück; eine vollständige Übersetzung aller 1.584 Android-Strings ist damit noch nicht erreicht.
+- `OrcaLanguageTest` prüft 20 Locale-Ressourcen und zentrale Labels: Debug 4/4, SliceTest 4/4. Beide vollständigen JVM-Suiten bestanden mit **779/779** (0 failures, errors, skips); Debug- und SliceTest-Ressourcenverarbeitung sowie `git diff --check` bestanden. Ein APK wurde für diesen Ressourcenstand noch nicht gebaut oder veröffentlicht.
+- Dies ist eine Android-Oberflächenverbesserung und zählt nicht als zusätzlicher Orca-Kernport. Batch 17 bleibt bei **1/10**; nächster Batch-Schritt bleibt ein verhaltensgeprüfter nativer Orca-Port.
+
 ## Orca Nightly Batch 17 — Punkt 1/10 verifiziert — 2026-11-13
 
 - Orca-Upstream `f55615d748` ergänzt eine nicht kreuzende Quarter-Cubic-Multilinefüllung. Android bot Quarter Cubic bereits als Muster an, verwendete bei `fill_multiline > 1` aber weiterhin die kreuzenden Standardlinien.
@@ -13,7 +20,7 @@
 - Current branch `codex/nightly-batch11-next`; product source commit `e20c0668aeeec92e557727e6636b2e19131aca66`; app identity remains isolated as `com.exa201.orkanslicer.nightly25`, version `0.8.455` / code `490`.
 - Batch 16 is 10/10. Full JVM suites passed after integrating the app-language picker: Debug **778/778**, SliceTest **778/778**, with no failures. The increase from 775 reflects the three language preference/locale mapping tests.
 - On the Android 16/API 36 emulator, all ten focused Batch-16 feature regressions passed together (relative-E cooling, overhang seam tags, dovetail material identity, both slice-cache isolation cases, raft/sequential clearance, first-layer time, painted bridge anchors, empty extruder-area intersection, and T64 validation): **10/10**. The Orca language PO asset test passed **1/1**.
-- Orca language selection is now included on this current branch: 23 native-name choices in App settings, persisted selection and region-aware catalog mapping; 20 catalog assets added (the existing de/en/ru catalogs retained). App-owned Android resources are translated in German, English, and Russian; other selected languages use the English resource fallback for app-specific labels.
+- Orca language selection includes 23 native-name choices with persisted, region-aware catalog mapping. The 20 additional Orca PO catalogs now also provide 172–197 exact-match Android UI strings each (3,791 entries total); German, English, and Russian Android resources remain. App-owned strings absent from Orca catalogs still fall back to English.
 - Release `v0.8.455-nightly.1` is published with the debug-signed ARM64 APK and SHA-256 sidecar; the uploaded APK digest matches local SHA-256 `96e3433114e3f0e14fc6217d8dbf6af9e8025515dec6e7b996faa71b50342616`. Installed and started on Android 16/API 36; inspected startup logs contain no fatal crash, app ANR, or OOM. The five newest prereleases are retained; 0.8.450 and its tag were deleted. No real printer start was performed. Stable OrkanSlicer is unchanged.
 - Next: inspect the locked OrcaSlicer upstream delta since the current Nightly pin, select the next app-reachable features, and begin Batch 17 with behavior-level tests. Keep release cadence at ten verified points.
 

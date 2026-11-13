@@ -3,7 +3,7 @@
 - Prerelease: [v0.8.455-nightly.1](https://github.com/Exa201/OrkanSlicer-Nightly-2.5/releases/tag/v0.8.455-nightly.1), source commit `e20c0668aeeec92e557727e6636b2e19131aca66`, branch `codex/nightly-batch11-next`.
 - Debug APK: `OrkanSlicerNightly25_e20c0668ae.apk`, versionCode 490, package `com.exa201.orkanslicer.nightly25`, size 250,964,847 bytes, SHA-256 `96e3433114e3f0e14fc6217d8dbf6af9e8025515dec6e7b996faa71b50342616`. GitHub reports the same asset digest; signature verified with Android APK Signer.
 - Debug and SliceTest JVM suites: 778/778 each. On Android 16/API 36 emulator, ten Batch-16 regression tests passed together and the Orca language catalog asset test passed (10/10 and 1/1). APK installed and launched; no matching fatal crash, app ANR, or OOM in the inspected startup log.
-- Added app setting for all 23 Orca language catalogs. App-specific Android resource strings remain translated in German, English, and Russian; the other selected languages use the English Android-resource fallback.
+- App settings offer all 23 Orca languages. In addition to the existing German, English, and Russian Android resources, the 20 other languages now ship 172–197 exact-match UI translations each (3,791 total) generated from Orca PO catalogs; custom Android strings absent from those catalogs use the English fallback. Locale-resource regression tests and Android resource compilation passed; this new resource set has not yet been included in a released APK.
 - Kept five newest Nightly prereleases: 0.8.455, 0.8.454, 0.8.453, 0.8.452, and 0.8.451. Removed 0.8.450 and its tag. No printer job was started; this is emulator validation, not physical-printer validation.
 
 ## Nightly 2.5 Arrange stale-result fix — 0.8.451
