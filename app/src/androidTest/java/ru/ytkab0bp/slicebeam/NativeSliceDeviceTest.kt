@@ -49,6 +49,61 @@ import java.util.zip.CRC32
 /** Runs an ARM64 native slice in an isolated app id, away from production app data. */
 @RunWith(AndroidJUnit4::class)
 class NativeSliceDeviceTest {
+    @Test(timeout = 180_000)
+    fun estimatedFirstLayerCommentReportsLayerMotionTime() = withKobraProfile {
+        val context = InstrumentationRegistry.getInstrumentation().targetContext
+        val source = copyCube(context, "first-layer-time-comment.stl")
+        val model = Model(source).also { it.ensureOnBed(0) }
+        val configFile = SliceBeam.getCurrentConfigFile()
+        val gcodeFile = File(context.cacheDir, "first-layer-time-comment.gcode")
+        try {
+            val process = requireNotNull(SliceBeam.CONFIG?.findPrint("0.16mm Standard"))
+            process.put("layer_height", "0.2")
+            process.put("initial_layer_print_height", "0.2")
+            process.put("skirt_loops", "0")
+            process.put("brim_type", "no_brim")
+            SliceBeam.genCurrentConfig(model)
+            val generated = model.slice(configFile.absolutePath, gcodeFile.absolutePath, null)
+            try {
+                val gcode = gcodeFile.readText()
+                val reported = Regex("(?m)^; estimated first layer printing time \\(normal mode\\) = (.+)$")
+                    .find(gcode)?.groupValues?.get(1)
+                assertNotNull("the slicer must emit the first-layer estimate", reported)
+                val parsed = GCodeProcessorResult(gcodeFile)
+                try {
+                    val expected = formatGCodeDuration(parsed.getInitialLayerTime())
+                    assertEquals("the comment must report first-layer motion time, not preparation time", expected, reported)
+                    assertTrue("first-layer motion time must be positive", parsed.getInitialLayerTime() > 0f)
+                } finally {
+                    parsed.release()
+                }
+            } finally {
+                generated.release()
+            }
+        } finally {
+            model.release()
+            source.delete()
+            configFile.delete()
+            gcodeFile.delete()
+        }
+    }
+
+    private fun formatGCodeDuration(seconds: Float): String {
+        val days = (seconds / 86_400f).toInt()
+        var remaining = seconds - days * 86_400f
+        val hours = (remaining / 3_600f).toInt()
+        remaining -= hours * 3_600f
+        val minutes = (remaining / 60f).toInt()
+        remaining -= minutes * 60f
+        return when {
+            days > 0 -> "${days}d ${hours}h ${minutes}m ${remaining.toInt()}s"
+            hours > 0 -> "${hours}h ${minutes}m ${remaining.toInt()}s"
+            minutes > 0 -> "${minutes}m ${remaining.toInt()}s"
+            remaining > 1f -> "${remaining.toInt()}s"
+            else -> String.format(java.util.Locale.US, "%fs", remaining)
+        }
+    }
+
     @Test
     fun spiralInsetArachneKeepsSolidSurfaceWallPaths() {
         assertArrayEquals(intArrayOf(1, 1, 1), Native.spiral_inset_solid_regression())

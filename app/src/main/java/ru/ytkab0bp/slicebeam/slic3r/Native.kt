@@ -66,6 +66,9 @@ class Native {
     external fun gcoderesult_get_spiral_vase_override_warning(ptr: Long): String?
     @JvmStatic
     external fun gcoderesult_get_seam_marker_count(ptr: Long): Int
+
+    @JvmStatic
+    external fun gcoderesult_get_initial_layer_time(ptr: Long): Float
     /** Verifies by-layer/as-object-list ordering preserves rotated copies' model-list order. */
     @JvmStatic
     external fun by_layer_copy_order_regression(model: Long, configPath: String): IntArray

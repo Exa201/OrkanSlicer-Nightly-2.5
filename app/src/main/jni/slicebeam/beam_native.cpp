@@ -3703,6 +3703,16 @@ extern "C" {
             [](const GCodeProcessorResult::MoveVertex& move) { return move.type == EMoveType::Seam; }));
     }
 
+    JNIEXPORT jfloat JNICALL Java_ru_ytkab0bp_slicebeam_slic3r_Native_gcoderesult_1get_1initial_1layer_1time(JNIEnv*, jclass, jlong ptr) {
+        GCodeResultRef* ref = (GCodeResultRef*) (intptr_t) ptr;
+        return ref->result.initial_layer_time;
+    }
+
+    JNIEXPORT jfloat JNICALL Java_ru_ytkab0bp_slicebeam_slic3r_Native_00024Companion_gcoderesult_1get_1initial_1layer_1time(JNIEnv*, jobject, jlong ptr) {
+        GCodeResultRef* ref = (GCodeResultRef*) (intptr_t) ptr;
+        return ref->result.initial_layer_time;
+    }
+
     JNIEXPORT jint JNICALL Java_ru_ytkab0bp_slicebeam_slic3r_Native_gcoderesult_1get_1gcode_1check_1error_1code(JNIEnv*, jclass, jlong ptr) {
         GCodeResultRef* ref = (GCodeResultRef*) (intptr_t) ptr;
         return static_cast<jint>(ref->result.gcode_check_result.error_code);

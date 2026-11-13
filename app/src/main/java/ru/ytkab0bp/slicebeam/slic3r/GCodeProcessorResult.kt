@@ -22,6 +22,9 @@ open class GCodeProcessorResult {
     /** Seam markers parsed from the G-code preview stream. */
     open fun getSeamMarkerCount(): Int = if (pointer == 0L) 0 else Native.gcoderesult_get_seam_marker_count(pointer)
 
+    /** Motion time spent printing the first layer, independent of machine preparation time. */
+    open fun getInitialLayerTime(): Float = if (pointer == 0L) 0f else Native.gcoderesult_get_initial_layer_time(pointer)
+
     @JvmField
     internal var pointer: Long
 
