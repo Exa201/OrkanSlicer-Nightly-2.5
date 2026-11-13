@@ -74,6 +74,29 @@ The earlier mixed-worktree changes remain backed up separately; this follow-up p
   Batch 16 reaches 10/10. GitHub release upload remains unavailable because no authenticated
   release API/CLI session is configured.
 
+## Nightly Batch 16 — Punkt 2/10 — Kurzer Reinigungsturm mit Toolchanger — 2026-11-13
+
+- Orca `2c50d15451` verhindert eine abschließende Ramming-Extrusion in der Luft, wenn ein
+  Toolchanger-Reinigungsturm vor den letzten Modellschichten endet. Die Android-Implementierung
+  enthält diese Bedingung bereits. Der API-36-Slicetest prüft jetzt ausdrücklich auch
+  `filament_multitool_ramming=0,1` und bestätigt, dass der G-Code zwar beide Werkzeuge und den
+  erforderlichen Turm enthält, aber keine Turmextrusion über der letzten physischen Turmschicht.
+- `NativeSliceDeviceTest#type2ToolChangerDoesNotPurgeAboveShortPrimeTower`: 1/1 bestanden,
+  Slice-Test-APK und ARM64-Native-Bibliothek erfolgreich gebaut. Testdauer 4,657 s. Der Emulator
+  war `codex_api36_test` / Android 16; kein physischer Druckertest.
+- Ressourcenprüfung: `ExecutionTBB` verwendet `tbb::this_task_arena::max_concurrency()`; der
+  TBB-Warm-up richtet Worker entsprechend dieser verfügbaren Parallelität ein. Nur ein expliziter
+  Profiler-Build schaltet Multithreading ab. Die 2–3 Worker in `IOUtils` betreffen Datei-I/O und
+  begrenzen den nativen Slicer nicht. Das belegt die Nutzung der von TBB verfügbaren Kerne, aber
+  keinen gerätespezifischen Durchsatz-/RAM-Benchmark.
+- Der Raycast-AABB-Baum wird je `GLModel` einmal erstellt, bei Mesh-Neuladen/Freigabe verworfen
+  und für zu große Meshes durch begrenzte Auswahlrahmen ersetzt. Das vermeidet wiederholte
+  Raycast-Indexierung und hält die große KromaCut-Geometrie vom präzisen Index fern.
+- Noch kein zusätzliches Cache-System eingeführt: Slice-Eingaben ändern sich nach Geometrie-,
+  Profil- oder Werkzeugänderungen, daher wäre ein breiter Ergebnis-Cache ohne vollständigen
+  Schlüssel ein Risiko für veraltete G-Codes. Nächster Schritt: weiteren Orca-Kernpfad mit
+  reproduzierbarer Android-Testabdeckung auswählen; Batch 16 bleibt bei 2/10.
+
 # Nightly execution state — 2026-11-07
 
 - **Batch 15, Punkt 7/10 — Qidi X-Smart 5 aus Orca 2.5:** eingebettetes Offline-Profilpaket (`1433316b55`) für vier Düsen, 17 Prozesse plus zwei gemeinsame Prozessprofile, 247 Filamente plus ein Vererbungsprofil. Import ist im Setup sichtbar und ergänzt bestehende Nightly-Konfigurationen idempotent, auch wenn nur Teilprofile vorhanden sind. `IOUtils.configJsonToIni` bewahrt die lesbaren Orca-Profilnamen. `NativeSliceDeviceTest#qidiXSmart5Orca25ProfileFamilyMergesAndSlicesOnAndroid` bestand auf API 36 (1/1): Profilzahlen, Drucker-/Prozess-/Filament-Defaults, Kompatibilität, 180-mm-Bett und -Höhe, Wiederholungsimport sowie echter ARM64-Testwürfel-Slice mit Extrusion. `:app:testDebugUnitTest` erfolgreich. Keine physische Qidi-Hardware und kein realer Druck getestet. Batch 15 jetzt 7/10; nächster Schritt: den nächsten geeigneten Orca-2.5-Commit gegen den Android-Aufrufpfad prüfen und gezielt portieren; APK/Release erst nach 10/10.

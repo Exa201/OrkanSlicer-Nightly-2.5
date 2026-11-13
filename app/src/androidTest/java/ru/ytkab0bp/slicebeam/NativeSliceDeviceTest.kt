@@ -3561,6 +3561,9 @@ class NativeSliceDeviceTest {
         val process = requireNotNull(SliceBeam.CONFIG?.findPrint("0.20mm Standard"))
         process.put("enable_prime_tower", "1")
         process.put("wipe_tower_type", "type2")
+        // Regression coverage for Orca #17496: toolchanger ramming on the last filament must
+        // not schedule a final purge above a prime tower that ends below the model.
+        process.put("filament_multitool_ramming", "0,1")
         val source = copyCube(context, "type2-short-tower-source.stl")
         val model = Model(source)
         val output = File(context.cacheDir, "type2-short-tower.gcode")
