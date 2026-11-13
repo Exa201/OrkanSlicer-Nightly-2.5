@@ -39,6 +39,9 @@ class Native {
     external fun bed_exclude_volumes_regression(): DoubleArray
     @JvmStatic
     external fun bed_exclude_area_validation_regression(): IntArray
+    /** Handles overlapping, touching, separated, and unrestricted extruder printable areas safely. */
+    @JvmStatic
+    external fun bed_shared_extruder_area_regression(): IntArray
     @JvmStatic
     external fun bed_exclude_arrangement_regression(): DoubleArray
     /** Verifies Orca sequential placement keeps short objects inside the bed and clear. */

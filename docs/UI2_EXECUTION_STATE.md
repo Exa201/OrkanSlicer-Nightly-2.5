@@ -1,4 +1,15 @@
-# Nightly execution state — 2026-11-07
+# Nightly execution state — 2026-11-13
+
+## Nightly Batch 15 — 10/10 functional points isolated for release candidate
+
+- Release source branch: `codex/nightly-batch15-release`, starting at remote `5f640f2ad36e6bd56c97757d3717024b8d9f8e58`.
+- Orca `d7534d7fb9`: per-extruder printable-area intersections safely handle overlap, touching, disjoint and unrestricted polygons; placement falls back to full bed when extruders have no shared area, while prime-tower validation rejects an unprintable shared footprint. The native regression covers nine cases.
+- Orca `2c50d15451`: Type-2 toolchanger wipe towers skip a final purge when the tower ends below the final model layer; SEMM behavior is left as upstream.
+- API 36 focused results: printable-area regression 1/1; short Type-2 toolchanger tower G-code regression 1/1. A separate SEMM fixture was inconclusive and is not counted.
+- Full Debug and SliceTest JVM suites: 772/772 each. The original mixed worktree was backed up separately; this candidate includes only these two batch implementations, their native/device regressions and this state entry.
+- Next step: run clean-worktree suites, focused instrumented tests, build/install/start APK, inspect logcat, then commit/push and publish Batch 15 prerelease if all gates pass.
+
+The external-spool, TBB initialization, UI, scaling and upload changes from the original mixed worktree are backed up and remain outside this Batch 15 release candidate.# Nightly execution state — 2026-11-07
 
 - **Batch 15, Punkt 7/10 — Qidi X-Smart 5 aus Orca 2.5:** eingebettetes Offline-Profilpaket (`1433316b55`) für vier Düsen, 17 Prozesse plus zwei gemeinsame Prozessprofile, 247 Filamente plus ein Vererbungsprofil. Import ist im Setup sichtbar und ergänzt bestehende Nightly-Konfigurationen idempotent, auch wenn nur Teilprofile vorhanden sind. `IOUtils.configJsonToIni` bewahrt die lesbaren Orca-Profilnamen. `NativeSliceDeviceTest#qidiXSmart5Orca25ProfileFamilyMergesAndSlicesOnAndroid` bestand auf API 36 (1/1): Profilzahlen, Drucker-/Prozess-/Filament-Defaults, Kompatibilität, 180-mm-Bett und -Höhe, Wiederholungsimport sowie echter ARM64-Testwürfel-Slice mit Extrusion. `:app:testDebugUnitTest` erfolgreich. Keine physische Qidi-Hardware und kein realer Druck getestet. Batch 15 jetzt 7/10; nächster Schritt: den nächsten geeigneten Orca-2.5-Commit gegen den Android-Aufrufpfad prüfen und gezielt portieren; APK/Release erst nach 10/10.
 - Orca `c01ac8ff44` portiert: Legacy-`bed_exclude_area` wird auf endliche Koordinaten, mindestens drei eindeutige Punkte, nichtleere Fläche und Selbstüberschneidungen geprüft. API-36-Test `NativeSliceDeviceTest#legacyBedExcludeAreaRejectsMalformedPolygonsFromProductionGeometry`: aktualisierter Android-16/API-36-Gerätetest 1/1 bestanden (0 Fehler/Skips); zusätzlich gültige Flächenzählung und produktive `get_bed_excluded_regions()`-Filterung geprüft. Er testet nicht den gesamten Arrange-Aufruf. Ein erster nativer Build fand den fehlenden Geometry-Include; nach dessen Ergänzung ARM64 Slice-Instrumentierung erfolgreich. Batch 15 6/10; kein APK/Release vor 10/10.

@@ -3488,6 +3488,7 @@ void Print::_make_wipe_tower()
 
         // Unload the current filament over the purge tower.
         coordf_t layer_height = m_objects.front()->config().layer_height.value;
+        bool generate_final_purge = true;
         if (m_wipe_tower_data.tool_ordering.back().wipe_tower_partitions > 0) {
             // The wipe tower goes up to the last layer of the print.
             if (wipe_tower.layer_finished()) {
@@ -3498,12 +3499,18 @@ void Print::_make_wipe_tower()
             } else {
                 // There is yet enough space at this layer of the wipe tower for the final purge.
             }
-        } else {
+        } else if (m_config.single_extruder_multi_material) {
             // The wipe tower does not reach the last print layer, perform the pruge at the last print layer.
             assert(m_wipe_tower_data.tool_ordering.back().wipe_tower_partitions == 0);
             wipe_tower.set_layer(float(m_wipe_tower_data.tool_ordering.back().print_z), float(layer_height), 0, false, true);
+        } else {
+            // On a toolchanger, the final purge only rams filament and has no unload/retract.
+            // Skip it when the tower ends below the print to avoid extruding in mid-air.
+            generate_final_purge = false;
         }
-        m_wipe_tower_data.final_purge = Slic3r::make_unique<WipeTower::ToolChangeResult>(wipe_tower.tool_change((unsigned int) (-1)));
+        m_wipe_tower_data.final_purge = generate_final_purge
+            ? Slic3r::make_unique<WipeTower::ToolChangeResult>(wipe_tower.tool_change((unsigned int) (-1)))
+            : Slic3r::make_unique<WipeTower::ToolChangeResult>();
 
         m_wipe_tower_data.used_filament         = wipe_tower.get_used_filament();
         m_wipe_tower_data.number_of_toolchanges = wipe_tower.get_number_of_toolchanges();

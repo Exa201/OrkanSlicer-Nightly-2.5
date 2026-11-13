@@ -6465,6 +6465,59 @@ extern "C" {
         return result;
     }
 
+    JNIEXPORT jintArray JNICALL Java_ru_ytkab0bp_slicebeam_slic3r_Native_bed_1shared_1extruder_1area_1regression(JNIEnv* env, jclass) {
+        using namespace Slic3r;
+        const Pointfs bed {{0., 0.}, {200., 0.}, {200., 200.}, {0., 200.}};
+        const Pointfs left {{0., 0.}, {120., 0.}, {120., 200.}, {0., 200.}};
+        const Pointfs right_overlap {{80., 0.}, {200., 0.}, {200., 200.}, {80., 200.}};
+        const Pointfs right_touch {{120., 0.}, {200., 0.}, {200., 200.}, {120., 200.}};
+        const Pointfs right_gap {{130., 0.}, {200., 0.}, {200., 200.}, {130., 200.}};
+        const double area_scale = double(scale_(1.)) * double(scale_(1.));
+        const auto area_mm2 = [area_scale](const Points &points) {
+            if (points.empty())
+                return 0.;
+            Polygon polygon;
+            polygon.points = points;
+            return polygon.area() / area_scale;
+        };
+
+        const Polygon overlap = get_shared_poly({left, right_overlap}, bed);
+        const Polygon touch = get_shared_poly({left, right_touch}, bed);
+        const Polygon separated = get_shared_poly({left, right_gap}, bed);
+        const Polygon unbounded_nozzle = get_shared_poly({Pointfs{}, left}, bed);
+        const Polygon unrestricted = get_shared_poly({}, bed);
+
+        PrintConfig config;
+        config.printable_area.values = bed;
+        config.extruder_printable_area.values = {left, right_gap};
+        const Points placement_fallback = get_bed_shape(config, true);
+        DynamicPrintConfig dynamic_config;
+        dynamic_config.set_key_value("printable_area", new ConfigOptionPoints(bed));
+        dynamic_config.set_key_value("extruder_printable_area", new ConfigOptionPointsGroups({left, right_gap}));
+        const Points dynamic_placement_fallback = get_bed_shape(dynamic_config, true);
+        dynamic_config.set_key_value("extruder_printable_area", new ConfigOptionPointsGroups({left, right_overlap}));
+        const Points dynamic_overlap = get_bed_shape(dynamic_config, true);
+        PrintConfig unrestricted_config;
+        unrestricted_config.printable_area.values = bed;
+        const Points no_extruder_restrictions = get_bed_shape(unrestricted_config, true);
+
+        const jint checks[] = {
+            std::abs(overlap.area() / area_scale - 8000.) < 1e-4 ? 1 : 0,
+            touch.empty() ? 1 : 0,
+            separated.empty() ? 1 : 0,
+            std::abs(unbounded_nozzle.area() / area_scale - 24000.) < 1e-4 ? 1 : 0,
+            std::abs(unrestricted.area() / area_scale - 40000.) < 1e-4 ? 1 : 0,
+            std::abs(area_mm2(placement_fallback) - 40000.) < 1e-4 ? 1 : 0,
+            std::abs(area_mm2(dynamic_placement_fallback) - 40000.) < 1e-4 ? 1 : 0,
+            std::abs(area_mm2(dynamic_overlap) - 8000.) < 1e-4 ? 1 : 0,
+            std::abs(area_mm2(no_extruder_restrictions) - 40000.) < 1e-4 ? 1 : 0,
+        };
+        jintArray result = env->NewIntArray(9);
+        if (result != nullptr)
+            env->SetIntArrayRegion(result, 0, 9, checks);
+        return result;
+    }
+
     JNIEXPORT jintArray JNICALL Java_ru_ytkab0bp_slicebeam_slic3r_Native_shortest_1path_1exact_1object_1tour_1regression(JNIEnv* env, jclass) {
         const std::vector<int> encoded = Slic3r::shortest_path_exact_object_tour_regression();
         std::vector<jint> values(encoded.begin(), encoded.end());

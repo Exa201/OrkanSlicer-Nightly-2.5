@@ -1376,6 +1376,14 @@ class NativeSliceDeviceTest {
     }
 
     @Test
+    fun perExtruderPrintableAreaIntersectionHandlesEmptyAndTouchingAreas() {
+        assertArrayEquals(
+            intArrayOf(1, 1, 1, 1, 1, 1, 1, 1, 1),
+            Native.bed_shared_extruder_area_regression(),
+        )
+    }
+
+    @Test
     fun bedCollisionVolumesConstrainArrangementOnlyForIntersectingHeightAndNozzle() {
         val actual = Native.bed_exclude_arrangement_regression()
         assertArrayEquals("blocked, Z-disjoint, nozzle-disjoint, nozzle-match: ${actual.contentToString()}",
@@ -3547,6 +3555,57 @@ class NativeSliceDeviceTest {
         }
     }
 
+    @Test(timeout = 120_000)
+    fun type2ToolChangerDoesNotPurgeAboveShortPrimeTower() = withToolChangerProfile {
+        val context = InstrumentationRegistry.getInstrumentation().targetContext
+        val process = requireNotNull(SliceBeam.CONFIG?.findPrint("0.20mm Standard"))
+        process.put("enable_prime_tower", "1")
+        process.put("wipe_tower_type", "type2")
+        val source = copyCube(context, "type2-short-tower-source.stl")
+        val model = Model(source)
+        val output = File(context.cacheDir, "type2-short-tower.gcode")
+        var result: GCodeProcessorResult? = null
+        try {
+            model.addObject(model, 0)
+            model.translate(1, 35.0, 0.0, 0.0)
+            model.scale(1, 1.0, 1.0, 0.25)
+            model.ensureOnBed(1)
+            model.setUniformFilament(0, 1)
+            model.setUniformFilament(1, 2)
+            SliceBeam.genCurrentConfig(model)
+            result = model.slice(SliceBeam.getCurrentConfigFile().absolutePath, output.absolutePath, null)
+            val gcode = output.readText()
+            assertHasExtrusion(gcode)
+            assertTrue("both assigned tools must be used", Regex("(?m)^T0(?:\\s|$)").containsMatchIn(gcode) &&
+                Regex("(?m)^T1(?:\\s|$)").containsMatchIn(gcode))
+            assertTrue("the type-2 prime tower must still be emitted for required toolchanges", gcode.contains("Prime tower", ignoreCase = true))
+            val layerHeights = layerZValues(gcode)
+            val zToken = Regex("(?:^|\\s)Z(-?[0-9]+(?:\\.[0-9]+)?)")
+            val eToken = Regex("(?:^|\\s)E[+-]?(?:[0-9]+(?:\\.[0-9]*)?|\\.[0-9]+)")
+            var currentZ = 0.0
+            val towerExtrusionZ = mutableListOf<Double>()
+            var currentFeatureIsTower = false
+            gcode.lineSequence().forEach { line ->
+                if (line.startsWith(";TYPE:") || line.startsWith("; FEATURE:"))
+                    currentFeatureIsTower = line.contains("prime tower", ignoreCase = true)
+                zToken.find(line)?.let { currentZ = it.groupValues[1].toDouble() }
+                if (currentFeatureIsTower && line.startsWith("G1 ") && eToken.containsMatchIn(line) &&
+                    (line.contains(" X") || line.contains(" Y"))) towerExtrusionZ += currentZ
+            }
+            assertTrue("tower feature must include toolchange extrusion", towerExtrusionZ.isNotEmpty())
+            val highestTowerZ = towerExtrusionZ.maxOrNull()!!
+            val highestModelLayer = layerHeights.maxOrNull()!!
+            assertTrue("short type-2 tower must not receive a final purge above its last physical layer: tower=$highestTowerZ model=$highestModelLayer",
+                highestTowerZ <= highestModelLayer + 1e-3)
+            assertTrue("output must contain final object layers above the short tower", highestModelLayer > 2.0)
+        } finally {
+            result?.release()
+            model.release()
+            source.delete()
+            output.delete()
+            SliceBeam.getCurrentConfigFile().delete()
+        }
+    }
     @Test(timeout = 120_000)
     fun klipperWipeTowerOmitsNonessentialPlannerStopsButKeepsToolchangeSync() = withToolChangerProfile {
         val context = InstrumentationRegistry.getInstrumentation().targetContext
