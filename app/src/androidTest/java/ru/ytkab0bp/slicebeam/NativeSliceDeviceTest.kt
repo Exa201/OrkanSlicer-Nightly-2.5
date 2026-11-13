@@ -195,6 +195,15 @@ class NativeSliceDeviceTest {
     }
 
     @Test
+    fun sequentialPrintShortObjectClearanceIncludesRaftHeight() {
+        assertArrayEquals(
+            "Two 2 mm objects fit the short-object clearance without a raft; a three-layer raft lifts them above nozzle height and requires full clearance",
+            intArrayOf(1, 0, 0, 1),
+            Native.sequential_raft_short_clearance_regression(),
+        )
+    }
+
+    @Test
     fun textureDisplacementBakeMovesPaintedMeshAndCancellationCannotBeCommitted() {
         val bitmap = Bitmap.createBitmap(16, 16, Bitmap.Config.ARGB_8888).apply {
             eraseColor(android.graphics.Color.WHITE)

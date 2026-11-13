@@ -47,6 +47,9 @@ class Native {
     /** Verifies Orca sequential placement keeps short objects inside the bed and clear. */
     @JvmStatic
     external fun short_object_arrangement_regression(): DoubleArray
+    /** Verifies a raft lifts short models into the full sequential-print clearance envelope. */
+    @JvmStatic
+    external fun sequential_raft_short_clearance_regression(): IntArray
     /** Verifies an almost bed-filling object is not rejected by the default arrange margin. */
     @JvmStatic
     external fun near_bed_size_arrangement_regression(): DoubleArray

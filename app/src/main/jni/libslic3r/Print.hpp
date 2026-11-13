@@ -349,6 +349,8 @@ public:
     // The height is snug.
     coord_t 				     height() const         { return m_size.z(); }
     double                      max_z() const         { return m_max_z; }
+    // Top of the printed object above the bed, including raft and Z-shrink compensation.
+    double                      print_z_max() const;
     // Centering offset of the sliced mesh from the scaled and rotated mesh of the model.
     const Point& 			     center_offset() const  { return m_center_offset; }
 
@@ -1107,7 +1109,7 @@ public:
     static int get_compatible_filament_type(const std::set<int>& types);
 
     bool is_all_objects_are_short() const {
-        return std::all_of(this->objects().begin(), this->objects().end(), [&](PrintObject* obj) { return obj->height() < scale_(this->config().nozzle_height.value); });
+        return std::all_of(this->objects().begin(), this->objects().end(), [&](PrintObject* obj) { return obj->print_z_max() < scale_(this->config().nozzle_height.value); });
     }
     
     // Orca: Implement prusa's filament shrink compensation approach

@@ -1,5 +1,13 @@
 # Nightly execution state — 2026-11-13
 
+## Orca Nightly Batch 17 — Punkt 2/10 verifiziert — 2026-11-13
+
+- Orca-Upstream `7243d15ea2` zählt kurze Objekte anhand ihrer tatsächlichen Druckhöhe inklusive Raft. Androids sequenzielle Freigabe verglich bislang nur die Mesh-Höhe; dadurch konnte ein Modell mit Raft fälschlich als „kurz“ gelten und den kleineren Düsenabstand nutzen.
+- `PrintObject::print_z_max()` verwendet jetzt die berechnete Druckoberkante aus den Slicing-Parametern. Sowohl `Print::is_all_objects_are_short()` als auch die sequenzielle Kollisionsprüfung verwenden denselben Wert. Orcas separate „compacted wipe tower“-Prüfung und `belt_printer`-Variante sind im Android-Fork nicht vorhanden und wurden nicht als portiert gezählt.
+- Neue JNI-Regression verarbeitet zwei nahe 2-mm-Testkörper einmal ohne und einmal mit dreilagigem Raft. Sie bestätigt: ohne Raft kurze Objekte/kein Clearance-Fehler, mit Raft nicht kurz/Clearance-Fehler. API-36-Emulator: `sequentialPrintShortObjectClearanceIncludesRaftHeight` **1/1**, vorhandener `sequentialPrintRodClearanceIncludesRaftHeight` **1/1**.
+- `:app:testDebugUnitTest :app:testSliceTestUnitTest` erfolgreich; vorhandene aktuelle XML-Berichte: Debug **779/779**, SliceTest **779/779**, jeweils 0 failures/errors. Diese Gradle-Läufe waren `UP-TO-DATE`. Physische Xiaomi-/HONOR-Hardware wurde nicht geprüft.
+- Batch 17 steht bei **2/10**. Nächster Schritt: einen weiteren noch nicht portierten Orca-2.5-Änderungspunkt mit aktivem Android-Aufrufpfad wählen und eine Ergebnisregression ergänzen. Noch kein APK oder Nightly-Release für Batch 17.
+
 ## Orca-Sprachen für Android-Ressourcen — 2026-11-13
 
 - Die Nightly-Sprachauswahl bietet weiterhin alle 23 Sprachen mit den Orca-Katalogen. Für die 20 zusätzlichen Sprachen wurden jetzt passende Android-`strings.xml` aus den vorhandenen Orca-PO-Dateien erzeugt: 172–197 eindeutige UI-Texte je Sprache, insgesamt 3.791 Einträge. Deutsche, englische und russische Android-Ressourcen bleiben bestehen.

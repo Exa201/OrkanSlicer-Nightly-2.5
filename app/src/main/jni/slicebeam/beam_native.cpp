@@ -6301,6 +6301,54 @@ extern "C" {
         }
     }
 
+    JNIEXPORT jintArray JNICALL Java_ru_ytkab0bp_slicebeam_slic3r_Native_sequential_1raft_1short_1clearance_1regression(JNIEnv* env, jclass) {
+        try {
+            auto validate_raft = [](int raft_layers) {
+                Model model;
+                for (float x : {80.f, 110.f}) {
+                    ModelObject* object = model.add_object();
+                    TriangleMesh mesh = make_cube(20.f, 20.f, 2.f);
+                    mesh.translate(x, 80.f, 0.f);
+                    object->add_volume(std::move(mesh));
+                    object->add_instance();
+                }
+                DynamicPrintConfig config = DynamicPrintConfig::full_print_config();
+                config.set_deserialize_strict({
+                    {"print_sequence", "by object"},
+                    {"nozzle_height", 2.5},
+                    {"extruder_clearance_radius", 40},
+                    {"skirt_loops", 1},
+                    {"skirt_type", "perobject"},
+                    {"raft_layers", raft_layers},
+                    {"layer_change_gcode", "G92 E0\n"},
+                });
+                Print print;
+                print.apply(model, std::move(config));
+                const PrintObject* object = print.objects().front();
+                if (raft_layers > 0 && object->slicing_parameters().object_print_z_max <= 2.5)
+                    throw std::runtime_error("Raft fixture did not raise the model above nozzle height");
+                const bool is_short = print.is_all_objects_are_short();
+                const std::string error = print.validate().string;
+                return std::pair<bool, bool>{is_short, error.find("too close to others") != std::string::npos};
+            };
+            const auto without_raft = validate_raft(0);
+            const auto with_raft = validate_raft(3);
+            const std::array<jint, 4> values{
+                without_raft.first ? 1 : 0,
+                without_raft.second ? 1 : 0,
+                with_raft.first ? 1 : 0,
+                with_raft.second ? 1 : 0,
+            };
+            jintArray result = env->NewIntArray(static_cast<jsize>(values.size()));
+            if (result != nullptr) env->SetIntArrayRegion(result, 0, static_cast<jsize>(values.size()), values.data());
+            return result;
+        } catch (const std::exception& error) {
+            jclass runtime_error = env->FindClass("ru/ytkab0bp/slicebeam/slic3r/Slic3rRuntimeError");
+            if (runtime_error != nullptr) env->ThrowNew(runtime_error, error.what());
+            return nullptr;
+        }
+    }
+
     JNIEXPORT jintArray JNICALL Java_ru_ytkab0bp_slicebeam_slic3r_Native_painted_1bridge_1anchor_1regression(JNIEnv* env, jclass) {
         try {
             Model model;

@@ -641,9 +641,9 @@ StringObjectException Print::sequential_print_clearance_valid(const Print &print
     }
     const bool skirt_reaches_rod = print.has_infinite_skirt() ||
         (print.config().skirt_loops > 0 && print.config().skirt_height * max_layer_height > rod_height);
-    // Include raft/Z compensation in the top above the bed. Belt printers are not supported by this Android app.
+    // Measure the physical top above the bed, including raft/Z compensation.
     auto object_top = [](const PrintInstance &instance) -> double {
-        return scale_(instance.print_object->slicing_parameters().object_print_z_max);
+        return instance.print_object->print_z_max();
     };
     auto above_rod_y_range = [rod_height, &object_top](const PrintInstance &instance, coord_t &min_y, coord_t &max_y) -> bool {
         const double rod_z = rod_height - instance.print_object->slicing_parameters().object_print_z_min;
