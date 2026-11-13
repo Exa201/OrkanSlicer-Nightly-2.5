@@ -50,6 +50,14 @@ import java.util.zip.CRC32
 @RunWith(AndroidJUnit4::class)
 class NativeSliceDeviceTest {
     @Test(timeout = 180_000)
+    fun paintedBridgeAnchorsOnNeighborFilament() {
+        val result = Native.painted_bridge_anchor_regression()
+        assertEquals("both neighboring pillar strips must be handed to the painted bridge", 2, result[0])
+        assertTrue("the bridge fixture must produce bridge infill", result[1] > 0)
+        assertEquals("the fixture must retain separate filament identities", 1, result[2])
+    }
+
+    @Test(timeout = 180_000)
     fun estimatedFirstLayerCommentReportsLayerMotionTime() = withKobraProfile {
         val context = InstrumentationRegistry.getInstrumentation().targetContext
         val source = copyCube(context, "first-layer-time-comment.stl")

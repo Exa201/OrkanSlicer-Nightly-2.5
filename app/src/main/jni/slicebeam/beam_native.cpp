@@ -6301,6 +6301,89 @@ extern "C" {
         }
     }
 
+    JNIEXPORT jintArray JNICALL Java_ru_ytkab0bp_slicebeam_slic3r_Native_painted_1bridge_1anchor_1regression(JNIEnv* env, jclass) {
+        try {
+            Model model;
+            ModelObject* object = model.add_object();
+            object->name = "painted_bridge_anchor_fixture";
+
+            TriangleMesh pillars = make_cube(10., 20., 6.);
+            TriangleMesh far_pillar = make_cube(10., 20., 6.);
+            far_pillar.translate(20.f, 0.f, 0.f);
+            pillars.merge(far_pillar);
+            object->add_volume(std::move(pillars))->config.set("extruder", 1);
+            TriangleMesh deck = make_cube(10., 20., 1.);
+            deck.translate(10.f, 0.f, 5.f);
+            object->add_volume(std::move(deck))->config.set("extruder", 2);
+            object->add_instance();
+            object->ensure_on_bed();
+
+            DynamicPrintConfig config = DynamicPrintConfig::full_print_config();
+            config.set_num_filaments(2);
+            config.set_deserialize_strict({
+                {"nozzle_diameter", "0.4"},
+                {"filament_diameter", "1.75,1.75"},
+                {"filament_colour", "#FF0000;#00FF00"},
+                {"flush_volumes_matrix", "0,280,280,0"},
+                {"layer_height", 0.2},
+                {"initial_layer_print_height", 0.2},
+                {"wall_generator", "classic"},
+                {"wall_loops", 2},
+                {"sparse_infill_density", "15%"},
+                {"bottom_shell_layers", 3},
+                {"outer_wall_line_width", 0.42},
+                {"inner_wall_line_width", 0.45},
+                {"detect_overhang_wall", true},
+                {"enable_support", false},
+                {"enable_prime_tower", false},
+                {"skirt_loops", 0},
+                {"brim_type", "no_brim"},
+            });
+
+            Print print;
+            print.apply(model, std::move(config));
+            print.set_status_silent();
+            print.process();
+
+            const Layer* deck_layer = nullptr;
+            for (const Layer* layer : print.objects().front()->layers())
+                if (std::abs(layer->print_z - 5.2) < EPSILON)
+                    deck_layer = layer;
+            if (deck_layer == nullptr || deck_layer->lower_layer == nullptr)
+                throw std::runtime_error("Painted bridge fixture did not generate its deck layer");
+
+            const LayerRegion* deck_region = nullptr;
+            const LayerRegion* pillar_region = nullptr;
+            for (const LayerRegion* region : deck_layer->regions())
+                if (!region->slices.empty()) {
+                    const double width = unscale<double>(get_extents(region->slices.surfaces).size().x());
+                    if (width < 15.) deck_region = region;
+                    else pillar_region = region;
+                }
+            if (deck_region == nullptr || pillar_region == nullptr)
+                throw std::runtime_error("Painted bridge fixture did not retain separate filament regions");
+
+            const ExPolygons anchors = intersection_ex(deck_region->slices.surfaces, deck_layer->lower_layer->lslices);
+            int bridge_paths = 0;
+            for (const ExtrusionEntity* entity : deck_region->fills.flatten().entities)
+                if (entity->role() == erBridgeInfill) ++bridge_paths;
+            const std::array<jint, 5> values{
+                static_cast<jint>(anchors.size()),
+                bridge_paths,
+                deck_region->region().config().outer_wall_filament_id.value != pillar_region->region().config().outer_wall_filament_id.value ? 1 : 0,
+                static_cast<jint>(deck_layer->regions().size()),
+                static_cast<jint>(deck_layer->lower_layer->lslices.size()),
+            };
+            jintArray result = env->NewIntArray(static_cast<jsize>(values.size()));
+            if (result != nullptr) env->SetIntArrayRegion(result, 0, static_cast<jsize>(values.size()), values.data());
+            return result;
+        } catch (const std::exception& error) {
+            jclass runtime_error = env->FindClass("ru/ytkab0bp/slicebeam/slic3r/Slic3rRuntimeError");
+            if (runtime_error != nullptr) env->ThrowNew(runtime_error, error.what());
+            return nullptr;
+        }
+    }
+
     JNIEXPORT jboolean JNICALL Java_ru_ytkab0bp_slicebeam_slic3r_Native_model_1add_1spiral_1vase_1override_1test_1config(
         JNIEnv* env, jclass, jlong model_ptr)
     {

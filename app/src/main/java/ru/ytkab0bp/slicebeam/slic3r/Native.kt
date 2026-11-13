@@ -93,6 +93,9 @@ class Native {
     /** Verifies sequential-print rod checks include raft height above the bed. */
     @JvmStatic
     external fun sequential_raft_top_clearance_regression(): IntArray
+    /** Runs the Orca painted-bridge fixture and reports neighbour anchors and bridge paths. */
+    @JvmStatic
+    external fun painted_bridge_anchor_regression(): IntArray
     @JvmStatic
     external fun model_add_spiral_vase_override_test_config(model: Long): Boolean
     /** Exercises the inherited custom-printer preset merge when the child adds nozzle slots. */

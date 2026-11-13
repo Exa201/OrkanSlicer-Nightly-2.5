@@ -449,6 +449,21 @@ std::vector<std::set<int>> PrintObject::detect_extruder_geometric_unprintables()
     return geometric_unprintables;
 }
 
+// Rebuild the strips handed from neighbouring material to painted bridge regions. Running this
+// after restoring raw slices makes the result deterministic when wall widths or settings change.
+template<typename ThrowOnCancel>
+static void anchor_bridges_in_neighbours(const LayerPtrs &layers, ThrowOnCancel throw_on_cancel)
+{
+    tbb::parallel_for(tbb::blocked_range<size_t>(0, layers.size()),
+        [&layers, &throw_on_cancel](const tbb::blocked_range<size_t> &range) {
+            for (size_t layer_idx = range.begin(); layer_idx < range.end(); ++layer_idx) {
+                throw_on_cancel();
+                layers[layer_idx]->anchor_bridges_in_neighbours();
+            }
+        });
+    throw_on_cancel();
+}
+
 // 1) Merges typed region slices into stInternal type.
 // 2) Increases an "extra perimeters" counter at region slices where needed.
 // 3) Generates perimeters, gap fills and fill regions (fill regions of type stInternal).
@@ -463,14 +478,14 @@ void PrintObject::make_perimeters()
     m_print->set_status(15, L("Generating walls"));
     BOOST_LOG_TRIVIAL(info) << "Generating walls..." << log_memory_info();
 
-    // Revert the typed slices into untyped slices.
-    if (m_typed_slices) {
-        for (Layer *layer : m_layers) {
-            layer->restore_untyped_slices();
-            m_print->throw_if_canceled();
-        }
-        m_typed_slices = false;
+    // Restore raw slices before calculating the per-region bridge anchors. A previous run may
+    // already have moved neighbour strips into the painted bridge's region.
+    for (Layer *layer : m_layers) {
+        layer->restore_untyped_slices();
+        m_print->throw_if_canceled();
     }
+    m_typed_slices = false;
+    anchor_bridges_in_neighbours(m_layers, [this]() { m_print->throw_if_canceled(); });
 
     // compare each layer to the one below, and mark those slices needing
     // one additional inner perimeter, like the top of domed objects-
@@ -573,6 +588,7 @@ void PrintObject::prepare_infill()
             layer->restore_untyped_slices_no_extra_perimeters();
             m_print->throw_if_canceled();
         }
+        anchor_bridges_in_neighbours(m_layers, [this]() { m_print->throw_if_canceled(); });
     }
 
     // This will assign a type (top/bottom/internal) to $layerm->slices.

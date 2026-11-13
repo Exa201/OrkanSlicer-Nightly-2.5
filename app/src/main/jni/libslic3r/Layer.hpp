@@ -187,6 +187,8 @@ public:
 
     // Whether two regions can be printed in a continues perimeter
     static bool             is_perimeter_compatible(const PrintRegion& a, const PrintRegion& b);
+    // Moves a strip of supported neighbouring material into a multicolor bridge so it can anchor on it.
+    void                    anchor_bridges_in_neighbours();
     void                    make_perimeters();
     // Phony version of make_fills() without parameters for Perl integration only.
     void                    make_fills() { this->make_fills(nullptr, nullptr); }
