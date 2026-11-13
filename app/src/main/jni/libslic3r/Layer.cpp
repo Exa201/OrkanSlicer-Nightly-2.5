@@ -2,11 +2,14 @@
 #include "ClipperUtils.hpp"
 #include "Print.hpp"
 #include "Fill/Fill.hpp"
+#include "Polyline.hpp"
 #include "ShortestPath.hpp"
 #include "SVG.hpp"
 #include "BoundingBox.hpp"
 
 #include <boost/log/trivial.hpp>
+#include <cmath>
+#include <numeric>
 
 namespace Slic3r {
 
@@ -179,6 +182,127 @@ bool Layer::is_perimeter_compatible(const PrintRegion& a, const PrintRegion& b)
         && config.seam_slope_inner_walls  == other_config.seam_slope_inner_walls;
 }
 
+static ExPolygons bridged_overhangs(const Layer &layer, const ExPolygons &slices, coord_t wall_width)
+{
+    return layer.lower_layer == nullptr ? ExPolygons() : opening_ex(diff_ex(slices, layer.lower_layer->lslices), float(wall_width));
+}
+
+void Layer::anchor_bridges_in_neighbours()
+{
+    if (m_regions.size() < 2 || lower_layer == nullptr || upper_layer == nullptr) return;
+    for (LayerRegion *bridge : m_regions) {
+        const float width = float(bridge->flow(frExternalPerimeter).scaled_width());
+        const ExPolygons slices = to_expolygons(bridge->slices.surfaces);
+        const ExPolygons overhangs = bridged_overhangs(*this, slices, coord_t(width));
+        if (overhangs.empty()) continue;
+        const ExPolygons top = opening_ex(diff_ex(lslices, upper_layer->lslices), width / 2);
+        ExPolygons anchors;
+        for (const LayerRegion *neighbour : m_regions) {
+            if (neighbour == bridge || neighbour->slices.empty()) continue;
+            const float neighbour_width = float(neighbour->flow(frExternalPerimeter).scaled_width());
+            Polygons reach = intersection(offset(overhangs, neighbour_width), offset(lslices, -neighbour_width));
+            if (!top.empty()) reach = diff(reach, top);
+            append(anchors, intersection_ex(intersection_ex(neighbour->slices.surfaces, lower_layer->lslices), reach));
+        }
+        if (anchors.empty()) continue;
+        const Polygons inside = offset(lslices, -width);
+        const ExPolygons anchored = union_ex(slices, anchors);
+        ExPolygons gaps = intersection_ex(diff_ex(closing_ex(anchored, width / 2), anchored), intersection(offset(anchors, width), inside));
+        if (!top.empty())
+            gaps.erase(std::remove_if(gaps.begin(), gaps.end(), [&top](const ExPolygon &gap) { return !intersection_ex(gap, top).empty(); }), gaps.end());
+        append(anchors, std::move(gaps));
+        for (LayerRegion *neighbour : m_regions)
+            if (neighbour != bridge && !neighbour->slices.empty())
+                neighbour->slices.set(diff_ex(neighbour->slices.surfaces, anchors), stInternal);
+        bridge->slices.set(union_ex(slices, anchors), stInternal);
+    }
+}
+
+static ExPolygons neighbours_along_overhangs(const Layer &layer, const LayerRegionPtrs &groups)
+{
+    const LayerRegion &first = *groups.front();
+    const int wall_loops = first.region().config().wall_loops.value;
+    if (layer.lower_layer == nullptr || wall_loops <= 0) return {};
+    ExPolygons own, others;
+    for (const LayerRegion *region : layer.regions())
+        append(std::find(groups.begin(), groups.end(), region) == groups.end() ? others : own,
+            to_expolygons(region->slices.surfaces));
+    const coord_t wall_width = first.flow(frExternalPerimeter).scaled_width();
+    const ExPolygons overhangs = others.empty() ? ExPolygons() : bridged_overhangs(layer, own, wall_width);
+    if (overhangs.empty()) return {};
+    const float walls = float(wall_width + wall_loops * first.flow(frPerimeter).scaled_spacing());
+    ExPolygons out = intersection_ex(others, offset(overhangs, walls + float(wall_width + scale_(EXTERNAL_INFILL_MARGIN))));
+    const Polygons along = offset(overhangs, float(2 * wall_width));
+    out.erase(std::remove_if(out.begin(), out.end(), [&along](const ExPolygon &expoly) { return intersection(along, expoly).empty(); }), out.end());
+    if (!out.empty()) append(out, diff_ex(offset(out, walls), union_(to_polygons(layer.lslices), offset(own, float(wall_width / 2)))));
+    return out;
+}
+
+static Polylines runs_outside(const Polyline &polyline, const Polygons &area)
+{
+    const Polylines whole = diff_pl(polyline, area);
+    if (whole.empty() || std::abs(total_length(whole) - polyline.length()) < SCALED_EPSILON)
+        return whole.empty() ? Polylines() : Polylines{polyline};
+    Polylines runs;
+    for (size_t i = 1; i < polyline.size(); ++i) {
+        const Point &a = polyline.points[i - 1];
+        const Point &b = polyline.points[i];
+        const Vec2d dir = (b - a).cast<double>();
+        Polylines pieces = diff_pl(Polyline{a, b}, area);
+        for (Polyline &piece : pieces)
+            if (dir.dot((piece.last_point() - piece.first_point()).cast<double>()) < 0.) piece.reverse();
+        std::sort(pieces.begin(), pieces.end(), [&a, &dir](const Polyline &l, const Polyline &r) {
+            return dir.dot((l.first_point() - a).cast<double>()) < dir.dot((r.first_point() - a).cast<double>());
+        });
+        for (Polyline &piece : pieces) {
+            if (!runs.empty() && runs.back().last_point() == piece.first_point()) runs.back().append(piece.last_point());
+            else runs.emplace_back(std::move(piece));
+        }
+    }
+    return runs;
+}
+
+static void remove_extrusions_over(ExtrusionEntityCollection &collection, const Polygons &area)
+{
+    ExtrusionEntitiesPtr kept;
+    for (ExtrusionEntity *entity : collection.entities) {
+        if (auto *child = dynamic_cast<ExtrusionEntityCollection*>(entity)) {
+            remove_extrusions_over(*child, area);
+            if (child->empty()) delete child; else kept.emplace_back(child);
+            continue;
+        }
+        ExtrusionPaths paths;
+        if (auto *loop = dynamic_cast<ExtrusionLoop*>(entity)) paths = loop->paths;
+        else if (auto *multi = dynamic_cast<ExtrusionMultiPath*>(entity)) paths = multi->paths;
+        else if (auto *path = dynamic_cast<ExtrusionPath*>(entity)) paths.emplace_back(*path);
+        std::vector<ExtrusionPaths> runs;
+        double length = 0.;
+        for (const ExtrusionPath &path : paths)
+            for (Polyline &run : runs_outside(path.polyline.to_polyline(), area)) {
+                length += run.length();
+                if (runs.empty() || runs.back().back().last_point() != run.first_point()) runs.emplace_back();
+                runs.back().emplace_back(Polyline3(run), path);
+            }
+        if (paths.empty() || std::abs(length - entity->length()) < SCALED_EPSILON) { kept.emplace_back(entity); continue; }
+        if (entity->is_loop() && runs.size() > 1 && runs.back().back().last_point() == runs.front().front().first_point()) {
+            append(runs.back(), std::move(runs.front()));
+            runs.front() = std::move(runs.back());
+            runs.pop_back();
+        }
+        for (ExtrusionPaths &run : runs) {
+            const double run_length = std::accumulate(run.begin(), run.end(), 0., [](double n, const ExtrusionPath &path) { return n + path.length(); });
+            if (run_length <= scale_(run.front().width)) continue;
+            ExtrusionEntity *clipped;
+            if (run.size() == 1) clipped = new ExtrusionPath(std::move(run.front()));
+            else { auto *multi = new ExtrusionMultiPath(); multi->paths = std::move(run); clipped = multi; }
+            clipped->inset_idx = entity->inset_idx;
+            kept.emplace_back(clipped);
+        }
+        delete entity;
+    }
+    collection.entities = std::move(kept);
+}
+
 // Here the perimeters are created cummulatively for all layer regions sharing the same parameters influencing the perimeters.
 // The perimeter paths and the thin fills (ExtrusionEntityCollection) are assigned to the first compatible layer region.
 // The resulting fill surface is split back among the originating regions.
@@ -219,7 +343,17 @@ void Layer::make_perimeters()
 		            }
 		        }
 
-	        if (layerms.size() == 1) {  // optimization
+	        ExPolygons clipped = neighbours_along_overhangs(*this, layerms);
+        Polygons group_slices;
+        for (const LayerRegion *region : layerms)
+            polygons_append(group_slices, to_polygons(region->slices.surfaces));
+        for (const LayerRegion *region : layerms) {
+            const ExPolygons slices = to_expolygons(region->slices.surfaces);
+            if (slices != region->raw_slices)
+                append(clipped, diff_ex(region->raw_slices, group_slices));
+        }
+        clipped = union_ex(clipped);
+	        if (layerms.size() == 1 && clipped.empty()) {  // optimization
 	            (*layerm)->fill_surfaces.surfaces.clear();
                 (*layerm)->make_perimeters((*layerm)->slices, {*layerm}, &(*layerm)->fill_surfaces, &(*layerm)->fill_no_overlap_expolygons);
 	            (*layerm)->fill_expolygons = to_expolygons((*layerm)->fill_surfaces.surfaces);
@@ -236,6 +370,8 @@ void Layer::make_perimeters()
 	                    if (layerm->region().config().sparse_infill_density > layerm_config->region().config().sparse_infill_density)
 	                    	layerm_config = layerm;
 	                }
+	                for (const ExPolygon &expoly : clipped)
+	                    slices.begin()->second.emplace_back(slices.begin()->second.front(), expoly);
 	                // merge the surfaces assigned to each group
 	                for (std::pair<const unsigned short,Surfaces> &surfaces_with_extra_perimeters : slices)
 	                    new_slices.append(offset_ex(surfaces_with_extra_perimeters.second, ClipperSafetyOffset), surfaces_with_extra_perimeters.second.front());
@@ -246,6 +382,16 @@ void Layer::make_perimeters()
                 //BBS
                 ExPolygons fill_no_overlap;
 	            layerm_config->make_perimeters(new_slices, layerms, &fill_surfaces, &fill_no_overlap);
+	            if (!clipped.empty()) {
+	                remove_extrusions_over(layerm_config->perimeters, to_polygons(clipped));
+	                remove_extrusions_over(layerm_config->thin_fills, to_polygons(clipped));
+	            }
+
+	            for (LayerRegion *region : layerms) {
+	                region->fill_expolygons.clear();
+	                region->fill_surfaces.clear();
+	                region->fill_no_overlap_expolygons.clear();
+	            }
 
 	            // assign fill_surfaces to each layer
 	            if (!fill_surfaces.surfaces.empty()) {
@@ -267,6 +413,7 @@ void Layer::make_perimeters()
 	                    Polygons all_region_slices_p;
 	                    for (LayerRegion *l : layerms)
 	                        polygons_append(all_region_slices_p, to_polygons(l->slices.surfaces));
+	                    polygons_append(all_region_slices_p, to_polygons(clipped));
 	                    ExPolygons extra_fill = diff_ex(fill_surfaces.surfaces, all_region_slices_p, ApplySafetyOffset::Yes);
 	                    if (!extra_fill.empty()) {
 	                        append(layerms.front()->fill_expolygons, extra_fill);

@@ -5199,6 +5199,67 @@ class NativeSliceDeviceTest {
         }
     }
 
+    @Test(timeout = 180_000)
+    fun bridgeInAnotherFilamentAnchorsOnNeighboringParts() = withToolChangerProfile {
+        val context = InstrumentationRegistry.getInstrumentation().targetContext
+        val process = requireNotNull(SliceBeam.CONFIG?.findPrint("0.20mm Standard"))
+        process.put("layer_height", "0.2")
+        process.put("initial_layer_print_height", "0.2")
+        process.put("wall_loops", "2")
+        process.put("sparse_infill_density", "15%")
+        process.put("bottom_shell_layers", "3")
+        process.put("outer_wall_line_width", "0.42")
+        process.put("inner_wall_line_width", "0.45")
+        process.put("detect_overhang_wall", "1")
+        process.put("extra_perimeters_on_overhangs", "0")
+        process.put("thick_bridges", "0")
+        process.put("enable_support", "0")
+        process.put("enable_prime_tower", "0")
+
+        val model = Model()
+        val output = File(context.cacheDir, "multifilament-anchored-bridge.gcode")
+        var result: GCodeProcessorResult? = null
+        try {
+            val left = model.createPrimitive(0, 10.0, 20.0, 6.0, "bridge-left-pillar")
+            val right = model.createPrimitive(0, 10.0, 20.0, 6.0, "bridge-right-pillar")
+            val deck = model.createPrimitive(0, 10.0, 20.0, 1.0, "bridge-deck")
+            assertTrue("all three bridge pieces must be created", left >= 0 && right >= 0 && deck >= 0)
+            model.translate(left, 5.0, 10.0, 0.0)
+            model.translate(right, 25.0, 10.0, 0.0)
+            model.translate(deck, 15.0, 10.0, 5.0)
+            assertEquals("the three pieces must form one multipart model", 0,
+                model.combineObjectsAsParts(intArrayOf(left, right, deck)))
+            model.ensureOnBed(0)
+            assertEquals(3, model.getObjectPartCount(0))
+            assertTrue("left pillar should use T0", model.setObjectPartExtruder(0, 0, 1))
+            assertTrue("right pillar should use T0", model.setObjectPartExtruder(0, 1, 1))
+            assertTrue("the bridge deck should use T1", model.setObjectPartExtruder(0, 2, 2))
+            assertEquals(listOf(1, 2), model.getUsedFilaments(0).toList())
+
+            SliceBeam.genCurrentConfig(model)
+            result = model.slice(SliceBeam.getCurrentConfigFile().absolutePath, output.absolutePath, null)
+            val gcode = output.readText()
+            assertHasExtrusion(gcode)
+            val bridgePaths = supportExtrusionSegments(gcode)
+                .filter { it.type.contains("bridge") && it.z in 5.15..5.25 }
+            assertTrue("the second filament must produce bridge infill on the deck layer", bridgePaths.isNotEmpty())
+            val anchoredSpans = bridgePaths.filter { segment ->
+                val alongX = kotlin.math.abs(segment.x1 - segment.x0) > kotlin.math.abs(segment.y1 - segment.y0)
+                val y = (segment.y0 + segment.y1) * 0.5
+                alongX && y in 2.0..18.0 &&
+                    10.0 - minOf(segment.x0, segment.x1) + segment.width / 2.0 > 0.315 &&
+                    maxOf(segment.x0, segment.x1) - 20.0 + segment.width / 2.0 > 0.315
+            }
+            assertTrue("bridge lines must extend at least 0.4 mm onto both supporting pillars; got ${anchoredSpans.size} of ${bridgePaths.size}",
+                anchoredSpans.size > 10)
+        } finally {
+            result?.release()
+            model.release()
+            output.delete()
+            SliceBeam.getCurrentConfigFile().delete()
+        }
+    }
+
     @Test
     fun manyPartMultipartObjectSlicesWithBrimGroupingAndKeepsMaterials() = withKobraProfile {
         val context = InstrumentationRegistry.getInstrumentation().targetContext
@@ -8314,7 +8375,7 @@ class NativeSliceDeviceTest {
             } == true
             if (depositing && x != null && y != null && nextX != null && nextY != null) {
                 val segment = GCodePathSegment(x!!, y!!, nextX, nextY, z, type, width)
-                if (type.contains("support")) supports += segment
+                if (type.contains("support") || type.contains("bridge")) supports += segment
             }
             x = nextX
             y = nextY

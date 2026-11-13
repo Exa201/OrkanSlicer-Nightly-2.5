@@ -471,6 +471,10 @@ void PrintObject::make_perimeters()
         }
         m_typed_slices = false;
     }
+    for (Layer *layer : m_layers) {
+        layer->anchor_bridges_in_neighbours();
+        m_print->throw_if_canceled();
+    }
 
     // compare each layer to the one below, and mark those slices needing
     // one additional inner perimeter, like the top of domed objects-
@@ -573,6 +577,10 @@ void PrintObject::prepare_infill()
             layer->restore_untyped_slices_no_extra_perimeters();
             m_print->throw_if_canceled();
         }
+    }
+    for (Layer *layer : m_layers) {
+        layer->anchor_bridges_in_neighbours();
+        m_print->throw_if_canceled();
     }
 
     // This will assign a type (top/bottom/internal) to $layerm->slices.
