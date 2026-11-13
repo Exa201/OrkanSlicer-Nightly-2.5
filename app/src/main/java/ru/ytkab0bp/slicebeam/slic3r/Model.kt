@@ -547,12 +547,39 @@ open class Model private constructor(@JvmField var pointer: Long) {
         markStateChanged()
     }
 
+    /** Paints the Orca layer-height profile at an exact surface hit in build-volume coordinates. */
+    open fun adjustLayerHeightAtWorldPoint(
+        i: Int,
+        configPath: String,
+        worldX: Double,
+        worldY: Double,
+        worldZ: Double,
+        bandWidthMm: Double,
+        deltaMm: Double,
+        action: Int,
+        qualityFactor: Float,
+    ): Boolean {
+        if (!hasObject(i) || !worldX.isFinite() || !worldY.isFinite() || !worldZ.isFinite() ||
+            !bandWidthMm.isFinite() || !deltaMm.isFinite() || bandWidthMm <= 0.0 || deltaMm <= 0.0 ||
+            action !in 0..3 || !qualityFactor.isFinite()
+        ) return false
+        val changed = Native.model_adjust_layer_height_at_world_point(
+            pointer, i, configPath, worldX, worldY, worldZ, bandWidthMm, deltaMm, action, qualityFactor,
+        )
+        if (changed) markStateChanged()
+        return changed
+    }
+
     open fun clearAdaptiveLayerHeight(i: Int) {
         Native.model_clear_adaptive_layer_height(pointer, i)
         markStateChanged()
     }
 
     open fun hasAdaptiveLayerHeight(i: Int): Boolean = Native.model_has_adaptive_layer_height(pointer, i)
+
+    /** Returns alternating object-local Z/height samples for diagnostics and regression tests. */
+    internal fun adaptiveLayerHeightProfile(i: Int): DoubleArray =
+        if (hasObject(i)) Native.model_get_layer_height_profile(pointer, i) else doubleArrayOf()
 
     open fun embossText(
         i: Int,

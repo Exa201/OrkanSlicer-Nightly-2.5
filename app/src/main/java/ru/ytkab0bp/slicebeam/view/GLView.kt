@@ -34,6 +34,7 @@ import java.util.concurrent.atomic.AtomicLong
 import ru.ytkab0bp.slicebeam.R
 import ru.ytkab0bp.slicebeam.SliceBeam
 import ru.ytkab0bp.slicebeam.events.LongClickTranslationEvent
+import ru.ytkab0bp.slicebeam.events.NeedSnackbarEvent
 import ru.ytkab0bp.slicebeam.render.DevicePerformancePolicy
 import ru.ytkab0bp.slicebeam.render.GLRenderer
 import ru.ytkab0bp.slicebeam.render.FillBedCallbackResultPolicy
@@ -95,7 +96,19 @@ private var longClickUsesSurfacePlane = false
 private val tapGestureGate = TapGestureGate()
 // When true and the renderer is in paint mode, a single finger paints instead of orbiting.
  var isPaintBrushActive:Boolean = false
+/** One-finger Orca variable-layer-height brush; two-finger camera gestures remain enabled. */
+@Volatile var isVariableLayerHeightBrushActive: Boolean = false
+@Volatile var variableLayerHeightConfigPath: String? = null
+@Volatile var variableLayerHeightBrushBandWidthMm: Double = 5.0
+@Volatile var variableLayerHeightBrushDeltaMm: Double = 0.05
+@Volatile var variableLayerHeightBrushAction: Int = 2
+@Volatile var variableLayerHeightQualityFactor: Float = 0.5f
+@Volatile var onVariableLayerHeightPaintComplete: (() -> Unit)? = null
 private var paintStrokeActive = false
+private var variableLayerHeightStrokeActive = false
+private var variableLayerHeightStrokeChanged = false
+private var lastVariableLayerHeightBrushAtMs = 0L
+private val variableLayerHeightUnsupportedObjects = HashSet<Int>()
 private val paintInputCoalescer = PaintInputCoalescer()
 private var lastPaintPoint: PaintInputCoalescer.Point? = null
 private var tempVec = Vec3d()
@@ -213,6 +226,57 @@ private fun paintAtScreen(x:Float, y:Float) {
 if (paintInputCoalescer.submit(surfaceTouchX(x), surfaceTouchY(y))) {
     queueEvent { drainPaintInput() }
 }
+}
+private fun paintVariableLayerHeightAtScreen(x: Float, y: Float) {
+    val screenX = surfaceTouchX(x)
+    val screenY = surfaceTouchY(y)
+    queueEvent {
+        val now = SystemClock.uptimeMillis()
+        if (lastVariableLayerHeightBrushAtMs != 0L && now - lastVariableLayerHeightBrushAtMs < 55L) return@queueEvent
+        lastVariableLayerHeightBrushAtMs = now
+        val activeModel = renderer.model ?: return@queueEvent
+        val objectIndex = renderer.raycastObjectIndex(screenX, screenY)
+        if (objectIndex !in 0 until activeModel.objectsCount) return@queueEvent
+        if (!renderer.prepareExactSurfaceRaycast(objectIndex)) {
+            if (variableLayerHeightUnsupportedObjects.add(objectIndex)) {
+                SliceBeam.EVENT_BUS.fireEvent(NeedSnackbarEvent(R.string.VariableLayerRaycastUnavailable))
+            }
+            return@queueEvent
+        }
+        val hit = renderer.raycastObjectHit(objectIndex, screenX, screenY) ?: return@queueEvent
+        if (hit.approximate) return@queueEvent
+        val configPath = variableLayerHeightConfigPath ?: return@queueEvent
+        val changed = runCatching {
+            activeModel.adjustLayerHeightAtWorldPoint(
+                objectIndex,
+                configPath,
+                hit.position.x,
+                hit.position.y,
+                hit.position.z,
+                variableLayerHeightBrushBandWidthMm,
+                variableLayerHeightBrushDeltaMm,
+                variableLayerHeightBrushAction,
+                variableLayerHeightQualityFactor,
+            )
+        }.getOrElse { error ->
+            SliceBeam.EVENT_BUS.fireEvent(NeedSnackbarEvent(R.string.VariableLayerFailed, error.message))
+            false
+        }
+        if (changed) {
+            variableLayerHeightStrokeChanged = true
+            requestRender()
+        }
+    }
+}
+private fun finishVariableLayerHeightStrokeOnGlThread() {
+    lastVariableLayerHeightBrushAtMs = 0L
+    if (!variableLayerHeightStrokeChanged) return
+    variableLayerHeightStrokeChanged = false
+    requestRender()
+    ViewUtils.postOnMainThread {
+        SliceBeam.EVENT_BUS.fireEvent(NeedSnackbarEvent(R.string.VariableLayerPaintApplied))
+        onVariableLayerHeightPaintComplete?.invoke()
+    }
 }
 private fun drainPaintInput() {
     val segment = paintInputCoalescer.takePending()
@@ -962,6 +1026,12 @@ override fun onTouchEvent(e:MotionEvent):Boolean {
 val deltaMs = System.currentTimeMillis() - lastActionTime
 lastActionTime = System.currentTimeMillis()
 val action = e.getActionMasked()
+if (variableLayerHeightStrokeActive && (action == MotionEvent.ACTION_UP || action == MotionEvent.ACTION_CANCEL ||
+        action == MotionEvent.ACTION_POINTER_DOWN)) {
+    variableLayerHeightStrokeActive = false
+    queueEvent { finishVariableLayerHeightStrokeOnGlThread() }
+    if (action != MotionEvent.ACTION_POINTER_DOWN) return true
+}
 if (paintStrokeActive && (action == MotionEvent.ACTION_UP || action == MotionEvent.ACTION_CANCEL ||
         action == MotionEvent.ACTION_POINTER_DOWN)) {
     paintStrokeActive = false
@@ -995,6 +1065,21 @@ isScaling = false
 twoPointerGesture = false
 onePointerGesture = false
 return true
+}
+// Painting variable layer height consumes one-finger gestures, while two fingers retain the
+// normal orbit/zoom path. Exact surface hits are resolved on the GL thread with the model mesh.
+if (isVariableLayerHeightBrushActive && e.getPointerCount() == 1 &&
+    (action == MotionEvent.ACTION_DOWN || (action == MotionEvent.ACTION_MOVE && variableLayerHeightStrokeActive))) {
+    tapGestureGate.invalidate()
+    if (action == MotionEvent.ACTION_DOWN) {
+        variableLayerHeightStrokeActive = true
+        queueEvent {
+            variableLayerHeightStrokeChanged = false
+            lastVariableLayerHeightBrushAtMs = 0L
+        }
+    }
+    paintVariableLayerHeightAtScreen(e.getX(), e.getY())
+    return true
 }
 // Paint mode: a single finger paints; two fingers still orbit/zoom via the normal path.
  if ((renderer.isPaintMode && isPaintBrushActive && e.getPointerCount() == 1 &&

@@ -1520,7 +1520,11 @@ val ctx = getContext()
 val currentGlView = glView
 if (ctx == null || currentGlView == null || overlayLayout == null || isVariableLayerHeightMode) return
 workspaceController.dismissActivePanel()
-showWorkspaceModePanel("variable-layer-height", ::exitVariableLayerHeightMode) {
+showWorkspaceModePanel(
+    toolId = "variable-layer-height",
+    onDismiss = ::exitVariableLayerHeightMode,
+    allowBackgroundInteraction = true,
+) {
     VariableLayerHeightPanel(currentGlView, ::exitVariableLayerHeightMode, ::updateModel)
 }
 }
@@ -1567,9 +1571,11 @@ private fun showWorkspaceModePanel(
     onDismiss: () -> Unit,
     panelSize: WorkspacePanelSize? = null,
     dockPanel: Boolean = false,
+    allowBackgroundInteraction: Boolean = false,
     content: @Composable () -> Unit,
 ): Unit {
     workspaceController.selectToolWithPanel(toolId, onDismiss, content, panelSize, dockPanel)
+    workspaceController.setToolAllowsBackgroundInteraction(toolId, allowBackgroundInteraction)
 }
 private fun removeModePanelHost(toolId: String) {
     workspaceController.clearTool(toolId)

@@ -105,6 +105,88 @@ class NativeSliceDeviceTest {
         }
     }
 
+    @Test(timeout = 180_000)
+    fun directVariableLayerHeightBrushChangesTheRealSliceProfile() = withKobraProfile {
+        val context = InstrumentationRegistry.getInstrumentation().targetContext
+        val source = copyCube(context, "variable-layer-brush.stl")
+        val model = Model(source).also {
+            it.ensureOnBed(0)
+            it.translate(0, 37.0, 31.0, 0.0)
+        }
+        val configFile = SliceBeam.getCurrentConfigFile()
+        val process = requireNotNull(SliceBeam.CONFIG?.findPrint("0.16mm Standard"))
+        val gcodeFile = File(context.cacheDir, "variable-layer-brush.gcode")
+        var sliced: GCodeProcessorResult? = null
+        try {
+            process.put("layer_height", "0.2")
+            process.put("initial_layer_print_height", "0.2")
+            process.put("skirt_loops", "0")
+            process.put("brim_type", "no_brim")
+            SliceBeam.genCurrentConfig(model)
+
+            model.applyAdaptiveLayerHeight(0, configFile.absolutePath, 0.5f)
+            val originalProfile = model.adaptiveLayerHeightProfile(0)
+            assertTrue("adaptive profile must be generated before painting", originalProfile.size >= 4)
+
+            val minimum = Vec3d()
+            val maximum = Vec3d()
+            model.getBoundingBoxExact(0, minimum, maximum)
+            val worldZ = minimum.z + (maximum.z - minimum.z) * 0.5
+            fun profileHeightAt(profile: DoubleArray, z: Double): Double =
+                profile.indices.step(2).minByOrNull { kotlin.math.abs(profile[it] - z) }
+                    ?.let { profile[it + 1] } ?: Double.NaN
+
+            sliced = model.slice(configFile.absolutePath, gcodeFile.absolutePath, null)
+            val baselineLayerZs = layerZValues(gcodeFile.readText())
+            sliced?.release()
+            sliced = null
+            gcodeFile.delete()
+
+            assertTrue(
+                "the brush should map a translated world-space hit back into the model profile",
+                model.adjustLayerHeightAtWorldPoint(
+                    0, configFile.absolutePath,
+                    minimum.x, (minimum.y + maximum.y) * 0.5, worldZ,
+                    4.0, 0.05, 1, 0.5f,
+                ),
+            )
+            assertTrue("a surface stroke must create a persistent object layer profile", model.hasAdaptiveLayerHeight(0))
+            val profile = model.adaptiveLayerHeightProfile(0)
+            assertTrue("the persisted layer-height profile must contain Z/height samples", profile.size >= 4 && profile.size % 2 == 0)
+            val originalHeight = profileHeightAt(originalProfile, worldZ)
+            val paintedHeight = profileHeightAt(profile, worldZ)
+            assertTrue(
+                "the brush must lower the adaptive profile at Z=$worldZ from $originalHeight to $paintedHeight",
+                paintedHeight <= originalHeight - 0.045,
+            )
+
+            sliced = model.slice(configFile.absolutePath, gcodeFile.absolutePath, null)
+            val gcode = gcodeFile.readText()
+            assertHasExtrusion(gcode)
+            val layerZs = layerZValues(gcode)
+            val layerHeights = layerZs.zipWithNext { lower, upper -> upper - lower }
+            assertTrue("the edited model must slice into multiple layers", layerHeights.size > 3)
+            val baselineHeightsNearPaint = baselineLayerZs.zipWithNext { lower, upper -> lower to (upper - lower) }
+                .filter { it.first in (worldZ - 2.0)..(worldZ + 2.0) }
+                .map { it.second }
+            val paintedHeightsNearPaint = layerZs.zipWithNext { lower, upper -> lower to (upper - lower) }
+                .filter { it.first in (worldZ - 2.0)..(worldZ + 2.0) }
+                .map { it.second }
+            assertTrue("baseline slice must include layers in the painted band", baselineHeightsNearPaint.isNotEmpty())
+            assertTrue("painted slice must include layers in the painted band", paintedHeightsNearPaint.isNotEmpty())
+            assertTrue(
+                "the directly painted band must change G-code layer heights; profile=${profile.contentToString()}, baseline=$baselineHeightsNearPaint, painted=$paintedHeightsNearPaint",
+                paintedHeightsNearPaint.min() < baselineHeightsNearPaint.min() - 0.02,
+            )
+        } finally {
+            sliced?.release()
+            model.release()
+            source.delete()
+            configFile.delete()
+            gcodeFile.delete()
+        }
+    }
+
     private fun formatGCodeDuration(seconds: Float): String {
         val days = (seconds / 86_400f).toInt()
         var remaining = seconds - days * 86_400f

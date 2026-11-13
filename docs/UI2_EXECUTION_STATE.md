@@ -1,5 +1,12 @@
 # Nightly execution state — 2026-11-13
 
+## Orca Nightly Batch 17 — Punkt 4/10 verifiziert — 2026-11-13
+
+- Punkt 4 ergänzt Orcas `adjust_layer_height_profile()` als direktes Ein-Finger-Pinselwerkzeug im vorhandenen Layerhöhenmodus. Die GL-Oberflächen-Treffpunkte werden in Objektkoordinaten zurücktransformiert; Zwei-Finger-Gesten bleiben für Kamera/Zoom frei. Der exakte Raycaster wird je Auswahl vorgewärmt und bei Touchsamples wiederverwendet; Samples sind auf höchstens etwa 18/s begrenzt.
+- Neue Android-Regression `NativeSliceDeviceTest#directVariableLayerHeightBrushChangesTheRealSliceProfile`: übersetzter Testkörper, adaptives Ausgangsprofil, tatsächliche Änderung im betroffenen Z-Band und Vergleich der resultierenden G-Code-Schichtabstände mit dem Baseline-Slice. Der API-36-Emulator besteht den Lauf **1/1**. Ein zuvor zu strenger Test erwartete <0,18 mm trotz eines Ausgangsprofils um 0,28 mm; die Regression wurde auf den direkten Vorher/Nachher-Vergleich korrigiert.
+- `:app:assembleSliceTest :app:assembleSliceTestAndroidTest` erfolgreich (ARM64-native Bibliothek und Instrumentierungs-APK). `:app:testDebugUnitTest :app:testSliceTestUnitTest` jeweils **779/779**, null Fehler. `git diff --check` vor Dokumentation ohne Beanstandungen.
+- Batch 17 steht bei **4/10**. Nächster Schritt: einen weiteren Orca-2.5-Punkt mit aktivem Android-Aufrufpfad und messbarer Regression portieren. Noch kein Versionssprung, APK oder Release vor 10/10.
+
 ## Orca Nightly Batch 17 — Punkt 3/10 verifiziert — 2026-11-13
 
 - Orca-Upstream `7243d15ea2` zählt kurze Objekte anhand ihrer tatsächlichen Druckhöhe inklusive Raft. Androids sequenzielle Freigabe verglich bislang nur die Mesh-Höhe; dadurch konnte ein Modell mit Raft fälschlich als „kurz“ gelten und den kleineren Düsenabstand nutzen.

@@ -392,10 +392,28 @@ class Native {
     external fun model_remap_filaments(ptr: Long, sourceFilaments: IntArray, targetFilaments: IntArray): Unit
     @JvmStatic
     external fun model_apply_adaptive_layer_height(ptr: Long, i: Int, configPath: String, qualityFactor: Float): Unit
+
+    /** Applies one Orca layer-height brush sample in build-volume coordinates. */
+    @JvmStatic
+    external fun model_adjust_layer_height_at_world_point(
+        ptr: Long,
+        i: Int,
+        configPath: String,
+        x: Double,
+        y: Double,
+        z: Double,
+        bandWidth: Double,
+        delta: Double,
+        action: Int,
+        qualityFactor: Float,
+    ): Boolean
     @JvmStatic
     external fun model_clear_adaptive_layer_height(ptr: Long, i: Int): Unit
     @JvmStatic
     external fun model_has_adaptive_layer_height(ptr: Long, i: Int): Boolean
+
+    @JvmStatic
+    external fun model_get_layer_height_profile(ptr: Long, i: Int): DoubleArray
     @JvmStatic
     external fun model_emboss_text(ptr: Long, i: Int, fontPath: String, text: String, size: Float, depth: Float, type: Int, px: Double, py: Double, pz: Double, nx: Double, ny: Double, nz: Double): Unit
     @JvmStatic

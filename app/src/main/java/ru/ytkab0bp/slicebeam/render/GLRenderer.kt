@@ -2621,6 +2621,18 @@ fun raycastObjectHit(objectIndex: Int, x: Float, y: Float): GLModel.HitResult? {
     return raycastHits.firstOrNull()
 }
 
+/** Prepare a memory-bounded, exact surface raycaster for direct layer-height painting. */
+fun prepareExactSurfaceRaycast(objectIndex: Int): Boolean {
+    val activeModel = model ?: return false
+    if (isViewerEnabled || objectIndex !in 0 until activeModel.objectsCount) return false
+    while (glModels.size <= objectIndex) {
+        val mesh = GLModel()
+        initObjectPreview(mesh, glModels.size)
+        glModels.add(mesh)
+    }
+    return glModels[objectIndex].initForPaint(activeModel, objectIndex)
+}
+
 /** Intersect the screen ray with a horizontal world-space plane. Used to drag at the picked surface Z. */
 fun intersectHorizontalPlane(screenX: Float, screenY: Float, planeZ: Double): Vec3d? {
     if (viewportWidth <= 0 || viewportHeight <= 0 || !planeZ.isFinite()) return null

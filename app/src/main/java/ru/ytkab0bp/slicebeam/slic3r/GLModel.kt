@@ -45,6 +45,9 @@ open class GLModel internal constructor(
     /** Initialize the full-resolution mesh and a precise raycast tree for an active paint session. */
     @Synchronized
     open fun initForPaint(model: Model, i: Int): Boolean {
+        // Surface tools can ask before every pointer sample. Reuse an existing exact
+        // mesh/tree instead of rebuilding it for every move event.
+        if (raycasterCache != null && approximatePickBounds == null) return true
         if (!LargeModelPick.canUsePrecisePaintRaycast(model.getTriangleCount(i))) return false
         updatePickBounds(model, i, LargeModelPick.PAINT_RAYCAST_TRIANGLE_LIMIT)
         Native.glmodel_init_from_model_object(pointer, model.pointer, i)

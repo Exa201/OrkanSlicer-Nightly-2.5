@@ -1379,6 +1379,17 @@
     <string name="VariableLayerApplied">Adaptive layer height applied.</string>
     <string name="VariableLayerFailed">Could not calculate adaptive layer height: %1$s</string>
     <string name="VariableLayerDefault">Default (constant)</string>
+    <string name="VariableLayerBrushHelp">Touch an exact model surface to edit its layer profile. Two fingers still move the camera.</string>
+    <string name="VariableLayerBrushStart">Start surface painting</string>
+    <string name="VariableLayerBrushStop">Stop surface painting</string>
+    <string name="VariableLayerBrushMoreDetail">More detail</string>
+    <string name="VariableLayerBrushLessDetail">Less detail</string>
+    <string name="VariableLayerBrushBase">Back toward base</string>
+    <string name="VariableLayerBrushSmooth">Smooth</string>
+    <string name="VariableLayerBrushBandWidth">Brush band: %1$.1f mm</string>
+    <string name="VariableLayerBrushStrength">Layer-height change: %1$.2f mm</string>
+    <string name="VariableLayerRaycastUnavailable">This model is too large for safe exact surface editing. Simplify it first.</string>
+    <string name="VariableLayerPaintApplied">Surface layer-height edit applied.</string>
     <string name="PaintBaseFilament">Base filament</string>
     <string name="PaintWith">Paint with</string>
     <string name="PaintColorTitle">Color painting</string>

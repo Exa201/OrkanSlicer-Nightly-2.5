@@ -85,6 +85,11 @@ struct PlaneData {
 struct ModelRef {
     Model model;
     std::string base_name;
+    std::mutex layer_height_brush_mutex;
+    const ModelObject* layer_height_brush_object = nullptr;
+    std::string layer_height_brush_config_path;
+    std::optional<DynamicPrintConfig> layer_height_brush_config;
+    std::optional<SlicingParameters> layer_height_brush_params;
 };
 struct ModelImportCancelled : std::exception {
     const char *what() const noexcept override { return "Model import canceled"; }
@@ -2575,6 +2580,87 @@ extern "C" {
         }
     }
 
+    JNIEXPORT jboolean JNICALL Java_ru_ytkab0bp_slicebeam_slic3r_Native_model_1adjust_1layer_1height_1at_1world_1point(
+        JNIEnv* env, jclass, jlong ptr, jint i, jstring configPath, jdouble worldX, jdouble worldY, jdouble worldZ,
+        jdouble bandWidth, jdouble delta, jint action, jfloat qualityFactor) {
+        try {
+            ModelRef* model = reinterpret_cast<ModelRef*>(static_cast<intptr_t>(ptr));
+            if (model == nullptr || configPath == nullptr || i < 0 ||
+                static_cast<size_t>(i) >= model->model.objects.size() ||
+                !std::isfinite(worldX) || !std::isfinite(worldY) || !std::isfinite(worldZ) ||
+                !std::isfinite(bandWidth) || bandWidth <= 0.0 || !std::isfinite(delta) || delta <= 0.0 ||
+                action < static_cast<jint>(LAYER_HEIGHT_EDIT_ACTION_INCREASE) ||
+                action > static_cast<jint>(LAYER_HEIGHT_EDIT_ACTION_SMOOTH) ||
+                !std::isfinite(qualityFactor) || qualityFactor < 0.f || qualityFactor > 1.f)
+                return JNI_FALSE;
+
+            ModelObject* object = model->model.objects[static_cast<size_t>(i)];
+            if (object == nullptr) return JNI_FALSE;
+            std::lock_guard<std::mutex> brushLock(model->layer_height_brush_mutex);
+
+            // The GL raycaster hits the combined instance mesh in build-volume coordinates.
+            // Layer profiles live in raw object coordinates, so map the hit through the instance
+            // transform and accept only the instance whose cached raw bounds contain the surface.
+            const BoundingBoxf3& rawBounds = object->raw_mesh_bounding_box();
+            if (!rawBounds.defined) return JNI_FALSE;
+            const Vec3d worldPoint(worldX, worldY, worldZ);
+            double bestOutsideDistance = std::numeric_limits<double>::infinity();
+            double localZ = std::numeric_limits<double>::quiet_NaN();
+            auto try_instance = [&](const Transform3d& transform) {
+                const double determinant = transform.linear().determinant();
+                if (!transform.matrix().allFinite() || !std::isfinite(determinant) || std::abs(determinant) < 1e-12)
+                    return;
+                const Vec3d point = transform.inverse() * worldPoint;
+                if (!point.allFinite()) return;
+                const Vec3d outside(
+                    std::max({rawBounds.min.x() - point.x(), 0.0, point.x() - rawBounds.max.x()}),
+                    std::max({rawBounds.min.y() - point.y(), 0.0, point.y() - rawBounds.max.y()}),
+                    std::max({rawBounds.min.z() - point.z(), 0.0, point.z() - rawBounds.max.z()}));
+                const double distance = outside.squaredNorm();
+                if (distance < bestOutsideDistance) {
+                    bestOutsideDistance = distance;
+                    localZ = point.z();
+                }
+            };
+            if (object->instances.empty()) try_instance(Transform3d::Identity());
+            else for (const ModelInstance* instance : object->instances)
+                if (instance != nullptr) try_instance(instance->get_matrix());
+            if (!std::isfinite(localZ) || bestOutsideDistance > 0.25 * 0.25) return JNI_FALSE;
+
+            const char* configChars = env->GetStringUTFChars(configPath, nullptr);
+            if (configChars == nullptr) return JNI_FALSE;
+            const std::string configFile(configChars);
+            env->ReleaseStringUTFChars(configPath, configChars);
+            if (model->layer_height_brush_object != object || model->layer_height_brush_config_path != configFile ||
+                !model->layer_height_brush_config || !model->layer_height_brush_params) {
+                DynamicPrintConfig config;
+                config.load(configFile, ForwardCompatibilitySubstitutionRule::Disable);
+                config.normalize_fdm();
+                model->layer_height_brush_config.emplace(std::move(config));
+                model->layer_height_brush_params.emplace(
+                    PrintObject::slicing_parameters(*model->layer_height_brush_config, *object, 0.0f, Vec3d::Zero()));
+                model->layer_height_brush_object = object;
+                model->layer_height_brush_config_path = configFile;
+            }
+            const SlicingParameters& slicingParams = *model->layer_height_brush_params;
+            std::vector<coordf_t> profile = object->layer_height_profile.get();
+            if (profile.empty())
+                profile = layer_height_profile_adaptive(slicingParams, *object, qualityFactor);
+            if (profile.size() < 2 || (profile.size() & 1) != 0) return JNI_FALSE;
+            const std::vector<coordf_t> before = profile;
+            adjust_layer_height_profile(
+                *object, slicingParams, profile, static_cast<coordf_t>(localZ),
+                static_cast<coordf_t>(delta), static_cast<coordf_t>(bandWidth),
+                static_cast<LayerHeightEditActionType>(action));
+            if (profile == before) return JNI_FALSE;
+            object->layer_height_profile.set(std::move(profile));
+            return JNI_TRUE;
+        } catch (const std::exception& e) {
+            env->ThrowNew(env->FindClass("java/lang/RuntimeException"), e.what());
+            return JNI_FALSE;
+        }
+    }
+
     JNIEXPORT void JNICALL Java_ru_ytkab0bp_slicebeam_slic3r_Native_model_1clear_1adaptive_1layer_1height(JNIEnv* env, jclass, jlong ptr, jint i) {
         ModelRef* model = (ModelRef*) (intptr_t) ptr;
         if (i >= 0 && i < (int) model->model.objects.size()) {
@@ -2588,6 +2674,18 @@ extern "C" {
             return !model->model.objects[i]->layer_height_profile.empty();
         }
         return false;
+    }
+
+    JNIEXPORT jdoubleArray JNICALL Java_ru_ytkab0bp_slicebeam_slic3r_Native_model_1get_1layer_1height_1profile(JNIEnv* env, jclass, jlong ptr, jint i) {
+        ModelRef* model = reinterpret_cast<ModelRef*>(static_cast<intptr_t>(ptr));
+        if (model == nullptr || i < 0 || static_cast<size_t>(i) >= model->model.objects.size() ||
+            model->model.objects[static_cast<size_t>(i)] == nullptr)
+            return env->NewDoubleArray(0);
+        const auto& profile = model->model.objects[static_cast<size_t>(i)]->layer_height_profile.get();
+        jdoubleArray result = env->NewDoubleArray(static_cast<jsize>(profile.size()));
+        if (result != nullptr && !profile.empty())
+            env->SetDoubleArrayRegion(result, 0, static_cast<jsize>(profile.size()), profile.data());
+        return result;
     }
 
     JNIEXPORT jint JNICALL Java_ru_ytkab0bp_slicebeam_slic3r_Native_model_1create_1text_1object(

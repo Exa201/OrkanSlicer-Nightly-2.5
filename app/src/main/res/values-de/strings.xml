@@ -1354,6 +1354,17 @@
     <string name="VariableLayerApplied">Adaptive Schichthöhe wurde angewendet.</string>
     <string name="VariableLayerFailed">Adaptive Schichthöhe konnte nicht berechnet werden: %1$s</string>
     <string name="VariableLayerDefault">Standard (konstant)</string>
+    <string name="VariableLayerBrushHelp">Tippe auf eine exakte Modelloberfläche, um das Schichthöhenprofil zu bearbeiten. Mit zwei Fingern bewegst du weiterhin die Kamera.</string>
+    <string name="VariableLayerBrushStart">Oberflächenmalen starten</string>
+    <string name="VariableLayerBrushStop">Oberflächenmalen beenden</string>
+    <string name="VariableLayerBrushMoreDetail">Mehr Details</string>
+    <string name="VariableLayerBrushLessDetail">Weniger Details</string>
+    <string name="VariableLayerBrushBase">Zur Basis zurück</string>
+    <string name="VariableLayerBrushSmooth">Glätten</string>
+    <string name="VariableLayerBrushBandWidth">Pinselbereich: %1$.1f mm</string>
+    <string name="VariableLayerBrushStrength">Schichthöhenänderung: %1$.2f mm</string>
+    <string name="VariableLayerRaycastUnavailable">Dieses Modell ist für eine sichere exakte Oberflächenbearbeitung zu groß. Vereinfache es zuerst.</string>
+    <string name="VariableLayerPaintApplied">Schichthöhenprofil an der Oberfläche geändert.</string>
     <string name="PaintBaseFilament">Basisfilament</string>
     <string name="PaintWith">Bemalen mit</string>
     <string name="PaintColorTitle">Farbmalen</string>
