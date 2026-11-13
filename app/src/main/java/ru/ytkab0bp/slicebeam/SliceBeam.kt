@@ -2,6 +2,7 @@ package ru.ytkab0bp.slicebeam
 
 import android.annotation.SuppressLint
 import android.app.Application
+import android.preference.PreferenceManager
 import android.graphics.Color
 import android.content.Intent
 import android.util.Log
@@ -594,7 +595,9 @@ open class SliceBeam : Application() {
     @SuppressLint("ApplySharedPref")
     override fun onCreate() {
         super.onCreate()
-        AppCompatDelegate.setApplicationLocales(LocaleListCompat.forLanguageTags("de"))
+        val initialLanguage = PreferenceManager.getDefaultSharedPreferences(this)
+            .getString("app_language", "de") ?: "de"
+        AppCompatDelegate.setApplicationLocales(LocaleListCompat.forLanguageTags(initialLanguage))
         INSTANCE = this
         TemporaryProjectSettings.onChanged = { settingsChanged ->
             android.os.Handler(android.os.Looper.getMainLooper()).post {

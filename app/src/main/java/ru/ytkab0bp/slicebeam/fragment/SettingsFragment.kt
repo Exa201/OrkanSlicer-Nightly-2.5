@@ -4,6 +4,8 @@ import android.app.Activity
 import android.content.Context
 import android.content.Intent
 import android.view.View
+import androidx.appcompat.app.AppCompatDelegate
+import androidx.core.os.LocaleListCompat
 import androidx.annotation.DrawableRes
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -62,6 +64,7 @@ import ru.ytkab0bp.slicebeam.launchAppActivityResult
 import ru.ytkab0bp.slicebeam.R
 import ru.ytkab0bp.slicebeam.SetupActivity
 import ru.ytkab0bp.slicebeam.SliceBeam
+import ru.ytkab0bp.slicebeam.slic3r.OrcaLanguage
 import ru.ytkab0bp.slicebeam.components.ColorChooserDialog
 import ru.ytkab0bp.slicebeam.events.BeamServerDataUpdatedEvent
 import ru.ytkab0bp.slicebeam.events.CloudUserInfoUpdatedEvent
@@ -132,9 +135,11 @@ class SettingsFragment : Fragment() {
                             converterRoot = ConverterStorage.getRootDisplayName(ctx),
                             cameraProjection = ctx.getString(if (Prefs.isOrthoProjectionEnabled()) R.string.SettingsCameraOrthographic else R.string.SettingsCameraPerspective),
                             cameraControlMode = cameraControlModeLabel(ctx, Prefs.getCameraControlMode()),
+                            appLanguage = OrcaLanguage.byTag(Prefs.getAppLanguage()).nativeName,
                             onToggleSection = ::toggleSection,
                             onMaker = ::openMaker,
                             onTheme = ::showThemePicker,
+                            onLanguage = ::showLanguagePicker,
                             onAccent = ::showAccentPicker,
                             onUiTextScale = ::showUiTextScalePicker,
                             onRenderScale = ::showRenderQualityPicker,
@@ -228,6 +233,19 @@ class SettingsFragment : Fragment() {
             Prefs.setThemeMode(which)
             (getContext() as? Activity)?.let { ThemesRepo.invalidate(it) }
             themeRevision++
+        }
+    }
+
+    private fun showLanguagePicker() {
+        val current = OrcaLanguage.byTag(Prefs.getAppLanguage())
+        showChoiceDialog(
+            title = R.string.SettingsInterfaceLanguage,
+            options = OrcaLanguage.all.map { it.nativeName },
+            selectedIndex = OrcaLanguage.all.indexOf(current).coerceAtLeast(0),
+        ) { which ->
+            val selected = OrcaLanguage.all[which]
+            Prefs.setAppLanguage(selected.tag)
+            AppCompatDelegate.setApplicationLocales(LocaleListCompat.forLanguageTags(selected.tag))
         }
     }
 
@@ -516,9 +534,11 @@ internal fun SettingsContent(
     converterRoot: String,
     cameraProjection: String,
     cameraControlMode: String,
+    appLanguage: String = "Deutsch",
     onToggleSection: (Int) -> Unit,
     onMaker: () -> Unit,
     onTheme: () -> Unit,
+    onLanguage: () -> Unit = {},
     onAccent: () -> Unit,
     onUiTextScale: () -> Unit,
     onConverterFolder: () -> Unit,
@@ -627,6 +647,12 @@ internal fun SettingsContent(
                         R.string.SettingsInterfaceTheme,
                         value = themeName,
                         onClick = onTheme,
+                        compactLayout = compactLayout,
+                    )
+                    SettingsRow(
+                        R.string.SettingsInterfaceLanguage,
+                        value = appLanguage,
+                        onClick = onLanguage,
                         compactLayout = compactLayout,
                     )
                     SettingsRow(

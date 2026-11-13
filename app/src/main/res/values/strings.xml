@@ -1081,6 +1081,7 @@
     <string name="SettingsK3D">K3D Chat</string>
     <string name="SettingsInterface">Interface</string>
     <string name="SettingsInterfaceTheme">Theme</string>
+      <string name="SettingsInterfaceLanguage">App language</string>
     <string name="SettingsInterfaceThemeSystem">System</string>
     <string name="SettingsInterfaceThemeLight">Light</string>
     <string name="SettingsInterfaceThemeDark">Dark</string>

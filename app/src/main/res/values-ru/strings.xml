@@ -286,6 +286,7 @@
     <string name="SettingsK3D">Чат K3D</string>
     <string name="SettingsInterface">Интерфейс</string>
     <string name="SettingsInterfaceTheme">Тема</string>
+    <string name="SettingsInterfaceLanguage">Язык приложения</string>
     <string name="SettingsInterfaceThemeSystem">Системная</string>
     <string name="SettingsInterfaceThemeLight">Светлая</string>
     <string name="SettingsInterfaceThemeDark">Тёмная</string>

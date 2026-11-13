@@ -1060,6 +1060,7 @@
     <string name="SettingsK3D">K3D Chat</string>
     <string name="SettingsInterface">Benutzeroberfläche</string>
     <string name="SettingsInterfaceTheme">Design</string>
+    <string name="SettingsInterfaceLanguage">App-Sprache</string>
     <string name="SettingsInterfaceThemeSystem">Wie auf dem Gerät</string>
     <string name="SettingsInterfaceThemeLight">Hell</string>
     <string name="SettingsInterfaceThemeDark">Dunkel</string>

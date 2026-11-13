@@ -50,7 +50,10 @@ open class Slic3rLocalization private constructor(strings: Map<String, String>) 
         }
 
         @JvmStatic
-        fun getInstance(): Slic3rLocalization = getInstance(Locale.getDefault().language)
+        fun getInstance(): Slic3rLocalization = getInstance(
+            OrcaLanguage.byTag(ru.ytkab0bp.slicebeam.utils.Prefs.getPrefs()
+                ?.getString("app_language", Locale.getDefault().language)).assetKey,
+        )
 
         /** The same parser entry used by the asset loader, exposed internally for JVM tests. */
         internal fun fromPo(input: InputStream): Slic3rLocalization = Slic3rLocalization(parsePo(input))
