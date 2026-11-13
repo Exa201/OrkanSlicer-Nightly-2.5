@@ -872,7 +872,7 @@ class FilamentPaletteComposeDeviceTest {
     }
 
     @Test
-    fun shortOptionsMenuUsesWiderReadableTilesAt320DpAnd150PercentText() {
+    fun shortOptionsMenuShowsThreeReadableActionsAt320DpAnd150PercentText() {
         val context = InstrumentationRegistry.getInstrumentation().targetContext
         val actionTitles = listOf(
             R.string.MenuFileCalibrations,
@@ -905,17 +905,12 @@ class FilamentPaletteComposeDeviceTest {
             }
         }
 
-        // At 320 dp and 150% text, the toolbar deliberately uses one wide column.
-        // Short menus can therefore still page when they have more than two actions.
-        for (title in actionTitles.take(2)) {
+        // The phone menu retains three actions in the row. Compact visible labels keep
+        // them readable while content descriptions continue to expose the full names.
+        for (title in actionTitles) {
             val action = compose.onNodeWithContentDescription(context.getString(title)).assertIsDisplayed()
-            action.assertWidthIsAtLeast(120.dp).assertHeightIsAtLeast(48.dp)
+            action.assertWidthIsAtLeast(96.dp).assertHeightIsAtLeast(48.dp)
         }
-        compose.onNodeWithContentDescription(context.getString(R.string.WorkspaceMoreTitle))
-            .assertIsDisplayed().performClick()
-        compose.waitForIdle()
-        compose.onNodeWithContentDescription(context.getString(actionTitles.last()))
-            .assertIsDisplayed().assertWidthIsAtLeast(120.dp).assertHeightIsAtLeast(48.dp)
         compose.onNodeWithText(context.getString(R.string.MenuFileImportProfilesCompact)).assertIsDisplayed()
         compose.onNodeWithText(context.getString(R.string.MenuFileExportProfilesCompact)).assertIsDisplayed()
     }

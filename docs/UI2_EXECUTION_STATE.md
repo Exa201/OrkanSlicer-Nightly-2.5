@@ -1,5 +1,35 @@
 # Nightly execution state — 2026-11-13
 
+## Laufzeit-/Ressourcenprüfung — 2026-11-13
+
+- Die aktuellen Kobra-Routen erkennen eine externe Spule nur über einen frischen
+  Firmwarebericht (`ext_spool=1`, `ext_spool_status=ready`, `filament_hubs=null`). Der
+  Uploadpfad verlangt genau ein verwendetes Werkzeug und einen bekannten Materialtyp; ein
+  leeres ACE-Inventar oder eine alte `ready`-Meldung reicht nicht. Externe Ausgabe entfernt
+  ACE-Gate-Metadaten und Werkzeugselektoren. JVM-Routing-/G-Code- und Cache-Tests: 25/25;
+  `MmuFilamentSyncDeviceTest` auf Android 16/API 36: 22/22.
+- Native slicing parallelisiert über oneTBB `this_task_arena::max_concurrency()` und ist nicht
+  auf einen Kern beschränkt. Der TBB-Worker-Warm-up ist mit `std::call_once` gegen parallelen
+  Erstzugriff geschützt; der App-I/O-Pool begrenzt gleichzeitige schwere Jobs separat. Das belegt
+  verfügbare Parallelisierung, keinen Durchsatz- oder RAM-Benchmark auf einem physischen Handy.
+- Die GL-Auswahl erstellt den Raycast-Index einmal pro Mesh und verwendet oberhalb 100.000
+  Dreiecken begrenzte Bounds-Picks; präzises Paint-Raycasting bleibt auf 200.000 Dreiecke
+  begrenzt. Low-GPU-Vorschau verwendet ein eigenes Mesh-Budget. Beim Pausieren werden GPU-Meshes
+  freigegeben, während das Modell für erneutes Rendern/Slicing erhalten bleibt. API-36-M12-
+  Raycast-/Paint-Crashregression: 1/1 bestanden.
+- Zwei veraltete UI-Testannahmen wurden an die aktuelle Oberfläche angepasst: ein 320-dp-Menü
+  hält drei zugängliche Aktionen mit kompakten Labels statt einer nicht vorhandenen Paging-Taste;
+  der Changelog-Test liest nun den lokalisierten Header aus `update.json` statt eine Buildversion
+  im Text vorauszusetzen. Beide gezielten Compose-Gerätetests bestanden 1/1; SliceTest-
+  Instrumentierungs-APK wurde gebaut.
+- Ein versehentlich ungefilterter Gesamt-Gerätetestlauf wurde nach zwei nicht zusammenpassenden
+  Altannahmen abgebrochen. Nach der Korrektur wurden die betroffenen Tests einzeln erfolgreich
+  ausgeführt; eine vollständige 655-Test-Instrumentierung wurde in diesem Durchgang nicht
+  abgeschlossen. Es ist keine neue Produktcodeänderung aus der Laufzeitprüfung hervorgegangen.
+- Nächster Schritt: Batch 16 mit einem weiteren fehlenden Orca-2.5-Kernverhalten fortsetzen;
+  anschließend den vollständigen, passend gefilterten Release-Gate-Lauf für die bis dahin
+  implementierten Änderungen ausführen.
+
 ## Nightly Batch 15 — 10/10 functional points; code committed, APK verified; GitHub release upload blocked
 
 - Release source branch: `codex/nightly-batch15-release`, starting at remote `5f640f2ad36e6bd56c97757d3717024b8d9f8e58`.
