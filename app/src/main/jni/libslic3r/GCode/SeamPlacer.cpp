@@ -410,13 +410,8 @@ Polygons extract_perimeter_polygons(const Layer *layer, std::vector<const LayerR
       if (ex_entity->is_collection()) { //collection of inner, outer, and overhang perimeters
         for (const ExtrusionEntity *perimeter : static_cast<const ExtrusionEntityCollection*>(ex_entity)->entities) {
           ExtrusionRole role = perimeter->role();
-          if (perimeter->is_loop()) {
-            for (const ExtrusionPath &path : static_cast<const ExtrusionLoop*>(perimeter)->paths) {
-              if (path.role() == ExtrusionRole::erExternalPerimeter) {
-                role = ExtrusionRole::erExternalPerimeter;
-              }
-            }
-          }
+          if (perimeter->is_loop() && is_outer_wall(*static_cast<const ExtrusionLoop*>(perimeter)))
+            role = ExtrusionRole::erExternalPerimeter;
 
           if (role == ExtrusionRole::erExternalPerimeter) {
             Points p;

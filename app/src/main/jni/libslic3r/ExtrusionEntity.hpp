@@ -5,6 +5,7 @@
 #include "Polygon.hpp"
 #include "Polyline.hpp"
 
+#include <algorithm>
 #include <assert.h>
 #include <string_view>
 #include <numeric>
@@ -542,6 +543,13 @@ public:
 private:
     ExtrusionLoopRole m_loop_role;
 };
+
+// A fully overhanging outer loop has no external paths but retains inset index zero.
+inline bool is_outer_wall(const ExtrusionLoop& loop)
+{
+    return loop.inset_idx == 0 ||
+           std::any_of(loop.paths.begin(), loop.paths.end(), [](const ExtrusionPath& path) { return path.role() == erExternalPerimeter; });
+}
 
 class ExtrusionLoopSloped : public ExtrusionLoop
 {

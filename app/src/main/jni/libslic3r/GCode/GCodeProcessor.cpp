@@ -75,7 +75,8 @@ const std::vector<std::string> GCodeProcessor::Reserved_Tags = {
     " WIPE_TOWER_END",
     " PA_CHANGE:",
     "@PRINT_TIME_SEC@",
-    "@USED_FILAMENT_LENGTH@"
+    "@USED_FILAMENT_LENGTH@",
+    " OUTER_OVERHANG_WALL"
 };
 
 const std::vector<std::string> GCodeProcessor::Reserved_Tags_compatible = {
@@ -98,7 +99,8 @@ const std::vector<std::string> GCodeProcessor::Reserved_Tags_compatible = {
     " WIPE_TOWER_END",
     " PA_CHANGE:",
     "@PRINT_TIME_SEC@",
-    "@USED_FILAMENT_LENGTH@"
+    "@USED_FILAMENT_LENGTH@",
+    " OUTER_OVERHANG_WALL"
 };
 
 
@@ -2497,6 +2499,9 @@ void GCodeProcessor::reset()
     m_g1_line_id = 0;
     m_layer_id = 0;
     m_cp_color.reset();
+    m_seams_detector.reset();
+    m_outer_overhang_pending = false;
+    m_outer_overhang_candidate = false;
 
     m_producer = EProducer::Unknown;
 
@@ -3064,6 +3069,11 @@ void GCodeProcessor::process_tags(const std::string_view comment, bool producers
     // producers tags
     if (producers_enabled && process_producers_tags(comment))
         return;
+
+    if (comment == reserved_tag(ETags::Outer_Overhang_Wall)) {
+        m_outer_overhang_pending = true;
+        return;
+    }
 
     // extrusion role tag
     if (boost::starts_with(comment, reserved_tag(ETags::Role))) {
@@ -4146,9 +4156,16 @@ void GCodeProcessor::process_G1(const std::array<std::optional<double>, 4>& axes
 
     const Vec3f plate_offset = {(float) m_x_offset, (float) m_y_offset, 0.0f};
 
+    if (type == EMoveType::Extrude && m_outer_overhang_pending) {
+        m_outer_overhang_candidate = m_extrusion_role == erOverhangPerimeter;
+        m_outer_overhang_pending = false;
+    }
+    const bool external_for_seam = m_extrusion_role == erExternalPerimeter ||
+                                   (m_extrusion_role == erOverhangPerimeter && m_outer_overhang_candidate);
+
     if (m_seams_detector.is_active()) {
         // check for seam starting vertex
-        if (type == EMoveType::Extrude && m_extrusion_role == erExternalPerimeter) {
+        if (type == EMoveType::Extrude && external_for_seam) {
             //BBS: m_result.moves.back().position has plate offset, must minus plate offset before calculate the real seam position
             const Vec3f new_pos = m_result.moves.back().position - m_extruder_offsets[filament_id] - plate_offset;
             if (!m_seams_detector.has_first_vertex()) {
@@ -4162,7 +4179,7 @@ void GCodeProcessor::process_G1(const std::array<std::optional<double>, 4>& axes
             }
         }
         // check for seam ending vertex and store the resulting move
-        else if ((type != EMoveType::Extrude || (m_extrusion_role != erExternalPerimeter && m_extrusion_role != erOverhangPerimeter)) && m_seams_detector.has_first_vertex()) {
+        else if ((type != EMoveType::Extrude || !external_for_seam) && m_seams_detector.has_first_vertex()) {
             auto set_end_position = [this](const Vec3f& pos) {
                 m_end_position[X] = pos.x(); m_end_position[Y] = pos.y(); m_end_position[Z] = pos.z();
             };
@@ -4180,9 +4197,10 @@ void GCodeProcessor::process_G1(const std::array<std::optional<double>, 4>& axes
             }
 
             m_seams_detector.activate(false);
+            m_outer_overhang_candidate = false;
         }
     }
-    else if (type == EMoveType::Extrude && m_extrusion_role == erExternalPerimeter) {
+    else if (type == EMoveType::Extrude && external_for_seam) {
         m_seams_detector.activate(true);
         m_seams_detector.set_first_vertex(m_result.moves.back().position - m_extruder_offsets[filament_id] - plate_offset);
     }

@@ -373,6 +373,7 @@ class Print;
             PA_Change,
             Print_Time_Sec_Placeholder,
             Used_Filament_Length_Placeholder,
+            Outer_Overhang_Wall,
         };
 
         static const std::string& reserved_tag(ETags tag) { return s_IsBBLPrinter ? Reserved_Tags[static_cast<unsigned char>(tag)] : Reserved_Tags_compatible[static_cast<unsigned char>(tag)]; }
@@ -659,6 +660,7 @@ class Print;
 
             bool is_active() const { return m_active; }
             bool has_first_vertex() const { return m_first_vertex.has_value(); }
+            void reset() { m_active = false; m_first_vertex.reset(); }
         };
 
         // Helper class used to fix the z for color change, pause print and
@@ -841,6 +843,8 @@ class Print;
         unsigned int m_layer_id;
         CpColor m_cp_color;
         SeamsDetector m_seams_detector;
+        bool m_outer_overhang_pending{false};
+        bool m_outer_overhang_candidate{false};
         OptionsZCorrector m_options_z_corrector;
         size_t m_last_default_color_id;
         bool m_detect_layer_based_on_tag {false};

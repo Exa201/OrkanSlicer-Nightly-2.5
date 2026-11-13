@@ -629,6 +629,64 @@ class NativeSliceDeviceTest {
         }
     }
 
+    @Test(timeout = 180_000)
+    fun overhangingOuterWallsKeepTheirSeamMarkersInGeneratedAndReopenedGcode() = withKobraProfile {
+        val context = InstrumentationRegistry.getInstrumentation().targetContext
+        val process = requireNotNull(SliceBeam.CONFIG?.findPrint("0.16mm Standard"))
+        val source = copyAsset(context, "models/sphere.stl", "overhang-outer-seam.stl")
+        val model = Model(source).also { it.ensureOnBed(0) }
+        val configFile = SliceBeam.getCurrentConfigFile()
+        val gcodeFile = File(context.cacheDir, "overhang-outer-seam.gcode")
+        val baselineFile = File(context.cacheDir, "overhang-outer-seam-without-tags.gcode")
+        try {
+            process.put("detect_overhang_wall", "1")
+            process.put("layer_height", "0.2")
+            process.put("initial_layer_print_height", "0.2")
+            process.put("wall_loops", "1")
+            process.put("sparse_infill_density", "0%")
+            process.put("top_shell_layers", "0")
+            process.put("bottom_shell_layers", "0")
+            process.put("skirt_loops", "0")
+            process.put("brim_type", "no_brim")
+            process.put("seam_gap", "10%")
+
+            for (seamSlope in listOf("none", "all")) {
+                process.put("seam_slope_type", seamSlope)
+                SliceBeam.genCurrentConfig(model)
+                val nativeResult = model.slice(configFile.absolutePath, gcodeFile.absolutePath, null)
+                try {
+                    val gcode = gcodeFile.readText()
+                    assertTrue("outer overhangs must be tagged for seam preview", gcode.contains("; OUTER_OVERHANG_WALL"))
+                    val reopenedResult = GCodeProcessorResult(gcodeFile)
+                    baselineFile.writeText(gcode.replace(Regex("(?m)^; OUTER_OVERHANG_WALL\\r?\\n"), ""))
+                    val baselineResult = GCodeProcessorResult(baselineFile)
+                    try {
+                        assertTrue("the generated sphere must contain seam preview markers", nativeResult.getSeamMarkerCount() > 0)
+                        assertEquals(
+                            "Reopening generated G-code must preserve seam markers (seam_slope_type=$seamSlope)",
+                            nativeResult.getSeamMarkerCount(),
+                            reopenedResult.getSeamMarkerCount(),
+                        )
+                        assertTrue(
+                            "outer-overhang tags must add seam markers over the untagged G-code baseline (seam_slope_type=$seamSlope)",
+                            nativeResult.getSeamMarkerCount() > baselineResult.getSeamMarkerCount(),
+                        )
+                    } finally {
+                        reopenedResult.release()
+                        baselineResult.release()
+                    }
+                } finally {
+                    nativeResult.release()
+                }
+            }
+        } finally {
+            model.release()
+            source.delete()
+            configFile.delete()
+            gcodeFile.delete()
+            baselineFile.delete()
+        }
+    }
     @Test(timeout = 120_000)
     fun layerCoolingKeepsExtrusionSpeedsEquivalentForRelativeAndAbsoluteE() = withKobraProfile {
         val context = InstrumentationRegistry.getInstrumentation().targetContext

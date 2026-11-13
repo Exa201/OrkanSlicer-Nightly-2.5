@@ -64,6 +64,8 @@ class Native {
     external fun reused_print_prime_tower_regression(firstModel: Long, nextModel: Long, configPath: String): IntArray
     @JvmStatic
     external fun gcoderesult_get_spiral_vase_override_warning(ptr: Long): String?
+    @JvmStatic
+    external fun gcoderesult_get_seam_marker_count(ptr: Long): Int
     /** Verifies by-layer/as-object-list ordering preserves rotated copies' model-list order. */
     @JvmStatic
     external fun by_layer_copy_order_regression(model: Long, configPath: String): IntArray
