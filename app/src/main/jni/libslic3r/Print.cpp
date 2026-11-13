@@ -2302,6 +2302,10 @@ void Print::process(long long *time_cost_with_cache, bool use_cache)
     auto is_print_object_the_same = [this](const PrintObject* object1, const PrintObject* object2) -> bool{
         if (object1->trafo().matrix() != object2->trafo().matrix())
             return false;
+        // Slices are stored relative to center_offset(), which is derived from the first instance and
+        // can differ even when two print-object transforms match.
+        if (object1->center_offset() != object2->center_offset())
+            return false;
         const ModelObject* model_obj1 = object1->model_object();
         const ModelObject* model_obj2 = object2->model_object();
         if (model_obj1->volumes.size() != model_obj2->volumes.size())
@@ -2339,6 +2343,15 @@ void Print::process(long long *time_cost_with_cache, bool use_cache)
         //if (!object1->config().equals(object2->config()))
         //    return false;
         if (model_obj1->layer_height_profile.get() != model_obj2->layer_height_profile.get())
+            return false;
+        // A height-range override gives its layers their own regions and settings. Do not reuse
+        // another object's cached slices unless the ranges and their effective configs match.
+        const t_layer_config_ranges &ranges1 = model_obj1->layer_config_ranges;
+        const t_layer_config_ranges &ranges2 = model_obj2->layer_config_ranges;
+        if (ranges1.size() != ranges2.size()
+            || !std::equal(ranges1.begin(), ranges1.end(), ranges2.begin(), [](const auto &range1, const auto &range2) {
+                   return range1.first == range2.first && range1.second.get() == range2.second.get();
+               }))
             return false;
         if (model_obj1->config.get() != model_obj2->config.get())
             return false;

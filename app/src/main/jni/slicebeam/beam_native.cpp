@@ -6166,6 +6166,91 @@ extern "C" {
         }
     }
 
+    JNIEXPORT jintArray JNICALL Java_ru_ytkab0bp_slicebeam_slic3r_Native_layer_1range_1cache_1isolation_1regression(
+        JNIEnv* env, jclass, jlong model_ptr, jstring config_path)
+    {
+        try {
+            auto* model_ref = reinterpret_cast<ModelRef*>(static_cast<intptr_t>(model_ptr));
+            if (model_ref == nullptr || model_ref->model.objects.size() != 2 || config_path == nullptr)
+                throw std::invalid_argument("Layer-range cache regression requires two copied model objects and a config path");
+            const char* path = env->GetStringUTFChars(config_path, nullptr);
+            if (path == nullptr) return nullptr;
+            DynamicPrintConfig config;
+            config.load(path, ForwardCompatibilitySubstitutionRule::Disable);
+            env->ReleaseStringUTFChars(config_path, path);
+
+            Print print;
+            print.apply(model_ref->model, std::move(config));
+            print.process();
+            int shared_objects = 0;
+            for (const PrintObject* object : print.objects())
+                if (object->get_shared_object() != nullptr) ++shared_objects;
+            const std::array<jint, 2> values{static_cast<jint>(print.objects().size()), shared_objects};
+            jintArray result = env->NewIntArray(static_cast<jsize>(values.size()));
+            if (result != nullptr) env->SetIntArrayRegion(result, 0, static_cast<jsize>(values.size()), values.data());
+            return result;
+        } catch (const std::exception& error) {
+            jclass runtime_error = env->FindClass("ru/ytkab0bp/slicebeam/slic3r/Slic3rRuntimeError");
+            if (runtime_error != nullptr) env->ThrowNew(runtime_error, error.what());
+            return nullptr;
+        }
+    }
+
+    JNIEXPORT jintArray JNICALL Java_ru_ytkab0bp_slicebeam_slic3r_Native_center_1offset_1slice_1cache_1regression(
+        JNIEnv* env, jclass, jstring config_path)
+    {
+        try {
+            if (config_path == nullptr)
+                throw std::invalid_argument("Center-offset cache regression requires a slice config path");
+            const char* path = env->GetStringUTFChars(config_path, nullptr);
+            if (path == nullptr) return nullptr;
+            DynamicPrintConfig config;
+            config.load(path, ForwardCompatibilitySubstitutionRule::Disable);
+            env->ReleaseStringUTFChars(config_path, path);
+
+            const std::vector<Vec3f> vertices{{0, 0, 0}, {30, 0, 0}, {0, 10, 0}, {0, 0, 10}, {30, 0, 10}, {0, 10, 10}};
+            const std::vector<Vec3i32> faces{{0, 2, 1}, {3, 4, 5}, {0, 1, 4}, {0, 4, 3}, {1, 2, 5}, {1, 5, 4}, {2, 0, 3}, {2, 3, 5}};
+            Model model;
+            ModelObject* object_a = model.add_object();
+            object_a->add_volume(TriangleMesh(vertices, faces));
+            object_a->config.set_key_value("extruder", new ConfigOptionInt(1));
+            ModelInstance* first = object_a->add_instance();
+            const Vec3d origin = first->get_offset();
+            ModelObject* object_b = model.add_object(*object_a);
+            ModelInstance* turned = object_b->instances.front();
+            turned->set_offset(origin + Vec3d(60., 0., 0.));
+            turned->set_rotation(Vec3d(0., 0., PI / 3.));
+            ModelInstance* straight = object_b->add_instance();
+            straight->set_offset(origin + Vec3d(120., 0., 0.));
+
+            Print print;
+            print.apply(model, std::move(config));
+            print.process();
+            const PrintObject* print_a = nullptr;
+            const PrintObject* print_straight = nullptr;
+            for (const PrintObject* object : print.objects())
+                if (object->model_object()->id() == object_a->id()) print_a = object;
+            if (print_a == nullptr)
+                throw std::runtime_error("Could not find the reference PrintObject");
+            for (const PrintObject* object : print.objects())
+                if (object->model_object()->id() == object_b->id() &&
+                    object->trafo().matrix() == print_a->trafo().matrix()) print_straight = object;
+            if (print_straight == nullptr)
+                throw std::runtime_error("Could not find the matching-transform copied PrintObject");
+
+            const bool offsets_differ = print_a->center_offset() != print_straight->center_offset();
+            const bool any_shared = print_a->get_shared_object() != nullptr || print_straight->get_shared_object() != nullptr;
+            const std::array<jint, 3> values{1, offsets_differ ? 1 : 0, any_shared ? 1 : 0};
+            jintArray result = env->NewIntArray(static_cast<jsize>(values.size()));
+            if (result != nullptr) env->SetIntArrayRegion(result, 0, static_cast<jsize>(values.size()), values.data());
+            return result;
+        } catch (const std::exception& error) {
+            jclass runtime_error = env->FindClass("ru/ytkab0bp/slicebeam/slic3r/Slic3rRuntimeError");
+            if (runtime_error != nullptr) env->ThrowNew(runtime_error, error.what());
+            return nullptr;
+        }
+    }
+
     JNIEXPORT jboolean JNICALL Java_ru_ytkab0bp_slicebeam_slic3r_Native_model_1add_1spiral_1vase_1override_1test_1config(
         JNIEnv* env, jclass, jlong model_ptr)
     {

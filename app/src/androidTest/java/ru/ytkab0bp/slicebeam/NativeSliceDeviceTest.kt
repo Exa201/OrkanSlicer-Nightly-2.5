@@ -63,6 +63,56 @@ class NativeSliceDeviceTest {
         )
     }
 
+    @Test(timeout = 120_000)
+    fun objectsWithDifferentHeightRangeOverridesDoNotShareSliceCache() {
+        withKobraProfile {
+            val context = InstrumentationRegistry.getInstrumentation().targetContext
+            val source = copyCube(context, "layer-range-cache-sharing.stl")
+            val configFile = SliceBeam.getCurrentConfigFile()
+            var model: Model? = null
+            try {
+                model = Model(source).also {
+                    it.addObject(it, 0)
+                    it.ensureOnBed(0)
+                    it.ensureOnBed(1)
+                }
+                SliceBeam.genCurrentConfig(requireNotNull(model))
+                assertTrue("height range must attach to the first copied mesh object",
+                    Native.model_add_layer_range_test_config(model.pointer, 0.4, 1.2, 0.1, 35.0))
+                assertArrayEquals(
+                    "A copied mesh with a range override must not inherit the other object's cached layers",
+                    intArrayOf(2, 0),
+                    Native.layer_range_cache_isolation_regression(model.pointer, configFile.absolutePath),
+                )
+            } finally {
+                model?.release()
+                source.delete()
+                configFile.delete()
+            }
+        }
+    }
+
+    @Test(timeout = 120_000)
+    fun objectsWithDifferentCenterOffsetsDoNotShareSliceCache() = withKobraProfile {
+        val context = InstrumentationRegistry.getInstrumentation().targetContext
+        val source = copyCube(context, "center-offset-cache-source.stl")
+        val configFile = SliceBeam.getCurrentConfigFile()
+        var model: Model? = null
+        try {
+            model = Model(source).also { it.ensureOnBed(0) }
+            SliceBeam.genCurrentConfig(requireNotNull(model))
+            assertArrayEquals(
+                "Objects with the same transform but different center offsets must not reuse shifted slice layers",
+                intArrayOf(1, 1, 0),
+                Native.center_offset_slice_cache_regression(configFile.absolutePath),
+            )
+        } finally {
+            model?.release()
+            source.delete()
+            configFile.delete()
+        }
+    }
+
     @Test
     fun textureDisplacementBakeMovesPaintedMeshAndCancellationCannotBeCommitted() {
         val bitmap = Bitmap.createBitmap(16, 16, Bitmap.Config.ARGB_8888).apply {

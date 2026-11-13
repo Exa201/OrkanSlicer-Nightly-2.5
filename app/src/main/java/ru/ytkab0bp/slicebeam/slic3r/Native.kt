@@ -81,6 +81,12 @@ class Native {
     /** Adds an object-local layer-height/speed range for native slice regression tests. */
     @JvmStatic
     external fun model_add_layer_range_test_config(model: Long, minZ: Double, maxZ: Double, layerHeight: Double, outerWallSpeed: Double): Boolean
+    /** Ensures copied objects with different layer-range configs don't share sliced regions. */
+    @JvmStatic
+    external fun layer_range_cache_isolation_regression(model: Long, configPath: String): IntArray
+    /** Verifies matching transforms with different center offsets don't share shifted slice data. */
+    @JvmStatic
+    external fun center_offset_slice_cache_regression(configPath: String): IntArray
     @JvmStatic
     external fun model_add_spiral_vase_override_test_config(model: Long): Boolean
     /** Exercises the inherited custom-printer preset merge when the child adds nozzle slots. */
@@ -117,6 +123,7 @@ class Native {
     external fun spiral_inset_solid_regression(): IntArray
     @JvmStatic
     external fun cut_preserves_part_filaments_regression(): IntArray
+    external fun layer_range_cache_isolation_regression(): IntArray
     /** Verifies that opened Lightning overhang samples are included in the update-grid bounds. */
     @JvmStatic
     external fun lightning_distance_field_bounds_probe(): IntArray
