@@ -97,6 +97,22 @@ The earlier mixed-worktree changes remain backed up separately; this follow-up p
   Schlüssel ein Risiko für veraltete G-Codes. Nächster Schritt: weiteren Orca-Kernpfad mit
   reproduzierbarer Android-Testabdeckung auswählen; Batch 16 bleibt bei 2/10.
 
+## Nightly Batch 16 — Punkt 3/10 — Werkzeugwahl vor Filamentstart-G-Code — 2026-11-13
+
+- Orca `ea80024735` behebt einen Temperatur-Übersteuerungsfehler beim ersten Werkzeug einer
+  Single-Extruder-/Multi-Material-Konfiguration: Manche Drucker ändern die Düsentemperatur mit
+  `T<n>`. Der Android-Pfad schrieb zuvor den Filament-Startcode vor `T0`; jetzt steht der
+  Werkzeugbefehl davor. Ohne Reinigungsturm wird danach die Filamenttemperatur erneut gesetzt;
+  der Filament-Start-G-Code kommt anschließend und darf weiterhin bewusst einen eigenen Wert setzen.
+- `NativeSliceDeviceTest#singleExtruderSelectsToolBeforeFilamentStartGcode` richtet einen
+  Single-Extruder-Slice mit mehreren konfigurierten Filamenten, aber ausschließlich Werkzeug T0,
+  ein. Der erzeugte G-Code enthält T0, danach M104 und dann
+  `M117 FILAMENT_START_ORDER_MARKER`; API 36, 1/1 bestanden (3,425 s). Der Test prüft die
+  Reihenfolge im Slice-G-Code, keinen realen Firmware-/Druckerlauf.
+- ARM64 SliceTest-Bibliothek und Instrumentierungs-APK wurden erfolgreich inkrementell gebaut;
+  `git diff --check` sauber. Batch 16 steht bei 3/10; nächster Schritt ist ein weiterer
+  Android-relevanter Orca-Kernfehler mit echter G-Code- oder Geometrieregression.
+
 # Nightly execution state — 2026-11-07
 
 - **Batch 15, Punkt 7/10 — Qidi X-Smart 5 aus Orca 2.5:** eingebettetes Offline-Profilpaket (`1433316b55`) für vier Düsen, 17 Prozesse plus zwei gemeinsame Prozessprofile, 247 Filamente plus ein Vererbungsprofil. Import ist im Setup sichtbar und ergänzt bestehende Nightly-Konfigurationen idempotent, auch wenn nur Teilprofile vorhanden sind. `IOUtils.configJsonToIni` bewahrt die lesbaren Orca-Profilnamen. `NativeSliceDeviceTest#qidiXSmart5Orca25ProfileFamilyMergesAndSlicesOnAndroid` bestand auf API 36 (1/1): Profilzahlen, Drucker-/Prozess-/Filament-Defaults, Kompatibilität, 180-mm-Bett und -Höhe, Wiederholungsimport sowie echter ARM64-Testwürfel-Slice mit Extrusion. `:app:testDebugUnitTest` erfolgreich. Keine physische Qidi-Hardware und kein realer Druck getestet. Batch 15 jetzt 7/10; nächster Schritt: den nächsten geeigneten Orca-2.5-Commit gegen den Android-Aufrufpfad prüfen und gezielt portieren; APK/Release erst nach 10/10.

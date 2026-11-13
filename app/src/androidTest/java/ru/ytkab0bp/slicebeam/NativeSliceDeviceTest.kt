@@ -7864,6 +7864,51 @@ class NativeSliceDeviceTest {
         }
     }
 
+    @Test(timeout = 120_000)
+    fun singleExtruderSelectsToolBeforeFilamentStartGcode() = withKobraProfile {
+        val context = InstrumentationRegistry.getInstrumentation().targetContext
+        val config = requireNotNull(SliceBeam.CONFIG)
+        val printer = requireNotNull(config.findPrinter("Anycubic Kobra 3 0.4 nozzle"))
+        val process = requireNotNull(config.findPrint("0.16mm Standard"))
+        val filament = requireNotNull(config.findFilament("Anycubic Generic PLA"))
+        process.put("single_extruder_multi_material", "1")
+        process.put("enable_prime_tower", "0")
+        printer.put("machine_start_gcode", "G28\n")
+        filament.put("start_filament_gcode", "; FILAMENT_START_ORDER_MARKER\n")
+
+        val source = copyCube(context, "single-extruder-tool-order.stl")
+        val model = Model(source)
+        val output = File(context.cacheDir, "single-extruder-tool-order.gcode")
+        var result: GCodeProcessorResult? = null
+        try {
+            SliceBeam.genCurrentConfig(model)
+            val configFile = SliceBeam.getCurrentConfigFile()
+            // Keep two filament configs while the mesh uses only T0, matching a user who
+            // selected one color in a multi-material project.
+            val testConfig = configFile.readText()
+                .replace(Regex("(?m)^filament_diameter\\s*=.*$"), "filament_diameter = 1.75,1.75")
+                .replace(Regex("(?m)^filament_start_gcode\\s*=.*$"), "filament_start_gcode = M117 FILAMENT_START_ORDER_MARKER")
+            configFile.writeText(testConfig)
+            result = model.slice(configFile.absolutePath, output.absolutePath, null)
+            val gcode = output.readText()
+            val start = gcode.indexOf("M117 FILAMENT_START_ORDER_MARKER")
+            val selectedFirstTool = Regex("(?m)^T0(?:\\s|$)").find(gcode)?.range?.first ?: -1
+            assertTrue("the first-tool selection must precede filament start G-code; T0=$selectedFirstTool start=$start",
+                selectedFirstTool >= 0 && start > selectedFirstTool)
+            val filamentTemperatureAfterTool = Regex("(?m)^M104 S\\d+").findAll(gcode)
+                .map { it.range.first }
+                .any { it > selectedFirstTool && it < start }
+            assertTrue("the filament temperature must be restored after T0 and before filament start G-code",
+                filamentTemperatureAfterTool)
+        } finally {
+            result?.release()
+            model.release()
+            source.delete()
+            output.delete()
+            SliceBeam.getCurrentConfigFile().delete()
+        }
+    }
+
     @Test
     fun bridgeSettingsReachNativeConfigAndGenerateBridgeGcode() {
         val context: Context = InstrumentationRegistry.getInstrumentation().targetContext

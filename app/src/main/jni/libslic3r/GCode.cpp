@@ -7855,6 +7855,18 @@ std::string GCode::set_extruder(unsigned int new_filament_id, double print_z, bo
         this->placeholder_parser().set("long_retraction_when_ec", m_config.long_retractions_when_ec.get_at(new_filament_id));
 
         std::string gcode;
+        // Select the tool before running filament start G-code. Some printers change
+        // nozzle temperature as a side effect of T<n>; leaving T<n> until after this
+        // block silently overwrites the filament's requested temperature.
+        const std::string toolchange_command = m_writer.toolchange(new_filament_id);
+        gcode += toolchange_command;
+        if (!toolchange_command.empty() && m_config.single_extruder_multi_material && !m_config.enable_prime_tower) {
+            const int temperature = (m_layer_index <= 0
+                ? m_config.nozzle_temperature_initial_layer.get_at(new_filament_id)
+                : m_config.nozzle_temperature.get_at(new_filament_id));
+            gcode += m_writer.set_temperature(temperature, false);
+        }
+
         // Append the filament start G-code.
         const std::string &filament_start_gcode = m_config.filament_start_gcode.get_at(new_filament_id);
         if (! filament_start_gcode.empty()) {
@@ -7878,7 +7890,6 @@ std::string GCode::set_extruder(unsigned int new_filament_id, double print_z, bo
             m_pa_processor->resetPreviousPA(m_config.pressure_advance.get_at(new_filament_id));
         }
 
-        gcode += m_writer.toolchange(new_filament_id);
         return gcode;
     }
 
