@@ -2656,7 +2656,11 @@ std::vector<int> ModelVolume::get_extruders() const
         std::vector<indexed_triangle_set> its_per_type;
         mmuseg_extruders.clear();
         mmuseg_ts = mmu_segmentation_facets.timestamp();
-        mmu_segmentation_facets.get_facets(*this, its_per_type);
+        // Most models have no per-face filament painting. Avoid constructing and
+        // deserializing a TriangleSelector for this common case; on phone hardware
+        // it needlessly walks and allocates data proportional to the triangle count.
+        if (!mmu_segmentation_facets.get_data().triangles_to_split.empty())
+            mmu_segmentation_facets.get_facets(*this, its_per_type);
         for (int idx = 1; idx < its_per_type.size(); idx++) {
             indexed_triangle_set& its = its_per_type[idx];
             if (its.indices.empty())
@@ -3599,6 +3603,8 @@ ModelInstanceEPrintVolumeState ModelInstance::calc_print_volume_state(const Buil
 
 indexed_triangle_set FacetsAnnotation::get_facets(const ModelVolume& mv, EnforcerBlockerType type) const
 {
+    if (m_data.triangles_to_split.empty())
+        return {};
     TriangleSelector selector(mv.mesh());
     // Reset of TriangleSelector is done inside TriangleSelector's constructor, so we don't need it to perform it again in deserialize().
     selector.deserialize(m_data, false);
@@ -3608,6 +3614,10 @@ indexed_triangle_set FacetsAnnotation::get_facets(const ModelVolume& mv, Enforce
 // BBS
 void FacetsAnnotation::get_facets(const ModelVolume& mv, std::vector<indexed_triangle_set>& facets_per_type) const
 {
+    if (m_data.triangles_to_split.empty()) {
+        facets_per_type.clear();
+        return;
+    }
     TriangleSelector selector(mv.mesh());
     selector.deserialize(m_data, false);
     selector.get_facets(facets_per_type);

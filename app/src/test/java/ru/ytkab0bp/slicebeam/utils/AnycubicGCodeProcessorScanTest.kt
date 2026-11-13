@@ -34,4 +34,34 @@ class AnycubicGCodeProcessorScanTest {
             source.delete()
         }
     }
+
+    @Test
+    fun externalSpoolCopyRemovesAceToolCommandsAndMappingMetadata() {
+        val source = File.createTempFile("kobra-external", ".gcode")
+        val destination = File.createTempFile("kobra-external-out", ".gcode")
+        try {
+            source.writeText(
+                "; HEADER_BLOCK_START\n" +
+                    "; filament_type = PETG\n" +
+                    "; filament_colour_type = 0\n" +
+                    "; filament: 1\n" +
+                    "; paint_info = [{\"material_type\":\"PETG\"}]\n" +
+                    "; HEADER_BLOCK_END\n" +
+                    "T0 ; select ACE slot\n" +
+                    " G1 X1 Y1 E1\n",
+            )
+
+            assertTrue(AnycubicGCodeProcessor.rewriteForExternalSpool(source, destination))
+            val output = destination.readText()
+            assertTrue(output.contains("; filament_type = PETG"))
+            assertTrue(output.contains("G1 X1 Y1 E1"))
+            assertFalse(output.contains("T0"))
+            assertFalse(output.contains("filament_colour_type"))
+            assertFalse(output.contains("; filament:"))
+            assertFalse(output.contains("paint_info"))
+        } finally {
+            source.delete()
+            destination.delete()
+        }
+    }
 }

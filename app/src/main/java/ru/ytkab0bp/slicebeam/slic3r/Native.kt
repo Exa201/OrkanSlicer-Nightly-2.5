@@ -80,9 +80,15 @@ class Native {
     /** Ensures malformed custom layer sequences are ignored without invalid indexing. */
     @JvmStatic
     external fun other_layers_sequence_validation_regression(): IntArray
+    /** Emits a lifted travel to a lower destination for collision-safety verification. */
+    @JvmStatic
+    external fun lifted_travel_safety_probe(): String
     /** Exercises sparse-infill line joining, loop avoidance, and crossing rejection. */
     @JvmStatic
     external fun joined_infill_regression(): IntArray
+    /** Checks that solid Spiral Inset keeps the Arachne wall paths used by top surfaces. */
+    @JvmStatic
+    external fun spiral_inset_solid_regression(): IntArray
     /** Verifies that opened Lightning overhang samples are included in the update-grid bounds. */
     @JvmStatic
     external fun lightning_distance_field_bounds_probe(): IntArray

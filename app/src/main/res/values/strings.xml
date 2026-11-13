@@ -1219,6 +1219,12 @@
     <string name="MmuSyncWorking">Reading filament slots…</string>
     <string name="MmuSyncSuccess">Synced %1$d loaded filaments. Empty ACE slots remain visible.</string>
     <string name="MmuSyncFailed">Could not read printer filaments</string>
+    <string name="MmuExternalSpoolDetected">ACE is disconnected. The printer reports an external spool is ready.</string>
+    <string name="MmuExternalSpoolMaterial">Using the existing material: %1$s</string>
+    <string name="MmuExternalSpoolSyncSuccess">External spool is ready. Keeping the configured material: %1$s.</string>
+    <string name="MmuExternalSpoolNeedsMaterial">External spool detected, but no existing filament material is configured. Select its material before syncing.</string>
+    <string name="MmuExternalSpoolTitle">External spool</string>
+    <string name="MmuExternalSpoolMultiTool">Only one filament can be used with the external spool. This sliced job uses multiple tools; connect the ACE or slice it as a single-material job.</string>
     <string name="MmuAssignmentTitle">Assign colors to ACE slots</string>
     <string name="MmuAssignmentHelp">Choose a loaded ACE slot for each model color. Empty slots remain visible in the overview but cannot be selected.</string>
     <string name="AcePhysicalSlotsTitle">ACE slots on printer</string>

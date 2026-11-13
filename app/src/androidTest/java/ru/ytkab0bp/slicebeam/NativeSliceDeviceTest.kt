@@ -36,6 +36,8 @@ import ru.ytkab0bp.slicebeam.slic3r.ObjectPlacement
 import ru.ytkab0bp.slicebeam.render.FillBedModelOperation
 import ru.ytkab0bp.slicebeam.components.bed_menu.SlicePreparationTools
 import ru.ytkab0bp.slicebeam.utils.Vec3d
+import java.nio.ByteBuffer
+import java.nio.ByteOrder
 import java.io.File
 import java.io.FileOutputStream
 import java.util.zip.ZipEntry
@@ -180,6 +182,83 @@ class NativeSliceDeviceTest {
     }
 
     @Test
+    fun liftedTravelDescendsOnlyAfterReachingItsDestination() {
+        val moves = Native.lifted_travel_safety_probe().lineSequence()
+            .filter { it.startsWith("G1") }
+            .toList()
+        listOf(30, 35).forEach { waypoint ->
+            val move = moves.singleOrNull {
+                Regex("\\bX$waypoint(?:\\.0+)?\\b").containsMatchIn(it) &&
+                    Regex("\\bY$waypoint(?:\\.0+)?\\b").containsMatchIn(it)
+            }
+            assertNotNull("lifted detour must reach XY waypoint $waypoint", move)
+            val moveZ = Regex("\\bZ([-+]?(?:\\d+(?:\\.\\d*)?|\\.\\d+))")
+                .find(move!!)?.groupValues?.get(1)?.toDouble()
+            assertTrue("detour waypoint $waypoint must not descend before the destination: $move",
+                moveZ == null || moveZ >= 5.4 - 0.001)
+        }
+        val targetXy = moves.indexOfLast {
+            Regex("\\bX40(?:\\.0+)?\\b").containsMatchIn(it) &&
+                Regex("\\bY40(?:\\.0+)?\\b").containsMatchIn(it)
+        }
+        assertTrue("the travel must reach its XY destination", targetXy >= 0)
+        assertFalse("the horizontal travel must stay at the lifted height", moves[targetXy].contains(Regex("\\bZ")))
+        assertTrue("the next move should descend vertically at the destination",
+            moves.getOrNull(targetXy + 1)?.let { Regex("\\bZ4\\.9(?:\\s|$)").containsMatchIn(it) &&
+                !Regex("\\b[XY]").containsMatchIn(it) } == true)
+    }
+
+    @Test
+    fun liftedAvoidCrossingTravelStaysHighUntilTheDetourEnds() = withBambuA1MiniProfile {
+        val context = InstrumentationRegistry.getInstrumentation().targetContext
+        val config = SliceBeam.CONFIG ?: error("Bambu test profile was not loaded")
+        val selectedPrint = config.presets?.get("print")
+        val process = config.findPrint(selectedPrint)
+            ?: error("Bambu process missing: selected=$selectedPrint, prints=${config.printConfigs.map { it.title }}")
+        process.put("reduce_crossing_wall", "1")
+        process.put("seam_position", "random")
+        process.put("enable_arc_fitting", "disabled")
+        process.put("skirt_loops", "0")
+        process.put("brim_type", "no_brim")
+        // Bambu's relative-E profile requires an explicit per-layer E reset.
+        // This fixture is about lifted travel routing, so keep the profile valid
+        // without weakening its production extrusion mode.
+        process.put("layer_gcode", "G92 E0")
+
+        val source = createConcaveLPrismFixture("orca-lifted-avoid-crossing.stl")
+        val output = File(context.cacheDir, "orca-lifted-avoid-crossing.gcode")
+        val model = Model(source).also { it.ensureOnBed(0) }
+        try {
+            SliceBeam.genCurrentConfig(model)
+            val generatedConfig = SliceBeam.getCurrentConfigFile().readText()
+            assertTrue("Bambu fixture must enable Z-hop", Regex("(?m)^z_hop = 0\\.4(?:,|$)").containsMatchIn(generatedConfig))
+            assertTrue("Bambu fixture must retract at layer changes",
+                Regex("(?m)^retract_when_changing_layer = 1(?:,|$)").containsMatchIn(generatedConfig))
+            assertTrue("fixture must exercise avoid-crossing routing",
+                Regex("(?m)^reduce_crossing_wall = 1(?:,|$)").containsMatchIn(generatedConfig))
+            output.delete()
+            val result = model.slice(SliceBeam.getCurrentConfigFile().absolutePath, output.absolutePath, null)
+            try {
+                assertTrue("the real L-shaped part must slice to G-code", output.isFile && output.length() > 0L)
+                val stats = inspectLiftedTravelSafety(output)
+                assertTrue("the fixture must exercise at least one Z-hop: $stats", stats.lifts > 0)
+                assertTrue("the concave fixture must travel horizontally while lifted: $stats",
+                    stats.maxLiftedTravelSegments >= 1)
+                assertEquals("no travel may descend diagonally over the printed part: $stats", 0, stats.descendingTravels)
+                assertEquals("after a lifted vertical descent, no horizontal travel may cross the print before extrusion: $stats",
+                    0, stats.travelAfterDescent)
+            } finally {
+                result.release()
+            }
+        } finally {
+            model.release()
+            source.delete()
+            output.delete()
+            SliceBeam.getCurrentConfigFile().delete()
+        }
+    }
+
+    @Test
     fun worldTranslationKeepsRotatedAndScaledObjectBoundsAlignedWithDragDelta() = withKobraProfile {
         val context = InstrumentationRegistry.getInstrumentation().targetContext
         val modelFile = copyCube(context, "nightly-world-translation-transform.stl")
@@ -226,6 +305,12 @@ class NativeSliceDeviceTest {
     fun sparseInfillJoiningAvoidsLoopsAndCrossings() {
         assertArrayEquals("Orca sparse-infill joining must connect nearby lines, avoid closed loops, and reject crossings",
             intArrayOf(1, 1, 1, 1), Native.joined_infill_regression())
+    }
+
+    @Test
+    fun spiralInsetSolidUsesArachnePathsLikeTopSurface() {
+        assertArrayEquals("Solid Spiral Inset must generate the same variable-width Arachne paths as a top surface",
+            intArrayOf(1, 1, 1), Native.spiral_inset_solid_regression())
     }
 
     @Test(timeout = 120_000)
@@ -2638,6 +2723,7 @@ class NativeSliceDeviceTest {
 
         val context = InstrumentationRegistry.getInstrumentation().targetContext
         val config = requireNotNull(SliceBeam.CONFIG)
+        val printer = requireNotNull(config.findPrinter("MyToolChanger 0.4 nozzle"))
         val process = requireNotNull(config.findPrint("0.20mm Standard"))
         // The first and third logical nozzles intentionally have different layer limits.
         printer.put("min_layer_height", "0.04,0.08,0.12,0.16,0.20")
@@ -7113,6 +7199,36 @@ class NativeSliceDeviceTest {
         }
     }
 
+    private inline fun withBambuA1MiniProfile(block: () -> Unit) {
+        val context = InstrumentationRegistry.getInstrumentation().targetContext
+        val application = context.applicationContext as Application
+        SliceBeam.INSTANCE = application as SliceBeam
+        Prefs.init(application)
+        val previousConfig = SliceBeam.CONFIG
+        try {
+            context.assets.open("orca_profiles/BBL.ini").use { SliceBeam.CONFIG = Slic3rConfigWrapper(it) }
+            val config = requireNotNull(SliceBeam.CONFIG)
+            val printer = config.findPrinter("Bambu Lab A1 mini 0.4 nozzle")
+                ?: config.printerConfigs.firstOrNull { it.title.orEmpty().contains("A1 mini") }
+                ?: error("A1 mini profile missing from BBL.ini; available=${config.printerConfigs.map { it.title }}")
+            val process = config.findPrint("0.16mm Standard")
+                ?: config.printConfigs.firstOrNull { it.title.orEmpty().contains("0.16mm") }
+                ?: error("Bambu process profile unavailable; prints=${config.printConfigs.map { it.title }}")
+            val filamentName = printer["default_filament_profile"]
+                ?: error("Bambu printer lacks a default filament profile: ${printer.title}")
+            val filament = config.findFilament(filamentName)
+                ?: error("Bambu filament '$filamentName' unavailable; filaments=${config.filamentConfigs.map { it.title }}")
+            config.presets = ConfigObject("presets").apply {
+                put("printer", printer.title)
+                put("print", process.title)
+                put("filament", filament.title)
+            }
+            block()
+        } finally {
+            SliceBeam.CONFIG = previousConfig
+        }
+    }
+
     private fun copyCube(context: Context, name: String): File = File(context.cacheDir, name).also { target ->
         context.assets.open("models/xyz_cube.stl").use { input -> target.outputStream().use(input::copyTo) }
     }
@@ -7217,6 +7333,174 @@ class NativeSliceDeviceTest {
             append("endsolid thin_cube\n")
         }
         return File(InstrumentationRegistry.getInstrumentation().targetContext.cacheDir, name).also { it.writeText(stl) }
+    }
+
+    /** Writes a watertight 150 x 150 x 20 mm concave L prism to exercise layer-change detours. */
+    private fun createConcaveLPrismFixture(name: String): File {
+        data class P(val x: Float, val y: Float, val z: Float)
+        val outline = listOf(0f to 0f, 150f to 0f, 150f to 25f, 25f to 25f, 25f to 150f, 0f to 150f)
+        val remaining = outline.indices.toMutableList()
+        val caps = mutableListOf<Triple<Int, Int, Int>>()
+        fun cross(a: Int, b: Int, c: Int): Float {
+            val abx = outline[b].first - outline[a].first
+            val aby = outline[b].second - outline[a].second
+            val acx = outline[c].first - outline[a].first
+            val acy = outline[c].second - outline[a].second
+            return abx * acy - aby * acx
+        }
+        fun inside(p: Int, a: Int, b: Int, c: Int) =
+            cross(a, b, p) >= -0.001f && cross(b, c, p) >= -0.001f && cross(c, a, p) >= -0.001f
+        while (remaining.size > 3) {
+            val ear = remaining.indices.firstOrNull { position ->
+                val a = remaining[(position - 1 + remaining.size) % remaining.size]
+                val b = remaining[position]
+                val c = remaining[(position + 1) % remaining.size]
+                cross(a, b, c) > 0f && remaining.none { it != a && it != b && it != c && inside(it, a, b, c) }
+            } ?: error("L polygon triangulation failed")
+            caps += Triple(remaining[(ear - 1 + remaining.size) % remaining.size], remaining[ear],
+                remaining[(ear + 1) % remaining.size])
+            remaining.removeAt(ear)
+        }
+        caps += Triple(remaining[0], remaining[1], remaining[2])
+        fun point(index: Int, top: Boolean): P = P(outline[index].first, outline[index].second, if (top) 20f else 0f)
+        val triangles = mutableListOf<Triple<P, P, P>>()
+        caps.forEach { (a, b, c) ->
+            triangles += Triple(point(a, false), point(c, false), point(b, false))
+            triangles += Triple(point(a, true), point(b, true), point(c, true))
+        }
+        outline.indices.forEach { a ->
+            val b = (a + 1) % outline.size
+            val ba = point(a, false); val bb = point(b, false)
+            val ta = point(a, true); val tb = point(b, true)
+            triangles += Triple(ba, bb, tb)
+            triangles += Triple(ba, tb, ta)
+        }
+        val bytes = ByteBuffer.allocate(84 + triangles.size * 50).order(ByteOrder.LITTLE_ENDIAN)
+        bytes.put("Orca lifted travel L prism".toByteArray().copyOf(80))
+        bytes.putInt(triangles.size)
+        triangles.forEach { (a, b, c) ->
+            repeat(3) { bytes.putFloat(0f) }
+            listOf(a, b, c).forEach { bytes.putFloat(it.x); bytes.putFloat(it.y); bytes.putFloat(it.z) }
+            bytes.putShort(0)
+        }
+        return File(InstrumentationRegistry.getInstrumentation().targetContext.cacheDir, name).also {
+            it.writeBytes(bytes.array())
+        }
+    }
+
+    private data class LiftedTravelStats(
+        val lifts: Int,
+        val maxLiftedTravelSegments: Int,
+        val descendingTravels: Int,
+        val travelAfterDescent: Int,
+        val descendingSamples: List<String>,
+        val travelAfterDescentSamples: List<String>,
+    )
+
+    /** Parse modal XYZ moves sufficiently to detect travel-only descents and low cross-part travel. */
+    private fun inspectLiftedTravelSafety(gcode: File): LiftedTravelStats {
+        var x: Double? = null
+        var y: Double? = null
+        var z: Double? = null
+        var absolute = true
+        var sawExtrusion = false
+        var afterDescent = false
+        var finishedFixtureTravel = false
+        var lifts = 0
+        var inLiftedTravel = false
+        var liftedTravelSegments = 0
+        var maxLiftedTravelSegments = 0
+        var descendingTravels = 0
+        var travelAfterDescent = 0
+        val descendingSamples = mutableListOf<String>()
+        val travelAfterDescentSamples = mutableListOf<String>()
+        val recentMoves = ArrayDeque<String>()
+        val word = Regex("([XYZ])([-+]?(?:\\d+(?:\\.\\d*)?|\\.\\d+))")
+        gcode.forEachLine { raw ->
+            if (finishedFixtureTravel) return@forEachLine
+            if (raw.trim().startsWith("G0") || raw.trim().startsWith("G1") || raw.trim().startsWith("G2") || raw.trim().startsWith("G3")) {
+                recentMoves.addLast(raw.trim())
+                while (recentMoves.size > 8) recentMoves.removeFirst()
+            }
+            if (raw.contains(";LAYER_CHANGE")) {
+                // Prime/start G-code is not part of the printed-part travel path.
+                sawExtrusion = false
+                afterDescent = false
+                inLiftedTravel = false
+            }
+            val line = raw.substringBefore(';').trim()
+            if (line == "G28" || line.startsWith("G28 ")) {
+                // Homing changes the firmware position; don't compare later moves with
+                // coordinates from before the home command.
+                x = null; y = null; z = null
+                inLiftedTravel = false; afterDescent = false
+                sawExtrusion = false
+                return@forEachLine
+            }
+            if (line == "G92" || line.startsWith("G92 ")) {
+                val reset = word.findAll(line).associate { it.groupValues[1] to it.groupValues[2].toDouble() }
+                x = reset["X"] ?: x; y = reset["Y"] ?: y; z = reset["Z"] ?: z
+                return@forEachLine
+            }
+            when (line) {
+                "G90" -> { absolute = true; return@forEachLine }
+                "G91" -> { absolute = false; return@forEachLine }
+            }
+            if (!line.startsWith("G0 ") && !line.startsWith("G1 ") &&
+                !line.startsWith("G2 ") && !line.startsWith("G3 ")) return@forEachLine
+            val values = word.findAll(line).associate { it.groupValues[1] to it.groupValues[2].toDouble() }
+            val oldX = x; val oldY = y; val oldZ = z
+            fun next(axis: String, old: Double?): Double? = values[axis]?.let { value ->
+                if (absolute || old == null) value else old + value
+            } ?: old
+            x = next("X", x); y = next("Y", y); z = next("Z", z)
+            // This fixture is 20 mm tall. Bambu's end G-code parks the head by
+            // raising Z above 100 mm; those post-print moves are not model travel.
+            if (z != null && z!! > 30.0) {
+                finishedFixtureTravel = true
+                return@forEachLine
+            }
+            val dx = if (oldX != null && x != null) x!! - oldX else 0.0
+            val dy = if (oldY != null && y != null) y!! - oldY else 0.0
+            val dz = if (oldZ != null && z != null) z!! - oldZ else 0.0
+            val xy = kotlin.math.abs(dx) > 1e-5 || kotlin.math.abs(dy) > 1e-5
+            val extrusion = Regex("(?:^|\\s)E[-+]?(?:\\d+(?:\\.\\d*)?|\\.\\d+)").containsMatchIn(line)
+            val liftedDescent = dz < -1e-5 && !xy && inLiftedTravel
+            if (dz > 1e-5 && !xy) {
+                lifts++
+                inLiftedTravel = true
+                liftedTravelSegments = 0
+            }
+            if (dz < -1e-5 && xy && !extrusion && inLiftedTravel) {
+                descendingTravels++
+                descendingSamples += raw
+            }
+            if (dz < -1e-5 && !xy && inLiftedTravel) {
+                maxLiftedTravelSegments = maxOf(maxLiftedTravelSegments, liftedTravelSegments)
+                inLiftedTravel = false
+            }
+            if (extrusion || dz > 1e-5) {
+                sawExtrusion = sawExtrusion || (xy && extrusion)
+                afterDescent = false
+                if (extrusion) {
+                    maxLiftedTravelSegments = maxOf(maxLiftedTravelSegments, liftedTravelSegments)
+                    inLiftedTravel = false
+                }
+            } else if (xy) {
+                if (inLiftedTravel && !extrusion) liftedTravelSegments++
+                if (afterDescent) {
+                    travelAfterDescent++
+                    travelAfterDescentSamples += recentMoves.joinToString(" | ")
+                }
+                afterDescent = false
+            } else if (dz < -1e-5) {
+                afterDescent = sawExtrusion && liftedDescent
+            }
+        }
+        return LiftedTravelStats(
+            lifts, maxLiftedTravelSegments, descendingTravels, travelAfterDescent,
+            descendingSamples, travelAfterDescentSamples,
+        )
     }
 
     private fun createOverhangWallFixture(name: String): File {

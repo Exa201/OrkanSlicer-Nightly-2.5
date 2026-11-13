@@ -1348,6 +1348,29 @@ StringObjectException Print::validate(StringObjectException *warning, Polygons* 
         for (const PrintObject *object : m_objects)
             if (object->object_extruders().size() > 1)
                 return {L("The spiral vase mode does not work when an object contains more than one materials."), nullptr, "spiral_mode"};
+        // Spiral mode resets these values in the global config, but object/part/height
+        // range overrides survive. Such layers are not emitted as one continuous spiral.
+        if (warning != nullptr && warning->string.empty()) {
+            for (const PrintObject *object : m_objects) {
+                for (const PrintRegion &region : object->all_regions()) {
+                    const PrintRegionConfig &cfg = region.config();
+                    const char *opt_key = cfg.sparse_infill_density.value > 0. ? "sparse_infill_density" :
+                                          cfg.wall_loops.value > 1             ? "wall_loops" :
+                                          cfg.top_shell_layers.value > 0       ? "top_shell_layers" : nullptr;
+                    if (opt_key == nullptr)
+                        continue;
+                    warning->string = Slic3r::format(
+                        _u8L("Spiral vase mode needs no sparse infill, one wall loop and no top shell layers, but object %1% uses other values, so it will not print as a continuous spiral."),
+                        object->model_object()->name);
+                    warning->object = object;
+                    warning->opt_key = opt_key;
+                    warning->is_warning = true;
+                    break;
+                }
+                if (!warning->string.empty())
+                    break;
+            }
+        }
     }
 
     // Cache of layer height profiles for checking:

@@ -1198,6 +1198,12 @@
     <string name="MmuSyncWorking">Filamentplätze werden gelesen …</string>
     <string name="MmuSyncSuccess">%1$d belegte Filamente übernommen. Leere ACE-Fächer bleiben sichtbar.</string>
     <string name="MmuSyncFailed">Druckerfilamente konnten nicht gelesen werden</string>
+    <string name="MmuExternalSpoolDetected">ACE ist getrennt. Der Drucker meldet eine einsatzbereite externe Spule.</string>
+    <string name="MmuExternalSpoolMaterial">Vorhandenes Material wird verwendet: %1$s</string>
+    <string name="MmuExternalSpoolSyncSuccess">Externe Spule ist bereit. Eingestelltes Material bleibt erhalten: %1$s.</string>
+    <string name="MmuExternalSpoolNeedsMaterial">Externe Spule erkannt, aber es ist kein vorhandenes Filamentmaterial eingestellt. Wähle das Material vor der Synchronisierung aus.</string>
+    <string name="MmuExternalSpoolTitle">Externe Spule</string>
+    <string name="MmuExternalSpoolMultiTool">Mit einer externen Spule kann nur ein Filament verwendet werden. Dieser Auftrag nutzt mehrere Werkzeuge. Verbinde die ACE oder slice den Auftrag mit nur einem Material.</string>
     <string name="MmuAssignmentTitle">Farben → Slots</string>
     <string name="MmuAssignmentHelp">Wähle für jede Modellfarbe ein belegtes ACE-Fach. Leere Fächer bleiben in der Übersicht sichtbar, sind aber nicht wählbar.</string>
     <string name="AcePhysicalSlotsTitle">ACE-Fächer am Drucker</string>

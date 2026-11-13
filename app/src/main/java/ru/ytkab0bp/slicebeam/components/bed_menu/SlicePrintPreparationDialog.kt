@@ -47,12 +47,14 @@ import ru.ytkab0bp.slicebeam.utils.QidiBoxToolMappingPolicy
 import ru.ytkab0bp.slicebeam.utils.QidiBoxToolMappingStore
 import ru.ytkab0bp.slicebeam.utils.QidiGCode3mfPackager
 import ru.ytkab0bp.slicebeam.utils.AnycubicAceRoutingPolicy
+import ru.ytkab0bp.slicebeam.utils.Prefs
 
 internal sealed interface PrintPreparationWarning {
     data class UnavailableTool(val tool: Int, val gate: Int) : PrintPreparationWarning
     data class SharedAceGate(val tool: Int) : PrintPreparationWarning
     data class MaterialMismatch(val tool: Int, val source: String, val slot: Int, val loaded: String) : PrintPreparationWarning
     data class EmptyAceSlots(val slots: List<Int>) : PrintPreparationWarning
+    data object ExternalSpoolMultiTool : PrintPreparationWarning
 }
 
 /** Shows printer, auto-leveling and ACE slot checks before sending a sliced job. */
@@ -91,7 +93,12 @@ object SlicePrintPreparationDialog {
             }
         }.getOrDefault(listOf(printer))
         fun warningFor(targetPrinter: ConfigObject): PrintPreparationWarning? {
-            if (isAnycubicKobra(targetPrinter) && activeTools.isNotEmpty()) {
+            val externalSpool = isAnycubicKobra(targetPrinter) &&
+                MmuFilamentSync.externalSpoolReady(targetPrinter.title.orEmpty())
+            if (print && externalSpool && activeTools.distinct().size > 1) {
+                return PrintPreparationWarning.ExternalSpoolMultiTool
+            }
+            if (isAnycubicKobra(targetPrinter) && !externalSpool && activeTools.isNotEmpty()) {
                 val title = targetPrinter.title.orEmpty()
                 val routing = AnycubicAceRoutingPolicy.resolve(
                     gcodeToolCount,
@@ -113,7 +120,7 @@ object SlicePrintPreparationDialog {
                     AnycubicAceRoutingPolicy.toolValues(profile["nozzle_temperature"]),
                 )?.let { return PrintPreparationWarning.SharedAceGate(it) }
             }
-            if (print && isAnycubicKobra(targetPrinter)) {
+            if (print && isAnycubicKobra(targetPrinter) && !externalSpool) {
                 val title = targetPrinter.title.orEmpty()
                 val selectedGates = MmuFilamentSync.getSelectedGates(title, gcodeToolCount)
                 val mapping = AnycubicAceRoutingPolicy.resolve(
@@ -262,6 +269,10 @@ private fun PrintPreparationDialog(
             MmuFilamentSync.loadedGates(printer.title.orEmpty()),
         )
     }
+    val externalSpoolMaterial = activeTools.singleOrNull()?.let { tool ->
+        Prefs.getFilamentSlots().getOrNull(tool)?.type?.takeIf(String::isNotBlank)
+            ?: sourceFilamentTypes.getOrNull(tool)?.takeIf(String::isNotBlank)
+    }
     ComposeAlertDialog(
         onDismissRequest = onDismiss,
         title = { Text(stringResource(R.string.PrintPrepareTitle), modifier = Modifier.testTag("slice-preparation-title")) },
@@ -272,16 +283,19 @@ private fun PrintPreparationDialog(
                 availablePrinters = availablePrinters,
                 resliceRequired = resliceRequired,
                 mappingSummary = mappingSummary.takeIf {
-                    !resliceRequired && SlicePrintPreparationDialog.isAnycubicKobra(printer) && activeTools.isNotEmpty()
+                    !resliceRequired && SlicePrintPreparationDialog.isAnycubicKobra(printer) &&
+                        !MmuFilamentSync.externalSpoolReady(printer.title.orEmpty()) && activeTools.isNotEmpty()
                 },
                 emptyAceSlots = emptyAceSlots.takeIf {
-                    !resliceRequired && SlicePrintPreparationDialog.isAnycubicKobra(printer) && it.isNotEmpty()
+                    !resliceRequired && SlicePrintPreparationDialog.isAnycubicKobra(printer) &&
+                        !MmuFilamentSync.externalSpoolReady(printer.title.orEmpty()) && it.isNotEmpty()
                 },
                 pressureAdvance = pressureAdvance,
                 qidiBoxSlots = qidiBoxSlots.takeIf {
                     print && !resliceRequired && QidiGCode3mfPackager.isQidiQ2(printer)
                 },
                 qidiActiveTools = activeTools,
+                externalSpoolMaterial = externalSpoolMaterial,
                 onSelectQidiBoxSlot = { tool, slot ->
                     if (tool in qidiBoxSlots.indices) qidiBoxSlots = qidiBoxSlots.copyOf().also { it[tool] = slot }
                 },
@@ -400,6 +414,7 @@ internal fun PrintPreparationWarningDialog(
         is PrintPreparationWarning.SharedAceGate -> R.string.MmuAssignmentTitle
         is PrintPreparationWarning.MaterialMismatch -> R.string.PrintPrepareMaterialMismatchTitle
         is PrintPreparationWarning.EmptyAceSlots -> R.string.PrintPrepareAceGapTitle
+        is PrintPreparationWarning.ExternalSpoolMultiTool -> R.string.MmuExternalSpoolTitle
     }
     val message = when (warning) {
         is PrintPreparationWarning.UnavailableTool -> stringResource(
@@ -414,6 +429,7 @@ internal fun PrintPreparationWarningDialog(
         is PrintPreparationWarning.EmptyAceSlots -> stringResource(
             R.string.PrintPrepareAceGapWarning, warning.slots.joinToString(", "),
         )
+        is PrintPreparationWarning.ExternalSpoolMultiTool -> stringResource(R.string.MmuExternalSpoolMultiTool)
     }
     ComposeAlertDialog(
         onDismissRequest = onDismiss,
@@ -425,6 +441,7 @@ internal fun PrintPreparationWarningDialog(
                 is PrintPreparationWarning.SharedAceGate -> android.R.string.ok
                 is PrintPreparationWarning.MaterialMismatch -> R.string.PrintPrepareUploadOnly
                 is PrintPreparationWarning.EmptyAceSlots -> R.string.PrintPrepareAceGapFirmwareChecked
+                is PrintPreparationWarning.ExternalSpoolMultiTool -> android.R.string.ok
             }
             TextButton(
                 onClick = when (warning) {
@@ -432,6 +449,7 @@ internal fun PrintPreparationWarningDialog(
                     is PrintPreparationWarning.SharedAceGate -> onAcknowledge
                     is PrintPreparationWarning.MaterialMismatch -> onUploadOnly
                     is PrintPreparationWarning.EmptyAceSlots -> onFirmwareChecked
+                    is PrintPreparationWarning.ExternalSpoolMultiTool -> onAcknowledge
                 },
                 modifier = Modifier.heightIn(min = 48.dp).then(
                     if (warning is PrintPreparationWarning.EmptyAceSlots) Modifier.testTag("ace-gap-confirm-print")
@@ -459,6 +477,7 @@ internal fun PrintPreparationWarningDialog(
                     }
                 }
             }
+            is PrintPreparationWarning.ExternalSpoolMultiTool -> null
         },
     )
 }
@@ -474,6 +493,7 @@ private fun PrintPreparationContent(
     pressureAdvance: SlicePreparationTools.PressureAdvanceCommands,
     qidiBoxSlots: IntArray?,
     qidiActiveTools: IntArray,
+    externalSpoolMaterial: String?,
     onSelectQidiBoxSlot: (Int, Int) -> Unit,
     onSelectPrinter: (ConfigObject) -> Unit,
 ) {
@@ -533,7 +553,21 @@ private fun PrintPreparationContent(
             Text("▾", color = secondary, fontSize = 20.sp)
         }
         if (!resliceRequired && SlicePrintPreparationDialog.isAnycubicKobra(printer)) {
-            AcePhysicalSlotsBar(MmuFilamentSync.physicalGates(printer.title.orEmpty()))
+            if (MmuFilamentSync.externalSpoolReady(printer.title.orEmpty())) {
+                Text(
+                    stringResource(R.string.MmuExternalSpoolDetected),
+                    color = secondary,
+                    style = MaterialTheme.typography.bodyMedium,
+                    lineHeight = 20.sp,
+                )
+                if (!externalSpoolMaterial.isNullOrBlank()) Text(
+                    stringResource(R.string.MmuExternalSpoolMaterial, externalSpoolMaterial),
+                    color = primary,
+                    style = MaterialTheme.typography.bodyMedium,
+                )
+            } else {
+                AcePhysicalSlotsBar(MmuFilamentSync.physicalGates(printer.title.orEmpty()))
+            }
         }
         if (!resliceRequired && qidiBoxSlots != null && qidiActiveTools.isNotEmpty()) {
             Text(stringResource(R.string.QidiBoxMappingTitle), color = primary, style = MaterialTheme.typography.titleSmall)

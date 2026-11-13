@@ -877,6 +877,8 @@ add_library(slic3r
         src/main/jni/libslic3r/Fill/FillPlanePath.hpp
         src/main/jni/libslic3r/Fill/FillRectilinear.cpp
         src/main/jni/libslic3r/Fill/FillRectilinear.hpp
+        src/main/jni/libslic3r/Fill/FillSpiralInset.cpp
+        src/main/jni/libslic3r/Fill/FillSpiralInset.hpp
         src/main/jni/libslic3r/Fill/FillTpmsD.cpp
         src/main/jni/libslic3r/Fill/FillTpmsD.hpp
         src/main/jni/libslic3r/Fill/FillTpmsFK.cpp

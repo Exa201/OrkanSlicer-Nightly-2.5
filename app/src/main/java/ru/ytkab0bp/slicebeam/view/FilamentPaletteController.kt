@@ -181,7 +181,12 @@ class FilamentPaletteController(private val onPaletteChanged: () -> Unit = {}) {
                             if (error == null) {
                                 reload()
                                 onPaletteChanged()
-                                syncMessage = context.getString(R.string.MmuSyncSuccess, updated)
+                                syncMessage = if (MmuFilamentSync.externalSpoolReady(printerTitle)) {
+                                    val material = slots.firstOrNull { !it.type.isNullOrBlank() }?.type.orEmpty()
+                                    context.getString(R.string.MmuExternalSpoolSyncSuccess, material)
+                                } else {
+                                    context.getString(R.string.MmuSyncSuccess, updated)
+                                }
                             } else {
                                 syncMessage = error
                             }
@@ -213,6 +218,22 @@ class FilamentPaletteController(private val onPaletteChanged: () -> Unit = {}) {
             }
             if (physicalGates.isNotEmpty()) {
                 AcePhysicalSlotsBar(physicalGates)
+            }
+            if (MmuFilamentSync.externalSpoolReady(printerTitle)) {
+                Text(
+                    context.getString(R.string.MmuExternalSpoolDetected),
+                    modifier = Modifier.padding(horizontal = 12.dp),
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    style = MaterialTheme.typography.bodySmall,
+                )
+                slots.firstOrNull { !it.type.isNullOrBlank() }?.type?.let { material ->
+                    Text(
+                        context.getString(R.string.MmuExternalSpoolMaterial, material),
+                        modifier = Modifier.padding(horizontal = 12.dp),
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        style = MaterialTheme.typography.bodySmall,
+                    )
+                }
             }
             LazyColumn(
                 modifier = if (sidePanel) Modifier.weight(1f) else
