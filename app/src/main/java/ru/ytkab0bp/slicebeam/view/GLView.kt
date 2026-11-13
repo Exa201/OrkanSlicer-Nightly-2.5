@@ -25,10 +25,11 @@ import android.view.SurfaceHolder
 import android.view.ViewConfiguration
 import java.nio.IntBuffer
 import java.util.ArrayList
-import java.util.concurrent.CompletableFuture
+import java.util.concurrent.CountDownLatch
 import java.util.concurrent.TimeUnit
-import java.util.concurrent.TimeoutException
 import java.util.concurrent.Executors
+import java.util.concurrent.atomic.AtomicBoolean
+import java.util.concurrent.atomic.AtomicReference
 import java.util.concurrent.atomic.AtomicLong
 import ru.ytkab0bp.slicebeam.R
 import ru.ytkab0bp.slicebeam.SliceBeam
@@ -49,6 +50,7 @@ import ru.ytkab0bp.slicebeam.events.ObjectsListChangedEvent
 import ru.ytkab0bp.slicebeam.theme.IThemeView
 import ru.ytkab0bp.slicebeam.theme.ThemesRepo
 import ru.ytkab0bp.slicebeam.utils.Prefs
+import ru.ytkab0bp.slicebeam.utils.FillBedPlanner
 import ru.ytkab0bp.slicebeam.utils.Vec3d
 import ru.ytkab0bp.slicebeam.utils.ViewUtils
 class GLView(context:Context):GLSurfaceView(context), IThemeView {
@@ -305,6 +307,37 @@ queueEvent {
         }
         return@queueEvent
     }
+    val bedMin = activeBed.getVolumeMin()
+    val bedMax = activeBed.getVolumeMax()
+    if (bedMin == null || bedMax == null) {
+        ViewUtils.postOnMainThread {
+            isFillBedInProgress = false
+            callback.onFillBedComplete(0)
+        }
+        return@queueEvent
+    }
+    val bedWidth = kotlin.math.abs(bedMax.x - bedMin.x)
+    val bedDepth = kotlin.math.abs(bedMax.y - bedMin.y)
+    val hasUnplaceableFootprint = (0 until activeModel.objectsCount).any { index ->
+        val min = Vec3d()
+        val max = Vec3d()
+        // The approximate object box omits per-instance scaling in some Orca model
+        // configurations; use exact world bounds so oversized objects are rejected
+        // before the expensive native packing search.
+        activeModel.getBoundingBoxExact(index, min, max)
+        !FillBedPlanner.canFitFootprint(
+            bedWidth, bedDepth, kotlin.math.abs(max.x - min.x), kotlin.math.abs(max.y - min.y),
+        )
+    }
+    if (hasUnplaceableFootprint) {
+        // Avoid repeatedly entering the native packer for an object that cannot fit
+        // regardless of rotation; pathological oversized meshes otherwise stall GL.
+        ViewUtils.postOnMainThread {
+            isFillBedInProgress = false
+            callback.onFillBedComplete(0)
+        }
+        return@queueEvent
+    }
     val modelRevision = activeModel.geometryRevision
     val modelStateRevision = activeModel.stateRevision
     val bedRevision = activeBed.configurationRevision
@@ -388,39 +421,43 @@ private fun arrangeFillBedCandidateOnGlThread(
     candidateModel: Model,
 ): Boolean {
     val gate = Any()
-    var cancelled = false
-    val result = CompletableFuture<Boolean>()
+    val cancelled = AtomicBoolean(false)
+    val result = AtomicReference<Boolean?>(null)
+    val failure = AtomicReference<Throwable?>(null)
+    val completed = CountDownLatch(1)
     queueEvent {
         synchronized(gate) {
-            if (cancelled) return@queueEvent
+            if (cancelled.get()) return@queueEvent
             if (renderer.model !== expectedModel || renderer.bed !== expectedBed ||
                 expectedBed.configurationRevision != expectedBedRevision ||
                 plateLayoutOperationRevision.get() != expectedLayoutOperationRevision ||
                 !expectedBed.isValid()) {
-                result.complete(false)
+                result.set(false)
+                completed.countDown()
                 return@queueEvent
             }
             try {
-                result.complete(expectedBed.arrange(candidateModel))
+                result.set(expectedBed.arrange(candidateModel))
             } catch (error: Throwable) {
-                result.completeExceptionally(error)
+                failure.set(error)
+            } finally {
+                completed.countDown()
             }
         }
     }
-    return try {
-        result.get(60, TimeUnit.SECONDS)
-    } catch (error: TimeoutException) {
-        synchronized(gate) { cancelled = true }
-        android.util.Log.e("GLView", "Timed out arranging fill-bed candidate on GL thread", error)
-        false
+    val finished = try {
+        completed.await(60, TimeUnit.SECONDS)
     } catch (error: InterruptedException) {
-        synchronized(gate) { cancelled = true }
+        cancelled.set(true)
         Thread.currentThread().interrupt()
-        false
-    } catch (error: java.util.concurrent.ExecutionException) {
-        android.util.Log.e("GLView", "Native fill-bed arrangement failed", error.cause ?: error)
-        false
+        return false
     }
+    if (!finished) {
+        synchronized(gate) { cancelled.set(true) }
+        android.util.Log.e("GLView", "Timed out arranging fill-bed candidate on GL thread")
+    }
+    failure.get()?.let { android.util.Log.e("GLView", "Native fill-bed arrangement failed", it) }
+    return finished && failure.get() == null && result.get() == true
 }
 fun duplicateSelectedModel(onComplete: Runnable) {
     duplicateSelectedModelWithResult { if (onComplete != null) onComplete.run() }

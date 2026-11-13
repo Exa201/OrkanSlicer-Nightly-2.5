@@ -11641,22 +11641,37 @@ static Points to_points(const std::vector<Vec2d> &dpts)
     return pts;
 }
 
-Polygon get_shared_poly(const std::vector<Pointfs>& extruder_polys)
+Polygon get_shared_poly(const std::vector<Pointfs>& extruder_polys, const Pointfs &bed)
 {
     Polygon result;
-    for (int index = 0; index < extruder_polys.size(); index++)
-    {
-        const Pointfs& extruder_area = extruder_polys[index];
-        if (index == 0)
-            result.points = to_points(extruder_area);
-        else {
-            Polygon extruer_poly;
-            extruer_poly.points = to_points(extruder_area);
-            Polygons result_polygon = intersection(extruer_poly, result);
-            result = result_polygon[0];
+    bool limited = false;
+    for (const Pointfs &extruder_area : extruder_polys) {
+        // An empty or incomplete per-extruder polygon means that extruder can reach the whole bed.
+        if (extruder_area.size() < 3)
+            continue;
+        Polygon extruder_poly;
+        extruder_poly.points = to_points(extruder_area);
+        if (!limited) {
+            result = std::move(extruder_poly);
+            limited = true;
+            continue;
         }
+        Polygons shared = intersection(extruder_poly, result);
+        if (shared.empty())
+            return {};
+        result = std::move(shared.front());
     }
+    if (!limited)
+        result.points = to_points(make_counter_clockwise(bed));
     return result;
+}
+
+static Points placement_bed_shape(const std::vector<Pointfs> &extruder_areas, const Pointfs &bed)
+{
+    Points shared = get_shared_poly(extruder_areas, bed).points;
+    // Without a common area, individual objects may still be reachable by their assigned extruder.
+    // Placement stays available on the full bed; slicing validates the actual tool reach.
+    return shared.empty() ? to_points(make_counter_clockwise(bed)) : shared;
 }
 Points get_bed_shape(const DynamicPrintConfig &config, bool use_share)
 {
@@ -11671,37 +11686,19 @@ Points get_bed_shape(const DynamicPrintConfig &config, bool use_share)
         return {};
     }
 
-    Polygon bed_poly;
     if (use_share) {
         const ConfigOptionPointsGroups *extruder_area_opt = config.opt<ConfigOptionPointsGroups>("extruder_printable_area");
-        if (extruder_area_opt && (extruder_area_opt->size() > 0)) {
-            const std::vector<Pointfs>& extruder_areas = extruder_area_opt->values;
-            bed_poly = get_shared_poly(extruder_areas);
-        }
-        else
-            bed_poly.points = to_points(make_counter_clockwise(bed_shape_opt->values));
+        if (extruder_area_opt)
+            return placement_bed_shape(extruder_area_opt->values, bed_shape_opt->values);
     }
-    else
-        bed_poly.points = to_points(make_counter_clockwise(bed_shape_opt->values));
-
-    return bed_poly.points;
+    return to_points(make_counter_clockwise(bed_shape_opt->values));
 }
 
 Points get_bed_shape(const PrintConfig &cfg, bool use_share)
 {
-    Polygon bed_poly;
-    if (use_share) {
-        const std::vector<Pointfs>& extruder_areas = cfg.extruder_printable_area.values;
-        if (extruder_areas.size() > 0) {
-            bed_poly = get_shared_poly(extruder_areas);
-        }
-        else
-            bed_poly.points = to_points(make_counter_clockwise(cfg.printable_area.values));
-    }
-    else
-        bed_poly.points = to_points(make_counter_clockwise(cfg.printable_area.values));
-
-    return bed_poly.points;
+    if (use_share)
+        return placement_bed_shape(cfg.extruder_printable_area.values, cfg.printable_area.values);
+    return to_points(make_counter_clockwise(cfg.printable_area.values));
 }
 
 Points get_bed_shape(const SLAPrinterConfig &cfg) { return to_points(make_counter_clockwise(cfg.printable_area.values)); }

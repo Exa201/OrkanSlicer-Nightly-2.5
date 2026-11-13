@@ -112,27 +112,26 @@ internal fun ModelSmoothMeshDialog(
     onDismiss: () -> Unit,
     onStart: () -> Unit,
 ) {
-    val context = androidx.compose.ui.platform.LocalContext.current
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text(context.getString(ru.ytkab0bp.slicebeam.R.string.ModelSmoothMesh)) },
+        title = { Text(androidx.compose.ui.res.stringResource(ru.ytkab0bp.slicebeam.R.string.ModelSmoothMesh)) },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                Text(context.getString(ru.ytkab0bp.slicebeam.R.string.ModelSmoothMeshHint))
-                Text(context.resources.getQuantityString(
+                Text(androidx.compose.ui.res.stringResource(ru.ytkab0bp.slicebeam.R.string.ModelSmoothMeshHint))
+                Text(androidx.compose.ui.res.pluralStringResource(
                     ru.ytkab0bp.slicebeam.R.plurals.ModelSimplifyCurrent, triangleCount, triangleCount))
-                Text(context.resources.getQuantityString(
+                Text(androidx.compose.ui.res.pluralStringResource(
                     ru.ytkab0bp.slicebeam.R.plurals.ModelSmoothMeshDone, triangleCount * 4, triangleCount * 4))
             }
         },
         confirmButton = {
             TextButton(onClick = onStart, Modifier.heightIn(min = 48.dp)) {
-                Text(context.getString(ru.ytkab0bp.slicebeam.R.string.ModelSmoothMeshStart))
+                Text(androidx.compose.ui.res.stringResource(ru.ytkab0bp.slicebeam.R.string.ModelSmoothMeshStart))
             }
         },
         dismissButton = {
             TextButton(onClick = onDismiss, Modifier.heightIn(min = 48.dp)) {
-                Text(context.getString(android.R.string.cancel))
+                Text(androidx.compose.ui.res.stringResource(android.R.string.cancel))
             }
         },
     )

@@ -1650,7 +1650,7 @@ cancelPaintMode()
 return true
 }
 if (workspaceController.dismissActiveTool())
-return true
+                    return true
 if (workspaceController.activePanel == WorkspaceOverlayPanel.PRINTER_WEB)
 {
 destroyPrinterWebView()
@@ -1658,8 +1658,8 @@ return true
 }
 if (currentMenuSlot != 0)
 {
-onMenuNavigationSelected(compactPortraitLayout, 0)
-return true
+    onMenuNavigationSelected(compactPortraitLayout, 0)
+    return true
 }
 return super.onBackPressed()
 }

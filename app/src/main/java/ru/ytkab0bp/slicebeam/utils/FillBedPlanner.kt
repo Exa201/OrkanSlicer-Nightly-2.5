@@ -2,6 +2,15 @@ package ru.ytkab0bp.slicebeam.utils
 
 class FillBedPlanner private constructor() {
     companion object {
+        /** Returns false only when the object's XY footprint cannot fit in either 90° orientation. */
+        @JvmStatic
+        fun canFitFootprint(bedWidth: Double, bedDepth: Double, objectWidth: Double, objectDepth: Double): Boolean {
+            if (!bedWidth.isFinite() || !bedDepth.isFinite() || !objectWidth.isFinite() || !objectDepth.isFinite() ||
+                bedWidth <= 0.0 || bedDepth <= 0.0 || objectWidth <= 0.0 || objectDepth <= 0.0) return false
+            return (objectWidth <= bedWidth && objectDepth <= bedDepth) ||
+                (objectWidth <= bedDepth && objectDepth <= bedWidth)
+        }
+
         @JvmStatic
         fun copyAttemptsForLimit(currentObjectCount: Int, maxObjectCount: Int): Int {
             if (currentObjectCount <= 0 || maxObjectCount <= currentObjectCount) {

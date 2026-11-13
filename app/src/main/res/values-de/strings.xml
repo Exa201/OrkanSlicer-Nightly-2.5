@@ -192,7 +192,7 @@
     <string name="ModelMenuCombineUnsupported">Wähle mindestens zwei Objekte ohne mehrfach verknüpfte Instanzen aus.</string>
     <string name="ModelMenuCombineFailed">Die Objekte konnten nicht verbunden werden. Die Originale sind erhalten geblieben.</string>
     <string name="ModelMenuSplit">Teile trennen</string>
-    <string name="ModelObjectPartNumber">Teil %1$d</string>
+    <string name="ModelObjectPartNumber">Teil %1$s</string>
     <string name="ModelObjectPartProcessSettings">Teil-Druckwerte</string>
     <string name="ModelObjectPartProcessSettingsHint">Diese optionalen Werte gelten nur für dieses Teil. Leer lassen übernimmt die Objektwerte oder das Druckprofil. Speichern ist rückgängig machbar und bleibt in der 3MF erhalten.</string>
     <string name="ModelMenuObjectSettings">Objekt-Druckeinstellungen</string>
@@ -394,7 +394,7 @@
     <string name="KromacutBrowserUnavailable">Auf diesem Gerät ist kein Browser verfügbar, um KromaCut zu öffnen.</string>
     <string name="KromacutWebGlUnavailable">Die KromaCut-3D-Vorschau benötigt WebGL 2. Diese Android-WebView konnte keinen WebGL-2-Grafikkontext erstellen. Aktualisiere Android System WebView und die Systemsoftware des Telefons und starte OrkanSlicer neu. Bleibt die Ansicht schwarz, sende uns bitte dein Telefonmodell und die Version von Android System WebView.</string>
     <string name="KromacutWebGlCreationFailed">KromaCut konnte den 3D-Grafikkontext nicht erstellen: %1$s</string>
-    <string name="KromacutWebGlDeviceDetails">Gerät: %1$s %2$s · Android %3$s (API %4$s) · WebView: %5$s</string>
+    <string name="KromacutWebGlDeviceDetails">Gerät: %1$s %2$s · Android %3$s (API %4$d) · WebView: %5$s</string>
     <string name="KromacutWebViewUnknown">unbekannt</string>
     <string name="ImageToStlMenu">Bild in 3D-Modell umwandeln</string>
     <string name="ConverterMenu">Konverter</string>
@@ -692,7 +692,7 @@
     <string name="MenuFileObjects">Geladene Objekte</string>
     <string name="MenuFileObjectActions">Objektaktionen</string>
     <string name="MenuFileObjectsEmpty">Auf dieser Druckplatte sind keine Objekte geladen.</string>
-    <string name="MenuFileObjectNumber">Objekt %1$d</string>
+    <string name="MenuFileObjectNumber">Objekt %1$s</string>
     <string name="MenuFileDuplicateCount">Objekt duplizieren</string>
     <string name="MenuFileDuplicateCountHint">Anzahl der Kopien (1–50)</string>
     <string name="MenuFileMoveToPlate">Auf Druckplatte verschieben</string>
@@ -1220,6 +1220,7 @@
     <string name="MmuAssignmentRow">Modellfarbe T%1$d · %2$s · %3$s\n→ %4$s</string>
     <string name="MmuAssignmentContinue">Weiter zum Slicen</string>
     <string name="MmuAssignmentSyncFailed">Die ACE-Fächer konnten nicht geprüft werden. Verbinde den Drucker und synchronisiere die Filamentliste vor dem Slicen dieses Mehrfarbmodells.</string>
+    <string name="ExternalSpoolMapping">ACE ist nicht verfügbar. %1$s wird über die externe Spule verwendet; ACE-Synchronisierung und Slot-Zuordnung sind deaktiviert.</string>
     <string name="MmuAssignmentNoLoadedSlots">Die ACE meldet keine geladenen Filamente. Lege Filament ein und synchronisiere erneut.</string>
     <string name="MmuAssignmentUnavailable">Modellfarbe T%1$d ist keinem belegten, erreichbaren ACE-Fach zugeordnet. Wähle einen anderen Slot, bevor du den G-Code sendest.</string>
     <string name="MmuDirectSlotUnavailable">Das gewählte ACE-Fach %2$d für G-Code-Werkzeug T%1$d ist nicht geladen oder über die Drucker-Werkzeugzuordnung nicht erreichbar. Lade das gewählte Fach und synchronisiere den Drucker erneut.</string>

@@ -60,6 +60,7 @@ import androidx.compose.ui.unit.sp
 import ru.ytkab0bp.slicebeam.R
 import ru.ytkab0bp.slicebeam.render.PrimeTowerDragLogic
 import ru.ytkab0bp.slicebeam.render.PrimeTowerPlacementMap
+import androidx.compose.ui.platform.LocalConfiguration
 import java.util.Locale
 import kotlin.math.ceil
 import kotlin.math.max
@@ -466,6 +467,7 @@ private fun PrimeTowerPlacementPreview(
     towerWidth: Double,
     towerDepth: Double,
 ) {
+    val locale = LocalConfiguration.current.locale
     val withinBed = PrimeTowerDragLogic.isPositionWithinBed(map, x, y, towerWidth, towerDepth)
     val overlaps = PrimeTowerDragLogic.overlappingObstacleCount(map, x, y, towerWidth, towerDepth)
     val free = withinBed && overlaps == 0
@@ -476,8 +478,8 @@ private fun PrimeTowerPlacementPreview(
     }
     val previewDescription = stringResource(
         R.string.PrimeTowerBedPreviewDescription,
-        String.format(Locale.getDefault(), "%.1f", x),
-        String.format(Locale.getDefault(), "%.1f", y),
+        String.format(locale, "%.1f", x),
+        String.format(locale, "%.1f", y),
         status,
         map.obstacles.size,
     )

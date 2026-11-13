@@ -3389,7 +3389,9 @@ class InitialProjectMenuDeviceTest {
                 } finally {
                     blocker.release()
                 }
-                model.scale(1, 40.0, 40.0, 1.0)
+                // Make the blocker larger than the active bed even if the imported STL
+                // carries a non-unit base scale; the preflight must reject it before native pack.
+                model.scale(1, 400.0, 400.0, 1.0)
                 glView.renderer.invalidateGlModel(0)
                 glView.renderer.invalidateGlModel(1)
                 glView.renderer.setSelectedObject(0)

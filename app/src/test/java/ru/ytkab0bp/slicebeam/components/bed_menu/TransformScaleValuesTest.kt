@@ -75,4 +75,21 @@ class TransformScaleValuesTest {
         assertEquals(0.95, values.y, 0.000001)
         assertEquals(0.95, values.z, 0.000001)
     }
+
+    @Test
+    fun sequentialUnlinkedEditsKeepEachAppliedDimensionIndependent() {
+        val afterY = resolveTransformScaleValues(
+            1.0, 1.0, 1.0, 1.4, false, true, false, false,
+        )
+        val afterX = resolveTransformScaleValues(
+            afterY.x, afterY.y, afterY.z, 0.7, true, false, false, false,
+        )
+        val afterZ = resolveTransformScaleValues(
+            afterX.x, afterX.y, afterX.z, 1.8, false, false, true, false,
+        )
+
+        assertEquals(0.7, afterZ.x, 0.000001)
+        assertEquals(1.4, afterZ.y, 0.000001)
+        assertEquals(1.8, afterZ.z, 0.000001)
+    }
 }

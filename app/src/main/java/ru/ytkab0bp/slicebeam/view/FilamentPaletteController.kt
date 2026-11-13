@@ -131,7 +131,11 @@ class FilamentPaletteController(private val onPaletteChanged: () -> Unit = {}) {
         val printerTitle = SliceBeam.CONFIG?.presets?.get("printer").orEmpty()
         val printer = SliceBeam.CONFIG?.findPrinter(printerTitle)
         var isSyncing by remember(printerTitle) { mutableStateOf(false) }
-        var syncMessage by remember(printerTitle) { mutableStateOf<String?>(null) }
+        var syncUpdated by remember(printerTitle) { mutableIntStateOf(-1) }
+        var syncError by remember(printerTitle) { mutableStateOf<String?>(null) }
+        val syncMessage = syncError ?: if (syncUpdated >= 0)
+            stringResource(R.string.MmuSyncSuccess, syncUpdated) else null
+        val syncDescription = stringResource(R.string.MmuSyncDescription)
         val canSync = onSyncFilaments != null && !printer?.get("print_host").isNullOrBlank()
         val selectedGates = remember(paletteRevision, printerTitle) {
             if (Prefs.isMmuSyncedPrinter(printerTitle))
@@ -175,21 +179,22 @@ class FilamentPaletteController(private val onPaletteChanged: () -> Unit = {}) {
                     onClick = {
                         if (isSyncing) return@OutlinedButton
                         isSyncing = true
-                        syncMessage = null
+                        syncUpdated = -1
+                        syncError = null
                         onSyncFilaments?.invoke(MmuFilamentSync.Callback { updated, error ->
                             isSyncing = false
                             if (error == null) {
                                 reload()
                                 onPaletteChanged()
-                                syncMessage = context.getString(R.string.MmuSyncSuccess, updated)
+                                syncUpdated = updated
                             } else {
-                                syncMessage = error
+                                syncError = error
                             }
                         })
                     },
                     enabled = !isSyncing,
                     modifier = Modifier.fillMaxWidth().heightIn(min = OrkanUiTokens.touchTarget)
-                        .semantics { contentDescription = context.getString(R.string.MmuSyncDescription) },
+                        .semantics { contentDescription = syncDescription },
                 ) {
                     if (isSyncing) CircularProgressIndicator(Modifier.size(18.dp), strokeWidth = 2.dp)
                     else androidx.compose.material3.Icon(
@@ -221,8 +226,8 @@ class FilamentPaletteController(private val onPaletteChanged: () -> Unit = {}) {
             ) {
                 itemsIndexed(snapshots) { index, slot ->
                     val material = slot.type?.takeIf(String::isNotBlank)
-                        ?: context.getString(R.string.AcePhysicalSlotEmpty)
-                    val description = context.getString(R.string.FilamentPaletteSlotDescription, index, material)
+                        ?: stringResource(R.string.AcePhysicalSlotEmpty)
+                    val description = stringResource(R.string.FilamentPaletteSlotDescription, index, material)
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()

@@ -73,7 +73,7 @@ class FileMenuObjectActions(private val fragment: BedFragment) {
         ) { viewport, snapshot ->
             val rows = (0 until snapshot.objectCount).map { index ->
                 val name = snapshot.model.getObjectName(index)
-                    ?: context.getString(R.string.MenuFileObjectNumber, index + 1)
+                    ?: context.getString(R.string.MenuFileObjectNumber, (index + 1).toString())
                 val tool = (snapshot.model.getExtruder(index) - 1).coerceAtLeast(0)
                 val slot = filamentSlots.getOrNull(tool)
                 val parts = (0 until snapshot.model.getObjectPartCount(index)).map { partIndex ->
@@ -81,7 +81,7 @@ class FileMenuObjectActions(private val fragment: BedFragment) {
                     val partSlot = filamentSlots.getOrNull(partTool)
                     ModelObjectPartRow(
                         label = snapshot.model.getObjectPartName(index, partIndex)
-                            ?: context.getString(R.string.ModelObjectPartNumber, partIndex + 1),
+                            ?: context.getString(R.string.ModelObjectPartNumber, (partIndex + 1).toString()),
                         tool = partTool,
                         material = partSlot?.type?.takeIf(String::isNotBlank) ?: context.getString(R.string.FilamentType),
                         color = partSlot?.color ?: 0xFF888888.toInt(),
@@ -348,8 +348,8 @@ class FileMenuObjectActions(private val fragment: BedFragment) {
             val revision = model.stateRevision
             val values = listOf("wall_loops", "sparse_infill_density", "top_shell_layers", "sparse_infill_pattern", "top_surface_pattern", "bottom_surface_pattern")
                 .associateWith { model.getObjectPartConfigOption(objectIndex, partIndex, it).orEmpty() }
-            val name = "${model.getObjectName(objectIndex) ?: context.getString(R.string.MenuFileObjectNumber, objectIndex + 1)} · " +
-                context.getString(R.string.ModelObjectPartNumber, partIndex + 1)
+            val name = "${model.getObjectName(objectIndex) ?: context.getString(R.string.MenuFileObjectNumber, (objectIndex + 1).toString())} · " +
+                context.getString(R.string.ModelObjectPartNumber, (partIndex + 1).toString())
             ViewUtils.postOnMainThread {
                 if (fragment.glView !== viewport || !fragment.canShowWorkspaceComposeDialog()) return@postOnMainThread
                 fragment.showWorkspaceComposeDialog { dismiss ->

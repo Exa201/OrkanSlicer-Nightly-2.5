@@ -26,6 +26,8 @@ class AnycubicGCodeProcessor private constructor() {
         @JvmField val needsMassBreakdownRewrite: Boolean,
         @JvmField val hasFilamentMass: Boolean,
         @JvmField val hasFilamentMap: Boolean,
+        @JvmField val hasFilamentTypes: Boolean,
+        @JvmField val hasFilamentColors: Boolean,
         @JvmField val hasToolSelection: Boolean,
         @JvmField val materials: Array<String>,
         @JvmField val usedTools: IntArray,
@@ -53,6 +55,8 @@ class AnycubicGCodeProcessor private constructor() {
                 needsMassBreakdownRewrite: Boolean,
                 hasFilamentMass: Boolean,
                 hasFilamentMap: Boolean,
+                hasFilamentTypes: Boolean,
+                hasFilamentColors: Boolean,
                 hasToolSelection: Boolean,
                 materials: Array<String>,
                 usedTools: IntArray,
@@ -62,7 +66,7 @@ class AnycubicGCodeProcessor private constructor() {
                 source: File,
             ) = ScanResult(maxTool, density, densities, volume, totalMass, hasReportedTotalMass,
                 computedFilamentMasses, needsMassBreakdownRewrite, hasFilamentMass, hasFilamentMap,
-                hasToolSelection, materials, usedTools, firstToolAppearance, filamentPressureAdvance,
+                hasFilamentTypes, hasFilamentColors, hasToolSelection, materials, usedTools, firstToolAppearance, filamentPressureAdvance,
                 customPressureAdvance, source.absolutePath, source.length(), source.lastModified())
         }
     }
@@ -75,6 +79,7 @@ class AnycubicGCodeProcessor private constructor() {
         @JvmField var paintInfo: String = "[]"
         @JvmField var colors: String = "#19C8A0"
         @JvmField var materials: String = "PLA"
+        @JvmField var externalSpool: Boolean = false
         @JvmField var smallThumbnail: String = ""
         @JvmField var largeThumbnail: String = ""
     }
@@ -84,6 +89,7 @@ class AnycubicGCodeProcessor private constructor() {
         private val KLIPPER_PA = Pattern.compile("^\\s*SET_PRESSURE_ADVANCE\\b.*?\\bADVANCE=([0-9]+(?:\\.[0-9]+)?)", Pattern.CASE_INSENSITIVE)
         private val MARLIN_PA = Pattern.compile("^\\s*M900\\s+K([0-9]+(?:\\.[0-9]+)?)", Pattern.CASE_INSENSITIVE)
         private val HEATER_TOOL_SELECTOR = Pattern.compile("(?i)(\\bM(?:104|109)\\b[^;]*?\\bT)(\\d+)(?=\\s|$)")
+        private val TOOL_SELECTOR = Pattern.compile("(?i)(?<![A-Z0-9_])T[0-9]{1,2}(?![0-9])")
         private val EXTRUSION_MOVE = Pattern.compile("(?i)^G[0-3](?=\\s|$).*\\sE[+-]?(?:\\d+(?:\\.\\d*)?|\\.\\d+)(?:\\s|$).*")
         private const val DEFAULT_FILAMENT_DENSITY = 1.24
 
@@ -132,6 +138,8 @@ class AnycubicGCodeProcessor private constructor() {
             var maxTool = -1
             var hasFilamentMass = false
             var hasFilamentMap = false
+            var hasFilamentTypes = false
+            var hasFilamentColors = false
             var hasToolSelection = false
             val usedTools = sortedSetOf<Int>()
             val firstToolAppearance = linkedSetOf<Int>()
@@ -160,7 +168,9 @@ class AnycubicGCodeProcessor private constructor() {
                         }
                         line.startsWith("; filament_type = ") -> {
                             materials = LIST_SEPARATOR.split(line.substring(line.indexOf('=') + 1).trim())
+                            hasFilamentTypes = materials.any(String::isNotBlank)
                         }
+                        line.startsWith("; filament_colour = ") -> hasFilamentColors = true
                     }
                     hasFilamentMap = hasFilamentMap || GCodeToolMapper.isFilamentMapLine(line)
                     val tool = GCodeToolMapper.parseToolCommand(line)
@@ -202,7 +212,7 @@ class AnycubicGCodeProcessor private constructor() {
             val totalMass = if (hasReportedTotalMass) reportedTotalMass else computedMasses.sum()
             return ScanResult.create(maxTool, normalizedDensities.first(), normalizedDensities, volume,
                 totalMass, hasReportedTotalMass, computedMasses, needsMassBreakdownRewrite,
-                hasFilamentMass, hasFilamentMap, hasToolSelection, materials,
+                hasFilamentMass, hasFilamentMap, hasFilamentTypes, hasFilamentColors, hasToolSelection, materials,
                 usedTools.toIntArray(), firstToolAppearance.toIntArray(), filamentPressureAdvance.toList(),
                 customPressureAdvance.toList(), source)
         }
@@ -252,8 +262,14 @@ class AnycubicGCodeProcessor private constructor() {
                             if (!headerClosed && line == "; HEADER_BLOCK_END") {
                                 writer.write("; model_instances: ${maxOf(1, options.modelInstances)}\n")
                                 writer.write("; source_info: {\"models\":[{\"file_source\":0,\"mo_file_id\":-1,\"name\":\"OrkanSlicer_model\",\"referrer_source\":-1}],\"models_from\":0,\"plate_index\":1,\"slice_paras_process\":1,\"software_version\":\"OrkanSlicer ${options.versionName}\"}\n")
-                                writer.write("; paint_info = ${options.paintInfo}\n")
-                                if (!scan.hasFilamentMap) {
+                                if (options.externalSpool && !scan.hasFilamentTypes) {
+                                    writer.write("; filament_type = ${options.materials}\n")
+                                }
+                                if (options.externalSpool && !scan.hasFilamentColors) {
+                                    writer.write("; filament_colour = ${options.colors}\n")
+                                }
+                                if (!options.externalSpool) writer.write("; paint_info = ${options.paintInfo}\n")
+                                if (!options.externalSpool && !scan.hasFilamentMap) {
                                     writer.write("; filament: ${GCodeToolMapper.formatGateList(gates)}\n")
                                 }
                                 writer.write("; project_info = {\"flush_multiplier\":1.0,\"flush_volumes_chan_multipliers\":[1.0,1.0,1.0,1.0],\"flush_volumes_matrix\":[0.0],\"flush_volumes_vector\":[140.0,140.0,140.0,140.0,140.0,140.0,140.0,140.0]}\n")
@@ -261,7 +277,14 @@ class AnycubicGCodeProcessor private constructor() {
                                 writer.write("; test_mode: 0\n")
                                 headerClosed = true
                             }
-                            if (GCodeToolMapper.parseToolCommand(line) >= 0) {
+                            if (options.externalSpool && GCodeToolMapper.isFilamentMapLine(line)) {
+                                continue
+                            } else if (options.externalSpool) {
+                                // A single external spool has no logical-to-ACE tool routing.
+                                // Kobra firmware can still enter its ACE path for T<n>, even
+                                // when the selector is embedded in G9111 or M104/M109.
+                                line = stripToolSelectors(line)
+                            } else if (GCodeToolMapper.parseToolCommand(line) >= 0) {
                                 line = GCodeToolMapper.remapToolLine(line, remappedTools)
                             } else if (GCodeToolMapper.isFilamentMapLine(line)) {
                                 line = "; filament: ${GCodeToolMapper.formatGateList(gates)}"
@@ -278,7 +301,7 @@ class AnycubicGCodeProcessor private constructor() {
                             }
                             // Custom start scripts may omit M106 S0. Select the physical
                             // slot before their first extrusion/retraction in that case.
-                            if (headerClosed && !scan.hasToolSelection && !toolSelectionInserted &&
+                            if (headerClosed && !options.externalSpool && !scan.hasToolSelection && !toolSelectionInserted &&
                                 (line.trim() == "M106 S0" || EXTRUSION_MOVE.matcher(line.substringBefore(';').trim()).matches())) {
                                 val initialTool = remappedTools.firstOrNull()
                                     ?: throw IllegalArgumentException("No ACE slot selected for the initial tool")
@@ -318,6 +341,15 @@ class AnycubicGCodeProcessor private constructor() {
             val sourceTool = matcher.group(2)?.toIntOrNull() ?: return line
             val physicalTool = remappedTools.getOrNull(sourceTool) ?: return line
             return matcher.replaceFirst(Matcher.quoteReplacement("${matcher.group(1)}$physicalTool"))
+        }
+
+        /** Removes all G-code tool selectors while retaining comments and the rest of each command. */
+        @JvmStatic
+        fun stripToolSelectors(line: String): String {
+            val commentStart = line.indexOf(';')
+            val code = if (commentStart >= 0) line.substring(0, commentStart) else line
+            val comment = if (commentStart >= 0) line.substring(commentStart) else ""
+            return TOOL_SELECTOR.matcher(code).replaceAll(" ").trimEnd() + comment
         }
 
         private fun parseFirstPositiveNumber(value: String): Double {

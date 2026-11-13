@@ -20,7 +20,6 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.ui.text.input.KeyboardType
@@ -41,13 +40,13 @@ private val primitiveChoices = listOf(
 
 @Composable
 internal fun PrimitiveModelDialog(onDismiss: () -> Unit, onCreate: (type: Int, a: Double, b: Double, c: Double, name: String) -> Unit) {
-    val context = LocalContext.current
     var selected by remember { mutableStateOf(primitiveChoices.first()) }
     var expanded by remember { mutableStateOf(false) }
     var first by remember { mutableStateOf("20") }
     var second by remember { mutableStateOf("20") }
     var third by remember { mutableStateOf("20") }
     val values = listOf(first, second, third).map(String::toDoubleOrNull)
+    val primitiveName = stringResource(selected.label)
     val parsed = values.map { it ?: Double.NaN }
     val valid = when (selected.id) {
         0, 6 -> parsed.all { it.isFinite() && it in 0.2..500.0 }
@@ -110,16 +109,7 @@ internal fun PrimitiveModelDialog(onDismiss: () -> Unit, onCreate: (type: Int, a
             TextButton(
                 enabled = valid,
                 onClick = {
-                    val name = when (selected.id) {
-                        0 -> R.string.PrimitiveCube
-                        1 -> R.string.PrimitiveCylinder
-                        2 -> R.string.PrimitiveCone
-                        3 -> R.string.PrimitiveSphere
-                        4 -> R.string.PrimitiveTorus
-                        5 -> R.string.PrimitiveDisc
-                        else -> R.string.PrimitiveSlab
-                    }
-                    onCreate(selected.id, arguments[0], arguments[1], arguments[2], context.getString(name))
+                    onCreate(selected.id, arguments[0], arguments[1], arguments[2], primitiveName)
                 },
                 modifier = Modifier.heightIn(min = 48.dp).padding(horizontal = 4.dp),
             ) { Text(stringResource(R.string.PrimitiveCreate)) }

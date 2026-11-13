@@ -7,6 +7,38 @@ import ru.ytkab0bp.slicebeam.utils.AnycubicGCodeProcessor
 
 /** Empty ACE slots keep their index; later tools are never shifted onto a different gate. */
 class SparseAceRoutingOutputTest {
+    @Test fun externalSingleTpuSpoolRewritesToDirectToolWithoutAceGateMetadata() {
+        val source = File.createTempFile("external-tpu-source", ".gcode")
+        val output = File.createTempFile("external-tpu-output", ".gcode")
+        try {
+            source.writeText(
+                "; HEADER_BLOCK_START\n; filament: 1,2\n" +
+                    "; filament_colour = #111111;#AAAAAA\n; filament_type = PLA;TPU 95A\n" +
+                    "; HEADER_BLOCK_END\nT1\nG1 X2 E1\nM400\n",
+            )
+            val scan = AnycubicGCodeProcessor.scan(source)
+            assertArrayEquals(intArrayOf(1), scan.usedTools)
+            assertTrue(AnycubicGCodeProcessor.rewrite(source, output, scan,
+                AnycubicGCodeProcessor.Options().apply {
+                    remappedTools = intArrayOf(0, 0)
+                    gates = intArrayOf(-1, -1)
+                    materials = "TPU"
+                    colors = "#AAAAAA"
+                    externalSpool = true
+                }))
+            val lines = output.readLines()
+            assertFalse("external spool output must not trigger the ACE tool path",
+                lines.any { Regex("(?i)(?<![A-Z0-9_])T[0-9]{1,2}(?![0-9])").containsMatchIn(it.substringBefore(';')) })
+            assertFalse(lines.any { it.startsWith("; filament:") })
+            assertTrue(lines.contains("; filament_type = TPU"))
+            assertFalse(lines.any { it.startsWith("; paint_info =") })
+            assertTrue(lines.contains("G1 X2 E1"))
+        } finally {
+            source.delete()
+            output.delete()
+        }
+    }
+
     @Test fun laterToolKeepsItsSlotAfterAnEmptyGateAndKeepsAllLayers() {
         val source = File.createTempFile("ace-gap-source", ".gcode")
         val output = File.createTempFile("ace-gap-output", ".gcode")

@@ -43,6 +43,7 @@ internal fun CustomizableBedMenuActionsContent(
     modifier: Modifier = Modifier,
 ) {
     val context = LocalContext.current
+    val menuCustomizeLabel = stringResource(R.string.MenuCustomize)
     val actionKeys = remember(actions) { actions.map { context.resources.getResourceEntryName(it.titleRes) } }
     val preferences = remember(context) { context.getSharedPreferences("workspace_menu_customization", 0) }
     fun orderFromPreferences(keys: List<String>): List<String> {
@@ -176,7 +177,7 @@ internal fun CustomizableBedMenuActionsContent(
                 modifier = Modifier.width(48.dp).fillMaxSize().testTag("menu-customize-$menuKey"),
             ) {
                 Text("⋮", style = MaterialTheme.typography.titleLarge,
-                    modifier = Modifier.semantics { contentDescription = context.getString(R.string.MenuCustomize) })
+                    modifier = Modifier.semantics { contentDescription = menuCustomizeLabel })
             }
         }
     } else {
@@ -224,6 +225,7 @@ internal fun CustomizableBedMenuActionsContent(
                     LazyColumn(Modifier.heightIn(max = 460.dp).testTag("menu-customize-list-$menuKey")) {
                         items(draftOrder, key = { key -> key }) { key ->
                             val action = actionByKey[key] ?: return@items
+                            val actionTitle = stringResource(action.titleRes)
                             Row(
                                 Modifier.fillMaxWidth().heightIn(min = 48.dp).padding(horizontal = 4.dp),
                                 verticalAlignment = Alignment.CenterVertically,
@@ -234,11 +236,11 @@ internal fun CustomizableBedMenuActionsContent(
                                         draftHidden = if (checked) draftHidden - key else draftHidden + key
                                     },
                                     modifier = Modifier
-                                        .semantics { contentDescription = context.getString(action.titleRes) }
+                                        .semantics { contentDescription = actionTitle }
                                         .testTag("menu-customize-visible-$menuKey-$key"),
                                 )
                                 Text(
-                                    stringResource(action.titleRes), Modifier.weight(1f),
+                                    actionTitle, Modifier.weight(1f),
                                     style = MaterialTheme.typography.bodyMedium,
                                 )
                             }

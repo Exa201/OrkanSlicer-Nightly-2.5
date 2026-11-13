@@ -354,6 +354,17 @@ class MmuFilamentSyncDeviceTest {
         assertEquals("ABS", Prefs.getFilamentSlots().single().type)
     }
 
+    @Test fun explicitExternalSpoolReadyStatusIsRetainedWithEnabledMmuConfiguration() {
+        val payload = response(intArrayOf(0), intArrayOf(0))
+        payload.getJSONObject("result").getJSONObject("status").put("filament_hub", JSONObject()
+            .put("ext_spool", 1)
+            .put("ext_spool_status", "ready")
+            .put("filament_hubs", JSONObject.NULL))
+
+        assertEquals(0 to null, sync(payload, full = false))
+        assertTrue(MmuFilamentSync.isExternalSpoolReady(title))
+    }
+
     @Test fun incompleteAndEmptyPrinterResponsesLeaveThePreviousPaletteAndMappingIntact() {
         Prefs.setFilamentSlots(listOf(FilamentSlot(0x123456, "ABS")))
         MmuFilamentSync.setSelectedGates(title, intArrayOf(3))
@@ -409,7 +420,7 @@ class MmuFilamentSyncDeviceTest {
                     server.accept().use { socket ->
                         socket.soTimeout = 10_000
                         val reader = socket.getInputStream().bufferedReader()
-                        assertTrue(reader.readLine().startsWith("GET /printer/objects/query?mmu "))
+                        assertTrue(reader.readLine().startsWith("GET /printer/objects/query?mmu&filament_hub "))
                         while (!reader.readLine().isNullOrEmpty()) { }
                         socket.getOutputStream().apply {
                             write("HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: ${body.size}\r\nConnection: close\r\n\r\n".toByteArray())
@@ -467,7 +478,7 @@ class MmuFilamentSyncDeviceTest {
                         server.accept().use { socket ->
                         socket.soTimeout = 10_000
                         val reader = socket.getInputStream().bufferedReader()
-                            val expectedPath = if (index == 0) "?mmu" else "?box"
+                            val expectedPath = if (index == 0) "?mmu&filament_hub" else "?box"
                             assertTrue(reader.readLine().startsWith("GET /printer/objects/query$expectedPath "))
                             while (!reader.readLine().isNullOrEmpty()) { }
                             val body = response.toByteArray(Charsets.UTF_8)

@@ -316,7 +316,7 @@ internal class ModelMenuItems(
         val glView = fragment.glView ?: return
         captureTargetChoices { snapshot, targetIndices, names ->
             val choices = names.mapIndexed { index, name ->
-                name ?: anchor.context.getString(R.string.MenuFileObjectNumber, targetIndices[index] + 1)
+                name ?: anchor.context.getString(R.string.MenuFileObjectNumber, (targetIndices[index] + 1).toString())
             }
             fragment.showWorkspaceComposeDialog { dismiss ->
                 ModelChoiceDialog(
@@ -451,7 +451,7 @@ internal class ModelMenuItems(
         val glView = fragment.glView ?: return
         captureTargetChoices { snapshot, targetIndices, names ->
             val choices = names.mapIndexed { index, name ->
-                name ?: anchor.context.getString(R.string.MenuFileObjectNumber, targetIndices[index] + 1)
+                name ?: anchor.context.getString(R.string.MenuFileObjectNumber, (targetIndices[index] + 1).toString())
             }
             fragment.showWorkspaceComposeDialog { dismiss ->
                 ModelChoiceDialog(
@@ -503,7 +503,7 @@ internal class ModelMenuItems(
             val values = listOf("wall_loops", "sparse_infill_density", "top_shell_layers", "sparse_infill_pattern", "enable_support", "support_type", "top_surface_pattern", "bottom_surface_pattern", "seam_position", "raft_layers")
                 .associateWith { model.getObjectConfigOption(objectIndex, it).orEmpty() }
             val name = model.getObjectName(objectIndex)
-                ?: anchor.context.getString(R.string.MenuFileObjectNumber, objectIndex + 1)
+                    ?: anchor.context.getString(R.string.MenuFileObjectNumber, (objectIndex + 1).toString())
             ViewUtils.postOnMainThread {
                 if (!fragment.canShowWorkspaceComposeDialog()) return@postOnMainThread
                 fragment.showWorkspaceComposeDialog { dismiss ->
@@ -571,9 +571,9 @@ internal class ModelMenuItems(
             ViewUtils.postOnMainThread {
                 if (!fragment.canShowWorkspaceComposeDialog()) return@postOnMainThread
                 val displayTargetName = targetName
-                    ?: anchor.context.getString(R.string.MenuFileObjectNumber, targetIndex + 1)
+                    ?: anchor.context.getString(R.string.MenuFileObjectNumber, (targetIndex + 1).toString())
                 val displayToolNames = toolNames.map { (index, name) ->
-                    name ?: anchor.context.getString(R.string.MenuFileObjectNumber, index + 1)
+                    name ?: anchor.context.getString(R.string.MenuFileObjectNumber, (index + 1).toString())
                 }
                 fragment.showWorkspaceComposeDialog { dismiss ->
                     ModelBooleanDialog(

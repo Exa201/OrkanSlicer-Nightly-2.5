@@ -18,7 +18,6 @@ import androidx.compose.ui.graphics.drawscope.drawIntoCanvas
 import androidx.compose.ui.graphics.nativeCanvas
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.input.pointer.pointerInput
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
@@ -138,7 +137,6 @@ internal fun WorkspaceViewCube(
     var pitch by remember { mutableFloatStateOf(Math.toRadians(-25.0).toFloat()) }
     val faceAction by rememberUpdatedState(onFaceSelected)
     val rotationAction by rememberUpdatedState(onCameraRotated)
-    val context = LocalContext.current
     val density = LocalDensity.current
     val front = stringResource(R.string.ViewCubeFront)
     val back = stringResource(R.string.ViewCubeBack)
@@ -168,6 +166,17 @@ internal fun WorkspaceViewCube(
         WorkspaceViewFace.TOP to top,
         WorkspaceViewFace.BOTTOM to bottom,
     )
+    val accessibleFaceActions = WorkspaceViewFace.values().map { face ->
+        val label = stringResource(R.string.ViewCubeShowFace, descriptions.getValue(face))
+        CustomAccessibilityAction(label) {
+            faceAction(face)
+            val orientation = WorkspaceViewCubeGeometry.orientationFor(face)
+            yaw = orientation.first
+            pitch = orientation.second
+            true
+        }
+    }
+    val cubeDescription = stringResource(R.string.ViewCubeDescription, rotateHint)
     val shortLabels = mapOf(
         WorkspaceViewFace.FRONT to frontShort,
         WorkspaceViewFace.BACK to backShort,
@@ -183,16 +192,8 @@ internal fun WorkspaceViewCube(
             .size(48.dp)
             .testTag("workspace-view-cube")
             .semantics {
-                contentDescription = context.getString(R.string.ViewCubeDescription, rotateHint)
-                customActions = WorkspaceViewFace.values().map { face ->
-                    CustomAccessibilityAction(context.getString(R.string.ViewCubeShowFace, descriptions.getValue(face))) {
-                        faceAction(face)
-                        val orientation = WorkspaceViewCubeGeometry.orientationFor(face)
-                        yaw = orientation.first
-                        pitch = orientation.second
-                        true
-                    }
-                }
+                contentDescription = cubeDescription
+                customActions = accessibleFaceActions
             }
             .pointerInput(Unit) {
                 detectTapGestures { point ->

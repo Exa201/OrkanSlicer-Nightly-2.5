@@ -1,5 +1,7 @@
 package ru.ytkab0bp.slicebeam.utils
 
+import java.util.Locale
+
 /** Maps slicer tools through the selected physical gate and Klipper's tool-to-gate map. */
 object AnycubicAceRoutingPolicy {
     data class Routing(
@@ -8,6 +10,14 @@ object AnycubicAceRoutingPolicy {
         val unavailableTool: Int?,
         val sharedGateTool: Int? = null,
     )
+
+    /** A single active tool with known material can use the printer's external spool when ACE is absent. */
+    @JvmStatic
+    fun canUseExternalSpool(mmuUnavailable: Boolean, activeTools: IntArray, materials: List<String>): Boolean {
+        if (!mmuUnavailable || activeTools.distinct().size != 1) return false
+        val tool = activeTools.single()
+        return tool >= 0 && materials.getOrNull(tool)?.trim()?.isNotEmpty() == true
+    }
 
     @JvmStatic
     @JvmOverloads

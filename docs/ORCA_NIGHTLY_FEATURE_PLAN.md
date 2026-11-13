@@ -1,6 +1,10 @@
-# Aktueller Stand — Nightly Batch 15, 7/10 — 2026-11-07
+# Aktueller Stand — Nightly Batch 15, 10/10 — 2026-11-07
 
-Batch 14 bleibt mit 10/10 Punkten veröffentlicht unter `v0.8.452-nightly.1`. Batch 15 umfasst drei Tree-Support-Punkte `d4e57d8606`, `5250597380`, `6d40ec93f6`, SV08-Profile `ca9204927e`, Flashforge-Standardprofile `b46bf81396`, Legacy-Druckbett-Polygonvalidierung `c01ac8ff44` und das Qidi-X-Smart-5-Profilpaket aus Orca `1433316b55`. Die letzten drei bestanden gezielte API-36-Prüfungen, darunter ein echter ARM64-Profil-Slice. Batch 15 steht bei **7/10**; kein APK/Release vor 10/10. Native Texture-Displacement-Persistenz bleibt ungezählt, weil Compose-Workflow und produktiver Bake-/Abbruch-/Undo-Pfad fehlen. Nächster Schritt: einen weiteren Orca-2.5-Änderungskandidaten gegen den Android-Aufrufpfad prüfen und eine nicht bereits enthaltene, funktionsrelevante Änderung mit passender Regression portieren.
+Batch 14 bleibt mit 10/10 Punkten veröffentlicht unter `v0.8.452-nightly.1`. Batch 15 zählt zehn Punkte, darunter die beiden geprüften Abschlusskandidaten Orca `d7534d7fb9` und `2c50d15451`. Batch 15 ist funktional 10/10; Veröffentlichung wartet auf sichere Isolierung des gemischten Arbeitsbaums und APK-Abnahme. Texture-Displacement-Persistenz bleibt ungezählt, da der produktive Bake-/Abbruch-/Undo-Pfad fehlt.
+
+### Batch 15, Punkt 8/10 — Prime-Tower-Neuberechnung bei wiederverwendetem Print
+
+Der Android-Port von Orca `4c7928d8aa` lag bereits im Nightly-Code; offen war der Laufzeitnachweis. `NativeSliceDeviceTest#reusedPrintReenablesPrimeTowerWhenNextModelUsesAnotherFilament` wurde jetzt auf Android 16/API 36 ausgeführt und bestand 1/1. Der Test wendet denselben nativen `Print` nacheinander auf ein Ein-Filament- und ein Mehrfilamentmodell an: beim ersten Modell wird der konfigurierte Turm normalisiert ausgeschaltet; beim zweiten Modell werden nach dem Regionsaufbau beide Werkzeuge erkannt, der Turm wieder aktiviert und ein Prime-Tower-Slice mit Purge-Ausgabe erzeugt. Das belegt den Wiederverwendungsfehler im produktiven `Print::apply`-/Slice-Pfad. Dieser zuvor ungeprüfte, app-erreichbare Port zählt als abgeschlossener Batchpunkt; am Produktcode war keine Änderung erforderlich. Kein Druckstart.
 
 ### Batch 15, Punkt 7/10 — vollständige Qidi-X-Smart-5-Profile aus Orca 2.5
 

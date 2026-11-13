@@ -11,6 +11,7 @@ import ru.ytkab0bp.slicebeam.fragment.BedFragment
 import ru.ytkab0bp.slicebeam.utils.AnycubicGCodeProcessor
 import ru.ytkab0bp.slicebeam.utils.IOUtils
 import ru.ytkab0bp.slicebeam.utils.MmuFilamentSync
+import ru.ytkab0bp.slicebeam.utils.Prefs
 import ru.ytkab0bp.slicebeam.utils.QidiGCode3mfPackager
 import ru.ytkab0bp.slicebeam.utils.ViewUtils
 import java.io.File
@@ -62,40 +63,11 @@ class SliceMenu : ListBedMenu() {
         val slicingWarning = bed.glView?.renderer?.gcodeResult?.getSpiralVaseOverrideWarning()
         preflightAnycubicScan = null
         val progress = bed.showPrinterUploadProgress(
-            context.getString(if (SlicePrintPreparationDialog.isAnycubicKobra(printer))
-                R.string.UploadAceChecking else R.string.UploadAnalyzingGcode),
+            context.getString(R.string.UploadAnalyzingGcode),
         ) ?: return
-        if (SlicePrintPreparationDialog.isAnycubicKobra(printer)) {
-            MmuFilamentSync.synchronize(printer) { _, error ->
-                if (error != null) {
-                    bed.dismissPrinterUploadProgress(progress)
-                    val activeContext = bed.getContext()
-                    if (activeContext != null) {
-                        bed.showWorkspaceMessageDialog(
-                            title = activeContext.getString(R.string.MmuSyncFailed),
-                            message = activeContext.getString(R.string.MmuAssignmentSyncFailed),
-                            confirmLabel = activeContext.getString(android.R.string.ok),
-                        )
-                    }
-                    return@synchronize
-                }
-                if (bed.hasMmuInventoryChangedSinceSlice(printer.title.orEmpty())) {
-                    bed.dismissPrinterUploadProgress(progress)
-                    bed.discardSliceAfterMmuInventoryChange()
-                    bed.getContext()?.let { activeContext ->
-                        bed.showWorkspaceMessageDialog(
-                            title = activeContext.getString(R.string.UploadAceChecking),
-                            message = activeContext.getString(R.string.UploadAceInventoryChangedAfterSlice),
-                            confirmLabel = activeContext.getString(android.R.string.ok),
-                        )
-                    }
-                    return@synchronize
-                }
-                scanToolCountAndPrepare(type, host, apiKey, printer, print, slicingWarning, progress)
-            }
-        } else {
-            scanToolCountAndPrepare(type, host, apiKey, printer, print, slicingWarning, progress)
-        }
+        // Scan first: an explicitly unavailable ACE may use the single TPU external-spool
+        // path, which must not make either the preflight or upload synchronize the MMU.
+        scanToolCountAndPrepare(type, host, apiKey, printer, print, slicingWarning, progress)
     }
 
     private fun scanToolCountAndPrepare(
@@ -150,7 +122,15 @@ class SliceMenu : ListBedMenu() {
             val sourceFilamentTypes = preflight.filamentTypes
             val activeTools = toolUsage.used
             val toolCount = maxOf(1, (activeTools.maxOrNull() ?: 0) + 1)
-            ViewUtils.postOnMainThread {
+            val externalSpoolMaterials = MutableList(maxOf(sourceFilamentTypes.size, Prefs.getFilamentSlots().size)) { index ->
+                sourceFilamentTypes.getOrNull(index).orEmpty()
+            }.also { materials ->
+                Prefs.getFilamentSlots().forEachIndexed { index, slot ->
+                    val material = slot.type
+                    if (materials[index].isBlank() && !material.isNullOrBlank()) materials[index] = material
+                }
+            }
+            val showPreparation: (Boolean) -> Unit = { externalSpool -> ViewUtils.postOnMainThread {
                 if (bed.getContext() != null) {
                     bed.dismissPrinterUploadProgress(progress)
                     SlicePrintPreparationDialog.show(
@@ -163,6 +143,7 @@ class SliceMenu : ListBedMenu() {
                         sourceFilamentTypes,
                         pressureAdvance,
                         slicingWarning,
+                        externalSpool,
                         this::activatePrinterProfile,
                         { updatedPrinter ->
                             refreshMmuAndPrepare(
@@ -184,12 +165,50 @@ class SliceMenu : ListBedMenu() {
                             activeTools,
                             preflightAnycubicScan,
                             qidiBoxSlots,
+                            externalSpool,
                         )
                     }
                 } else {
                     bed.dismissPrinterUploadProgress(progress)
                 }
-            }
+            } }
+            if (SlicePrintPreparationDialog.isAnycubicKobra(printer)) {
+                MmuFilamentSync.synchronize(printer) { _, error ->
+                    if (error == null) {
+                        if (bed.hasMmuInventoryChangedSinceSlice(printer.title.orEmpty())) {
+                            bed.dismissPrinterUploadProgress(progress)
+                            bed.discardSliceAfterMmuInventoryChange()
+                            bed.getContext()?.let { activeContext ->
+                                bed.showWorkspaceMessageDialog(
+                                    title = activeContext.getString(R.string.UploadAceChecking),
+                                    message = activeContext.getString(R.string.UploadAceInventoryChangedAfterSlice),
+                                    confirmLabel = activeContext.getString(android.R.string.ok),
+                                )
+                            }
+                        } else {
+                            // A disconnected ACE can still leave the MMU config enabled. Use the
+                            // firmware's separate filament_hub status to distinguish its explicit
+                            // external-spool-ready state from a merely empty ACE inventory.
+                            val externalSpoolReady = MmuFilamentSync.isExternalSpoolReady(printer.title.orEmpty())
+                            if (externalSpoolReady && ru.ytkab0bp.slicebeam.utils.AnycubicAceRoutingPolicy.canUseExternalSpool(
+                                    true, activeTools, externalSpoolMaterials,
+                                )) showPreparation(true) else showPreparation(false)
+                        }
+                    } else if (ru.ytkab0bp.slicebeam.utils.AnycubicAceRoutingPolicy.canUseExternalSpool(
+                            MmuFilamentSync.isMmuUnavailableError(error), activeTools, externalSpoolMaterials,
+                        )) {
+                        showPreparation(true)
+                    } else {
+                        bed.dismissPrinterUploadProgress(progress)
+                        val activeContext = bed.getContext()
+                        if (activeContext != null) bed.showWorkspaceMessageDialog(
+                            title = activeContext.getString(R.string.MmuSyncFailed),
+                            message = activeContext.getString(R.string.MmuAssignmentSyncFailed),
+                            confirmLabel = activeContext.getString(android.R.string.ok),
+                        )
+                    }
+                }
+            } else showPreparation(false)
         }
     }
 
