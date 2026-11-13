@@ -50,6 +50,11 @@ import java.util.zip.CRC32
 @RunWith(AndroidJUnit4::class)
 class NativeSliceDeviceTest {
     @Test
+    fun spiralInsetArachneKeepsSolidSurfaceWallPaths() {
+        assertArrayEquals(intArrayOf(1, 1, 1), Native.spiral_inset_solid_regression())
+    }
+
+    @Test
     fun textureDisplacementBakeMovesPaintedMeshAndCancellationCannotBeCommitted() {
         val bitmap = Bitmap.createBitmap(16, 16, Bitmap.Config.ARGB_8888).apply {
             eraseColor(android.graphics.Color.WHITE)

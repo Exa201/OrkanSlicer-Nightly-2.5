@@ -133,7 +133,8 @@ class FilamentPaletteController(private val onPaletteChanged: () -> Unit = {}) {
         var isSyncing by remember(printerTitle) { mutableStateOf(false) }
         var syncUpdated by remember(printerTitle) { mutableIntStateOf(-1) }
         var syncError by remember(printerTitle) { mutableStateOf<String?>(null) }
-        val syncMessage = syncError ?: if (syncUpdated >= 0)
+        var syncSuccessMessage by remember(printerTitle) { mutableStateOf<String?>(null) }
+        val syncMessage = syncError ?: syncSuccessMessage ?: if (syncUpdated >= 0)
             stringResource(R.string.MmuSyncSuccess, syncUpdated) else null
         val syncDescription = stringResource(R.string.MmuSyncDescription)
         val canSync = onSyncFilaments != null && !printer?.get("print_host").isNullOrBlank()
@@ -181,12 +182,18 @@ class FilamentPaletteController(private val onPaletteChanged: () -> Unit = {}) {
                         isSyncing = true
                         syncUpdated = -1
                         syncError = null
+                        syncSuccessMessage = null
                         onSyncFilaments?.invoke(MmuFilamentSync.Callback { updated, error ->
                             isSyncing = false
                             if (error == null) {
                                 reload()
                                 onPaletteChanged()
-                                syncUpdated = updated
+                                if (MmuFilamentSync.externalSpoolReady(printerTitle)) {
+                                    val material = slots.firstOrNull { !it.type.isNullOrBlank() }?.type.orEmpty()
+                                    syncSuccessMessage = context.getString(R.string.MmuExternalSpoolSyncSuccess, material)
+                                } else {
+                                    syncUpdated = updated
+                                }
                             } else {
                                 syncError = error
                             }

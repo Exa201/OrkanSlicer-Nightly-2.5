@@ -318,7 +318,9 @@ Model Model::read_from_file(const std::string&                                  
         result = load_drc(input_file.c_str(), &model);
     else if (boost::algorithm::iends_with(input_file, ".amf"))
         //BBS: is_xxx is used for is_inches when load amf
-        result = load_amf(input_file.c_str(), config, config_substitutions, &model, is_xxx);
+        result = load_amf(input_file.c_str(), config, config_substitutions, &model, is_xxx,
+                          (options & LoadStrategy::AssembleParts) && !(options & LoadStrategy::LoadConfig),
+                          options & LoadStrategy::KeepOriginalNames);
     else if (boost::algorithm::iends_with(input_file, ".3mf")) {
         // Route files carrying Slic3r per-volume metadata through the matching
         // importer. The BBS importer treats legacy store_3mf output as a flattened
@@ -402,7 +404,9 @@ Model Model::read_from_archive(const std::string& input_file, DynamicPrintConfig
         }
     }
     else if (boost::algorithm::iends_with(input_file, ".zip.amf"))
-        result = load_amf(input_file.c_str(), config, config_substitutions, &model, &is_bbl_3mf);
+        result = load_amf(input_file.c_str(), config, config_substitutions, &model, &is_bbl_3mf,
+                          (options & LoadStrategy::AssembleParts) && !(options & LoadStrategy::LoadConfig),
+                          options & LoadStrategy::KeepOriginalNames);
     else
         throw Slic3r::RuntimeError(_L("Unknown file format. Input file must have .3mf or .zip.amf extension."));
 
@@ -782,7 +786,7 @@ static inline int auto_extruder_id(unsigned int max_extruders, unsigned int &cnt
     return out;
 }
 
-void Model::convert_multipart_object(unsigned int max_extruders)
+void Model::convert_multipart_object(unsigned int max_extruders, bool keep_volume_names)
 {
     assert(this->objects.size() >= 2);
     if (this->objects.size() < 2)
@@ -804,9 +808,11 @@ void Model::convert_multipart_object(unsigned int max_extruders)
             // Revert the centering operation.
             trafo_volume.set_offset(trafo_volume.get_offset() - o->origin_translation);
             int counter = 1;
-            auto copy_volume = [o, v, max_extruders, &counter, &extruder_counter](ModelVolume *new_v) {
+            auto copy_volume = [o, v, max_extruders, keep_volume_names, &counter, &extruder_counter](ModelVolume *new_v) {
                 assert(new_v != nullptr);
-                new_v->name = (counter > 1) ? o->name + "_" + std::to_string(counter++) : o->name;
+                const std::string generated_name = (counter > 1) ? o->name + "_" + std::to_string(counter) : o->name;
+                if (!keep_volume_names || v->name.empty()) new_v->name = generated_name;
+                ++counter;
                 //BBS: Use extruder priority: volumn > object > default
                 if (v->config.option("extruder"))
                     new_v->config.set("extruder", v->config.extruder());
@@ -2653,7 +2659,11 @@ std::vector<int> ModelVolume::get_extruders() const
         std::vector<indexed_triangle_set> its_per_type;
         mmuseg_extruders.clear();
         mmuseg_ts = mmu_segmentation_facets.timestamp();
-        mmu_segmentation_facets.get_facets(*this, its_per_type);
+        // Most models have no per-face filament painting. Avoid constructing and
+        // deserializing a TriangleSelector for this common case; on phone hardware
+        // it needlessly walks and allocates data proportional to the triangle count.
+        if (!mmu_segmentation_facets.get_data().triangles_to_split.empty())
+            mmu_segmentation_facets.get_facets(*this, its_per_type);
         for (int idx = 1; idx < its_per_type.size(); idx++) {
             indexed_triangle_set& its = its_per_type[idx];
             if (its.indices.empty())
@@ -3613,6 +3623,8 @@ ModelInstanceEPrintVolumeState ModelInstance::calc_print_volume_state(const Buil
 
 indexed_triangle_set FacetsAnnotation::get_facets(const ModelVolume& mv, EnforcerBlockerType type) const
 {
+    if (m_data.triangles_to_split.empty())
+        return {};
     TriangleSelector selector(mv.mesh());
     // Reset of TriangleSelector is done inside TriangleSelector's constructor, so we don't need it to perform it again in deserialize().
     selector.deserialize(m_data, false);
@@ -3622,6 +3634,10 @@ indexed_triangle_set FacetsAnnotation::get_facets(const ModelVolume& mv, Enforce
 // BBS
 void FacetsAnnotation::get_facets(const ModelVolume& mv, std::vector<indexed_triangle_set>& facets_per_type) const
 {
+    if (m_data.triangles_to_split.empty()) {
+        facets_per_type.clear();
+        return;
+    }
     TriangleSelector selector(mv.mesh());
     selector.deserialize(m_data, false);
     selector.get_facets(facets_per_type);

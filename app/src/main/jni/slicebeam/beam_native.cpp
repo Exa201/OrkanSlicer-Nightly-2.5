@@ -6787,6 +6787,78 @@ extern "C" {
         return JNI_TRUE;
     }
 
+    // Verifies the solid-surface Spiral Inset paths retain the top-surface Arachne geometry.
+    JNIEXPORT jintArray JNICALL Java_ru_ytkab0bp_slicebeam_slic3r_Native_spiral_1inset_1solid_1regression(JNIEnv* env, jclass) {
+        using namespace Slic3r;
+        jint checks[3] = { 0, 0, 0 };
+        try {
+            Polygon contour;
+            for (int i = 0; i < 96; ++i) {
+                const double angle = 2.0 * M_PI * i / 96.0;
+                contour.points.emplace_back(Point::new_scale(12.0 * std::cos(angle), 9.0 * std::sin(angle)));
+            }
+            contour.make_counter_clockwise();
+            Surface top(stTop, ExPolygon(contour));
+            Surface solid(stInternalSolid, ExPolygon(contour));
+            PrintConfig print_config;
+            print_config.nozzle_diameter.values = { 0.4 };
+            PrintObjectConfig object_config;
+            FillParams params;
+            params.density = 1.0f;
+            params.dont_adjust = false;
+            params.use_arachne = true;
+            params.layer_height = 0.2;
+            params.extrusion_role = erTopSolidInfill;
+
+            std::unique_ptr<Fill> top_fill(Fill::new_from_type(ipSpiralInset));
+            top_fill->spacing = 0.45;
+            top_fill->overlap = 0.225;
+            top_fill->print_config = &print_config;
+            top_fill->print_object_config = &object_config;
+            ThickPolylines top_paths = top_fill->fill_surface_arachne(&top, params);
+            params.extrusion_role = erSolidInfill;
+            std::unique_ptr<Fill> solid_fill(Fill::new_from_type(ipSpiralInset));
+            solid_fill->spacing = 0.45;
+            solid_fill->overlap = 0.225;
+            solid_fill->print_config = &print_config;
+            solid_fill->print_object_config = &object_config;
+            ThickPolylines solid_paths = solid_fill->fill_surface_arachne(&solid, params);
+
+            checks[0] = !top_paths.empty();
+            checks[1] = !solid_paths.empty();
+            checks[2] = top_paths.size() == solid_paths.size();
+            if (checks[2]) {
+                for (size_t i = 0; i < top_paths.size(); ++i) {
+                    if (top_paths[i].points.size() != solid_paths[i].points.size()) {
+                        checks[2] = 0;
+                        break;
+                    }
+                    for (size_t j = 0; j < top_paths[i].points.size(); ++j) {
+                    if (top_paths[i].points[j] != solid_paths[i].points[j]) {
+                            checks[2] = 0;
+                            break;
+                        }
+                    }
+                if (checks[2]) {
+                    for (size_t i = 0; i < top_paths.size(); ++i)
+                        if (top_paths[i].width != solid_paths[i].width) {
+                            checks[2] = 0;
+                            break;
+                        }
+                }
+                    if (!checks[2])
+                        break;
+                }
+            }
+        } catch (...) {
+            checks[0] = checks[1] = checks[2] = 0;
+        }
+        jintArray result = env->NewIntArray(3);
+        if (result != nullptr)
+            env->SetIntArrayRegion(result, 0, 3, checks);
+        return result;
+    }
+
     JNIEXPORT jboolean JNICALL Java_ru_ytkab0bp_slicebeam_slic3r_Native_model_1has_1paint(JNIEnv* env, jclass, jlong modelPtr, jint objIdx) {
         ModelRef* m = (ModelRef*) (intptr_t) modelPtr;
         if (objIdx < 0 || objIdx >= (int) m->model.objects.size()) return false;

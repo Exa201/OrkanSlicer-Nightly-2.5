@@ -262,6 +262,29 @@ class MmuFilamentSyncDeviceTest {
         assertArrayEquals(intArrayOf(0, 1, 2), MmuFilamentAssignments.availableGates(title, false))
     }
 
+    @Test fun disconnectedAceUsesReadyExternalSpoolAndPreservesConfiguredMaterial() {
+        assertEquals(4 to null, sync(response(intArrayOf(0, 1, 2, 3), intArrayOf(1, 1, 1, 1))))
+        assertNotNull("the fixture starts with an old ACE snapshot", MmuFilamentSync.getSnapshot(title))
+        val configured = listOf(FilamentSlot(0xFF2468AC.toInt(), "PETG"))
+        Prefs.setFilamentSlots(configured)
+
+        assertEquals(1 to null, syncExternalSpool())
+        assertTrue(MmuFilamentSync.externalSpoolReady(title))
+        assertNull("a disconnected ACE snapshot must not remain visible or routable", MmuFilamentSync.getSnapshot(title))
+        assertFalse(Prefs.isMmuSyncedPrinter(title))
+        val retained = Prefs.getFilamentSlots()
+        assertEquals(1, retained.size)
+        assertEquals(configured.single().color, retained.single().color)
+        assertEquals(configured.single().type, retained.single().type)
+        assertTrue("external spool mode must not manufacture ACE gates", MmuFilamentSync.physicalGates(title).isEmpty())
+
+        assertNotNull(AnycubicExternalSpoolStatus.parse(externalSpoolResponse()))
+        assertNull(AnycubicExternalSpoolStatus.parse(externalSpoolResponse(aceConnected = true)))
+        assertNull(AnycubicExternalSpoolStatus.parse(externalSpoolResponse(includeHubInfo = false)))
+        assertNull(AnycubicExternalSpoolStatus.parse(externalSpoolResponse(ready = false)))
+        assertNull(AnycubicExternalSpoolStatus.parse(externalSpoolResponse(filamentPresent = 0)))
+    }
+
     @Test fun freshUploadCheckRejectsASlotEmptiedAfterTheSendDialogOpened() {
         val tools = intArrayOf(0, 1, 2)
         MmuFilamentSync.setSelectedGates(title, intArrayOf(0, 1, 2))
@@ -408,6 +431,62 @@ class MmuFilamentSyncDeviceTest {
             .put("gate_material", JSONArray(status.indices.map { materials[it % 4] }))
             .put("gate_color", JSONArray(status.indices.map { colors[it % 4] }))
         return JSONObject().put("result", JSONObject().put("status", JSONObject().put("mmu", mmu)))
+    }
+
+    private fun externalSpoolResponse(
+        aceConnected: Boolean = false,
+        ready: Boolean = true,
+        filamentPresent: Int = 1,
+        includeHubInfo: Boolean = true,
+    ): String {
+        val hub = JSONObject().put("ext_spool", 1)
+            .put("ext_spool_status", if (ready) "ready" else "unloading")
+            .put("filament_present", filamentPresent)
+        if (includeHubInfo) hub.put("filament_hubs", if (aceConnected) JSONArray().put(JSONObject().put("id", 0)) else JSONObject.NULL)
+        return JSONObject().put("result", JSONObject().put("status", JSONObject().put("filament_hub", hub))).toString()
+    }
+
+    private fun syncExternalSpool(): Pair<Int, String?> {
+        val responses = listOf(
+            "?mmu" to """{"result":{"status":{"mmu":{"enabled":false}}}}""",
+            "?box" to """{"result":{"status":{}}}""",
+            "?filament_hub" to externalSpoolResponse(),
+        )
+        val failure = AtomicReference<Throwable?>()
+        ServerSocket(0, 1, InetAddress.getByName("127.0.0.1")).use { server ->
+            server.soTimeout = 10_000
+            val worker = Thread {
+                try {
+                    for ((path, text) in responses) {
+                        server.accept().use { socket ->
+                            socket.soTimeout = 10_000
+                            val reader = socket.getInputStream().bufferedReader()
+                            assertTrue(reader.readLine().startsWith("GET /printer/objects/query$path "))
+                            while (!reader.readLine().isNullOrEmpty()) { }
+                            val body = text.toByteArray(Charsets.UTF_8)
+                            socket.getOutputStream().apply {
+                                write("HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: ${body.size}\r\nConnection: close\r\n\r\n".toByteArray())
+                                write(body)
+                                flush()
+                            }
+                        }
+                    }
+                } catch (error: Throwable) { failure.set(error) }
+            }.apply { start() }
+            val completed = CountDownLatch(1)
+            val result = AtomicReference<Pair<Int, String?>>()
+            val printer = ConfigObject(title).apply { put("print_host", "http://127.0.0.1:${server.localPort}") }
+            InstrumentationRegistry.getInstrumentation().runOnMainSync {
+                MmuFilamentSync.synchronizeAll(printer, MmuFilamentSync.Callback { updated, error ->
+                    result.set(updated to error)
+                    completed.countDown()
+                })
+            }
+            assertTrue("external spool sync callback timed out", completed.await(30, TimeUnit.SECONDS))
+            worker.join(2_000)
+            failure.get()?.let { throw AssertionError("External spool test Moonraker host failed", it) }
+            return requireNotNull(result.get())
+        }
     }
 
     private fun sync(response: JSONObject, full: Boolean = true, printerTitle: String = title): Pair<Int, String?> {

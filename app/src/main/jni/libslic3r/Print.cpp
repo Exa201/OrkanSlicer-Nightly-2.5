@@ -1452,6 +1452,7 @@ StringObjectException Print::validate(StringObjectException *warning, Polygons* 
                     if (opt_key == nullptr) continue;
                     warning->string = (boost::format(L("Spiral vase mode needs no sparse infill, one wall loop and no top shell layers, but object %1% uses other values, so it will not print as a continuous spiral."))
                         % object->model_object()->name).str();
+                    warning->object = object;
                     warning->opt_key = opt_key;
                     warning->is_warning = true;
                     break;

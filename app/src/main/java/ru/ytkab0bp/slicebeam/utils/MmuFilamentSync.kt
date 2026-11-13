@@ -96,6 +96,7 @@ class MmuFilamentSync private constructor() {
             host = host.trim()
             if (!host.startsWith("http://") && !host.startsWith("https://")) host = "http://$host"
             while (host.endsWith("/")) host = host.dropLast(1)
+            clearExternalSpool(printer.title.orEmpty())
             val apiKey = printer.get("printhost_apikey") ?: ""
             val headers: Array<Header> = if (TextUtils.isEmpty(apiKey)) emptyArray()
                 else arrayOf(BasicHeader("X-Api-Key", apiKey))
@@ -110,10 +111,19 @@ class MmuFilamentSync private constructor() {
                     callback.onResult(0, error.message ?: message(R.string.MmuSyncFailed))
                 }
             }
-            fun requestCrealityBox() {
+            lateinit var requestExternalSpool: (String?) -> Unit
+            fun requestCrealityBox(previousError: String? = null) {
                 client.get(SliceBeam.requireInstance(), "$host/printer/objects/query?box", headers, null,
                     object : AsyncHttpResponseHandler() {
-                        override fun onSuccess(statusCode: Int, responseHeaders: Array<Header>?, body: ByteArray?) = applyBody(body)
+                        override fun onSuccess(statusCode: Int, responseHeaders: Array<Header>?, body: ByteArray?) {
+                            try {
+                                if (body == null || body.isEmpty()) throw JSONException(message(R.string.MmuSyncEmptyResponse))
+                                val count = applySyncResponse(printer, replacePalette, String(body, Charsets.UTF_8))
+                                callback.onResult(count, null)
+                            } catch (error: Exception) {
+                                requestExternalSpool(error.message)
+                            }
+                        }
 
                         override fun onFailure(
                             statusCode: Int,
@@ -121,7 +131,42 @@ class MmuFilamentSync private constructor() {
                             body: ByteArray?,
                             error: Throwable?,
                         ) {
-                            callback.onResult(0, error?.message?.takeIf { it.isNotBlank() }
+                            requestExternalSpool(previousError ?: error?.message?.takeIf { it.isNotBlank() }
+                                ?: message(R.string.MmuSyncNotAvailable))
+                        }
+                    })
+            }
+            requestExternalSpool = { previousError ->
+                client.get(SliceBeam.requireInstance(), "$host/printer/objects/query?filament_hub", headers, null,
+                    object : AsyncHttpResponseHandler() {
+                        override fun onSuccess(statusCode: Int, responseHeaders: Array<Header>?, body: ByteArray?) {
+                            val raw = body?.toString(Charsets.UTF_8).orEmpty()
+                            if (AnycubicExternalSpoolStatus.parse(raw) == null) {
+                                callback.onResult(0, previousError ?: message(R.string.MmuSyncNotAvailable))
+                                return
+                            }
+                            val existing = Prefs.getFilamentSlots().firstOrNull { !it.type.isNullOrBlank() }
+                            if (existing == null) {
+                                callback.onResult(0, message(R.string.MmuExternalSpoolNeedsMaterial))
+                                return
+                            }
+                            clearMmuSnapshotForPrinter(printer.title.orEmpty())
+                            Prefs.getPrefs()?.edit()
+                                ?.putString(MmuPrinterPreferenceKeys.forPrinter("external_spool", printer.title.orEmpty()), "ready")
+                                ?.apply()
+                            // Standalone spool metadata is incomplete in the firmware report.
+                            // Preserve the existing user/project material instead of replacing it
+                            // with an invented PLA default or an empty ACE palette.
+                            callback.onResult(1, null)
+                        }
+
+                        override fun onFailure(
+                            statusCode: Int,
+                            responseHeaders: Array<Header>?,
+                            body: ByteArray?,
+                            error: Throwable?,
+                        ) {
+                            callback.onResult(0, previousError ?: error?.message?.takeIf { it.isNotBlank() }
                                 ?: message(R.string.MmuSyncNotAvailable))
                         }
                     })
@@ -142,16 +187,12 @@ class MmuFilamentSync private constructor() {
                         body: ByteArray?,
                         error: Throwable?,
                     ) {
-                        if (statusCode == 400 || statusCode == 404) {
-                            requestCrealityBox()
-                            return
-                        }
                         val detail = if (body != null && body.isNotEmpty()) {
                             String(body, Charsets.UTF_8)
                         } else {
                             error?.message?.takeIf { it.isNotBlank() } ?: "HTTP $statusCode"
                         }
-                        callback.onResult(0, detail)
+                        requestCrealityBox(detail)
                     }
                 })
         }
@@ -206,6 +247,32 @@ class MmuFilamentSync private constructor() {
         }
 
         private fun message(resource: Int): String = SliceBeam.requireInstance().getString(resource)
+
+        private fun clearExternalSpool(printerTitle: String) {
+            Prefs.getPrefs()?.edit()
+                ?.remove(MmuPrinterPreferenceKeys.forPrinter("external_spool", printerTitle))
+                ?.apply()
+        }
+
+        private fun clearMmuSnapshotForPrinter(printerTitle: String) {
+            val prefs = Prefs.getPrefs() ?: return
+            val edit = prefs.edit()
+                .remove(MmuPrinterPreferenceKeys.forPrinter("snapshot", printerTitle))
+                .remove(MmuPrinterPreferenceKeys.forPrinter("synced", printerTitle))
+            if (prefs.getString(SNAPSHOT_PRINTER, null) == printerTitle) {
+                edit.remove(SNAPSHOT).remove(SNAPSHOT_PRINTER)
+            }
+            if (prefs.getString("mmu_synced_printer", null) == printerTitle) {
+                edit.remove("mmu_synced_printer")
+            }
+            edit.apply()
+        }
+
+        @JvmStatic
+        fun externalSpoolReady(printerTitle: String): Boolean {
+            val prefs = Prefs.getPrefs() ?: return false
+            return prefs.getString(MmuPrinterPreferenceKeys.forPrinter("external_spool", printerTitle), null) == "ready"
+        }
 
         @JvmStatic
         fun getSnapshot(printerTitle: String): JSONObject? {

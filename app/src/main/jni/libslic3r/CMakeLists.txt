@@ -167,6 +167,8 @@ set(lisbslic3r_sources
     Fill/FillSpiralInset.cpp
     Fill/FillSpiralInset.hpp
     Fill/FillRectilinear.hpp
+    Fill/FillSpiralInset.cpp
+    Fill/FillSpiralInset.hpp
     Fill/FillTpmsD.cpp
     Fill/FillTpmsD.hpp
     Fill/FillTpmsFK.cpp

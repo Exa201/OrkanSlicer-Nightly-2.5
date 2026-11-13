@@ -195,6 +195,14 @@ object SliceUploadController {
                 } else if (error != null) {
                     dismissSendProgress(fragment, progress)
                     showPreparationFailure(fragment, context.getString(R.string.UploadAceCheckFailed))
+                } else if (MmuFilamentSync.externalSpoolReady(printer.title.orEmpty())) {
+                    if (activeTools.distinct().size > 1) {
+                        dismissSendProgress(fragment, progress)
+                        showPreparationFailure(fragment, context.getString(R.string.MmuExternalSpoolMultiTool))
+                    } else {
+                        progress.setMessage(context.getString(R.string.UploadPreparingGcode))
+                        startFilePreparation()
+                    }
                 } else if (aceBefore == null || aceBefore != MmuFilamentSync.assignedGates(
                         printer.title.orEmpty(), activeTools)) {
                     dismissSendProgress(fragment, progress)
@@ -655,6 +663,23 @@ object SliceUploadController {
             Log.e("SliceMenu", "Could not scan G-code before Anycubic upload", error)
             showPreparationFailure(fragment)
             return null
+        }
+        if (MmuFilamentSync.externalSpoolReady(printer.title.orEmpty())) {
+            if (scan.usedTools.distinct().size > 1) {
+                showPreparationFailure(fragment, SliceBeam.requireInstance().getString(R.string.MmuExternalSpoolMultiTool))
+                return null
+            }
+            val externalTool = scan.usedTools.firstOrNull() ?: 0
+            val existingMaterial = Prefs.getFilamentSlots().getOrNull(externalTool)?.type
+                ?.takeIf(String::isNotBlank)
+                ?: scan.materials.getOrNull(externalTool)?.takeIf(String::isNotBlank)
+            if (existingMaterial == null) {
+                showPreparationFailure(fragment, SliceBeam.requireInstance().getString(R.string.MmuExternalSpoolNeedsMaterial))
+                return null
+            }
+            progress.setMessage(SliceBeam.requireInstance().getString(R.string.UploadPreparingAnycubic))
+            val rewritten = AnycubicGCodeProcessor.rewriteForExternalSpool(source, prepared)
+            return prepared.takeIf { rewritten }
         }
         Log.i(
             "SliceUploadPerf",

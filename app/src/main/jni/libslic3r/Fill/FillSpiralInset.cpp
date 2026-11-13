@@ -297,12 +297,10 @@ static std::vector<PathType> generate_spiral_insets(const FillParams&           
 
     flush_spiral();
 
-    // An outward fill order runs every spiral from its centre to its outer edge, innermost island first.
-    if (params.fill_order != SurfaceFillOrder::Inward) {
-        for (PathType& path : output)
-            path.reverse();
-        std::reverse(output.begin(), output.end());
-    }
+    // This branch has no configurable surface fill order; keep the Orca default, centre outward.
+    for (PathType& path : output)
+        path.reverse();
+    std::reverse(output.begin(), output.end());
 
     return output;
 }
@@ -441,7 +439,8 @@ void FillSpiralInset::_fill_surface_single(const FillParams& params,
     // The open walls lie mostly down the middle of an island, so each one prints at the centre end
     // of the nearest spiral, before an outward spiral and after an inward one, rather than after
     // every spiral, which brought the nozzle back across the surface for them.
-    const bool outward = params.fill_order != SurfaceFillOrder::Inward;
+    // This branch has no configurable surface fill order; use the Orca default, centre outward.
+    constexpr bool outward = true;
     auto centre = [outward](const ThickPolyline& spiral) { return outward ? spiral.first_point() : spiral.last_point(); };
     auto dist2  = [](const Point& a, const Point& b) { return (a - b).cast<double>().squaredNorm(); };
     std::vector<ThickPolylines> beside(spirals.size());
