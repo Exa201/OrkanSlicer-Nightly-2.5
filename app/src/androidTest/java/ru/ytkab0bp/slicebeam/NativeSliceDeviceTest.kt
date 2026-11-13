@@ -57,6 +57,15 @@ class NativeSliceDeviceTest {
         assertEquals("the fixture must retain separate filament identities", 1, result[2])
     }
 
+    @Test
+    fun postSlicePrintableAreaMaskSupportsExtruder64() {
+        assertArrayEquals(
+            "the post-slice validator must preserve bit 63 without setting a lower extruder bit",
+            intArrayOf(1, 1, 1, 1),
+            Native.gcode_extruder_64_area_mask_regression(),
+        )
+    }
+
     @Test(timeout = 180_000)
     fun estimatedFirstLayerCommentReportsLayerMotionTime() = withKobraProfile {
         val context = InstrumentationRegistry.getInstrumentation().targetContext

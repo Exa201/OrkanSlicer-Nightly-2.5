@@ -6384,6 +6384,52 @@ extern "C" {
         }
     }
 
+    JNIEXPORT jintArray JNICALL Java_ru_ytkab0bp_slicebeam_slic3r_Native_gcode_1extruder_164_1area_1mask_1regression(JNIEnv* env, jclass) {
+        using namespace Slic3r;
+        GCodeProcessor processor;
+        processor.initialize_result_moves();
+        for (const Vec3f& position : {Vec3f(50.f, 50.f, 0.2f), Vec3f(60.f, 50.f, 0.2f), Vec3f(60.f, 60.f, 0.2f)}) {
+            GCodeProcessorResult::MoveVertex move;
+            move.type = EMoveType::Extrude;
+            move.extrusion_role = erPerimeter;
+            move.extruder_id = 63; // zero-based T64
+            move.position = position;
+            move.object_label_id = 7;
+            move.print_z = 0.2f;
+            processor.result().moves.emplace_back(move);
+        }
+
+        const Pointfs bed{{0., 0.}, {200., 0.}, {200., 200.}, {0., 200.}};
+        const Pointfs blocked_area{{45., 45.}, {65., 45.}, {65., 65.}, {45., 65.}};
+        std::vector<Polygons> unprintable_areas(64);
+        unprintable_areas[63].emplace_back(Polygon::new_scale(blocked_area));
+        std::vector<double> printable_heights(64, 200.);
+        std::vector<int> filament_map(64);
+        for (size_t i = 0; i < filament_map.size(); ++i)
+            filament_map[i] = static_cast<int>(i + 1);
+        std::vector<std::set<int>> unprintable_filament_types(64);
+
+        const bool valid = processor.check_multi_extruder_gcode_valid(
+            64, bed, 200., {}, unprintable_areas, printable_heights, filament_map, unprintable_filament_types);
+        const GCodeProcessorResult& result = processor.get_result();
+        const uint64_t mask = result.limit_filament_maps.size() < 64 ? 0 : result.limit_filament_maps[63];
+        const bool error_is_for_extruder_64 = result.gcode_check_result.print_area_error_infos.count(63) == 1;
+        const std::array<jint, 4> values{
+            valid ? 0 : 1,
+            (mask & (uint64_t(1) << 63)) != 0 ? 1 : 0,
+            (mask & ~(uint64_t(1) << 63)) == 0 ? 1 : 0,
+            error_is_for_extruder_64 ? 1 : 0,
+        };
+        jintArray output = env->NewIntArray(static_cast<jsize>(values.size()));
+        if (output != nullptr)
+            env->SetIntArrayRegion(output, 0, static_cast<jsize>(values.size()), values.data());
+        return output;
+    }
+
+    JNIEXPORT jintArray JNICALL Java_ru_ytkab0bp_slicebeam_slic3r_Native_00024Companion_gcode_1extruder_164_1area_1mask_1regression(JNIEnv* env, jobject) {
+        return Java_ru_ytkab0bp_slicebeam_slic3r_Native_gcode_1extruder_164_1area_1mask_1regression(env, nullptr);
+    }
+
     JNIEXPORT jboolean JNICALL Java_ru_ytkab0bp_slicebeam_slic3r_Native_model_1add_1spiral_1vase_1override_1test_1config(
         JNIEnv* env, jclass, jlong model_ptr)
     {

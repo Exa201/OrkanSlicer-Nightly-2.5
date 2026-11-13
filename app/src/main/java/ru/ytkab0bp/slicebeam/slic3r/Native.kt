@@ -96,6 +96,9 @@ class Native {
     /** Runs the Orca painted-bridge fixture and reports neighbour anchors and bridge paths. */
     @JvmStatic
     external fun painted_bridge_anchor_regression(): IntArray
+    /** Verifies printable-area masks retain the 64th extruder in the post-slice check. */
+    @JvmStatic
+    external fun gcode_extruder_64_area_mask_regression(): IntArray
     @JvmStatic
     external fun model_add_spiral_vase_override_test_config(model: Long): Boolean
     /** Exercises the inherited custom-printer preset merge when the child adds nozzle slots. */
