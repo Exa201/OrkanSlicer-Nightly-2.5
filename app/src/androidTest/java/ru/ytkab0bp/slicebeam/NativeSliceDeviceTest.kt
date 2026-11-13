@@ -2871,6 +2871,78 @@ class NativeSliceDeviceTest {
         }
     }
 
+    @Test(timeout = 120_000)
+    fun quarterCubicMultilineUsesNonCrossingNativeToolpaths() = withKobraProfile {
+        val context = InstrumentationRegistry.getInstrumentation().targetContext
+        val process = requireNotNull(SliceBeam.CONFIG?.findPrint("0.16mm Standard"))
+        val keys = listOf("sparse_infill_pattern", "sparse_infill_density", "fill_multiline",
+            "wall_loops", "top_shell_layers", "bottom_shell_layers", "layer_height",
+            "initial_layer_print_height", "brim_type", "skirt_loops")
+        val previous = keys.associateWith { process[it] }
+        val source = createThinCubeFixture("quarter-cubic-multiline.stl", 20.0, 20.0, 12.0)
+        val output = File(context.cacheDir, "quarter-cubic-multiline.gcode")
+        val model = Model(source).also { it.ensureOnBed(0) }
+
+        fun sparseMoves(multiline: Int): List<String> {
+            process.put("sparse_infill_pattern", "quartercubic")
+            process.put("sparse_infill_density", "25%")
+            process.put("fill_multiline", multiline.toString())
+            SliceBeam.genCurrentConfig(model)
+            val serialized = SliceBeam.getCurrentConfigFile().readText()
+            assertTrue("fill_multiline=$multiline must reach the generated native config",
+                Regex("(?m)^fill_multiline\\s*=\\s*$multiline(?:\\.0+)?\\s*$").containsMatchIn(serialized))
+            output.delete()
+            val result = model.slice(SliceBeam.getCurrentConfigFile().absolutePath, output.absolutePath, null)
+            try {
+                val moves = mutableListOf<String>()
+                var sparse = false
+                output.forEachLine { line ->
+                    if (line.startsWith(";TYPE:")) sparse = line.removePrefix(";TYPE:").trim() == "Sparse infill"
+                    else if (sparse && line.startsWith("G1 ") && line.contains('E') &&
+                        (line.contains(" X") || line.contains(" Y"))) moves += line
+                }
+                assertTrue("Quarter Cubic multiline=$multiline must produce sparse infill", moves.isNotEmpty())
+                return moves
+            } finally {
+                result.release()
+            }
+        }
+
+        try {
+            process.put("wall_loops", "2")
+            process.put("top_shell_layers", "2")
+            process.put("bottom_shell_layers", "2")
+            process.put("layer_height", "0.2")
+            process.put("initial_layer_print_height", "0.2")
+            process.put("brim_type", "no_brim")
+            process.put("skirt_loops", "0")
+
+            val singleLine = sparseMoves(1)
+            val doubleLine = sparseMoves(2)
+            assertNotEquals("multiline Quarter Cubic must use its dedicated non-crossing path generator",
+                singleLine, doubleLine)
+            assertTrue("multiline Quarter Cubic must produce the paired paths", doubleLine.size > singleLine.size)
+
+            val xy = doubleLine.flatMap { line ->
+                Regex("(?:^|\\s)([XY])(-?\\d+(?:\\.\\d+)?)").findAll(line)
+                    .map { it.groupValues[1] to it.groupValues[2].toDouble() }.toList()
+            }
+            assertTrue("multiline Quarter Cubic must emit measurable XY extrusion coordinates", xy.isNotEmpty())
+            val xs = xy.filter { it.first == "X" }.map { it.second }
+            val ys = xy.filter { it.first == "Y" }.map { it.second }
+            assertTrue("sparse infill must stay on the 20 mm fixture in X: ${xs.minOrNull()}..${xs.maxOrNull()}",
+                xs.minOrNull()!! >= -0.1 && xs.maxOrNull()!! <= 20.1)
+            assertTrue("sparse infill must stay on the 20 mm fixture in Y: ${ys.minOrNull()}..${ys.maxOrNull()}",
+                ys.minOrNull()!! >= -0.1 && ys.maxOrNull()!! <= 20.1)
+        } finally {
+            keys.forEach { process.put(it, previous[it]) }
+            model.release()
+            source.delete()
+            output.delete()
+            SliceBeam.getCurrentConfigFile().delete()
+        }
+    }
+
     @Test(timeout = 90_000)
     fun lightningInfillCompletesWhenOpenedOverhangExtendsPastInfillBounds() = withKobraProfile {
         val context = InstrumentationRegistry.getInstrumentation().targetContext

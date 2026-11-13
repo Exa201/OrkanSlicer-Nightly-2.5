@@ -2,6 +2,7 @@
 #include <stdint.h>
 
 #include <algorithm>
+#include <array>
 #include <cmath>
 #include <limits>
 #include <random>
@@ -39,6 +40,14 @@
 #include "../libslic3r.h"
 
 namespace Slic3r {
+
+static coord_t quarter_cubic_shift(double z, double pattern_z_shift, coord_t period, coord_t min_shift)
+{
+    coord_t shift = coord_t(boost::math::float_constants::one_div_root_two * (scale_(z) + pattern_z_shift * period * 2)) % period;
+    shift = std::min(shift, period - shift);
+    shift = std::min(shift, period / 2 - min_shift);
+    return std::max(shift, min_shift);
+}
 
 // Having a segment of a closed polygon, calculate its Euclidian length.
 // The segment indices seg1 and seg2 signify an end point of an edge in the forward direction of the loop,
@@ -3053,7 +3062,7 @@ bool FillRectilinear::fill_surface_trapezoidal(
     FillParams                                params,
     const std::initializer_list<SweepParams>& sweep_params,
     Polylines&                                polylines_out,
-    int                                       Pattern_type) // 0=grid, 1=triangular, 2=stars
+    int                                       Pattern_type) // 0=grid, 1=triangular, 2=stars, 4=quarter cubic
 {
     assert(params.multiline > 1);
 
@@ -3071,6 +3080,10 @@ bool FillRectilinear::fill_surface_trapezoidal(
         // Grid pattern parameters
         period     = coord_t((2.0 * d1 / params.density) * std::sqrt(2.0));
         base_angle = rotate_vector.first + M_PI_4; // 45
+    } else if (Pattern_type == 4) {
+        // Quarter Cubic uses a four-wall period in the frame 45 degrees from its lines.
+        period     = coord_t(double(d1) / params.density) * 4;
+        base_angle = rotate_vector.first + M_PI_4;
     } else {
         // Triangular-family pattern parameters (triangles / stars)
         period     = coord_t((2.0 * d1 / params.density) * std::sqrt(3.0));
@@ -3339,6 +3352,77 @@ bool FillRectilinear::fill_surface_trapezoidal(
         break;
     }
 
+    case 4: // Quarter Cubic
+    {
+        // Generate paired staircases along the single-line Quarter Cubic pattern. The paired
+        // walls remain parallel and do not overlap when fill_multiline is greater than one.
+        const double cos45 = std::sqrt(0.5);
+        const double a = quarter_cubic_shift(this->z, 0., period, d1 / 2);
+        const double b = quarter_cubic_shift(this->z, 0.5, period, d1 / 2);
+        const double p = period;
+        auto push = [&](double shift) {
+            return 0.5 * (std::max(0., d1 - 2. * shift * cos45) -
+                          std::max(0., d1 - (p - 2. * shift) * cos45));
+        };
+        const double push_a = push(a);
+        const double push_b = push(b);
+        auto staircase = [&](int first_v_line) {
+            std::vector<Vec2d> level;
+            auto bend = [&](int u_side, int v_line, bool peak) {
+                const int v_side = v_line % 2 ? 1 : -1;
+                const double u = u_side * a;
+                const double v = v_side * b + (v_line / 2) * p;
+                const double moved = v_side * push_b - u_side * push_a;
+                const double half = 0.5 * d1 + (peak ? -moved : moved);
+                const double x = cos45 * (u + v);
+                const double y = cos45 * (v - u) + moved + (peak ? -0.5 : 0.5) * d1;
+                level.emplace_back(x - half, y);
+                level.emplace_back(x + half, y);
+            };
+            bend(-1, first_v_line, false);
+            bend(-1, first_v_line + 1, true);
+            bend(1, first_v_line + 1, false);
+            bend(1, first_v_line + 2, true);
+            return level;
+        };
+        const std::array<std::vector<Vec2d>, 2> levels{staircase(0), staircase(1)};
+        const bool transposed = infill_layer_id % 2 == 1;
+        Polygon local = expolygon.contour;
+        local.translate(-rotate_vector.second.x(), -rotate_vector.second.y());
+        BoundingBox cover = get_extents(local);
+        cover.offset(period);
+        if (transposed)
+            cover = BoundingBox(Point(cover.min.y(), cover.min.x()), Point(cover.max.y(), cover.max.x()));
+
+        const double row_step = cos45 * p;
+        const int64_t n_min = int64_t(std::floor((-row_step - cover.max.y()) / row_step));
+        const int64_t n_max = int64_t(std::ceil((2. * row_step - cover.min.y()) / row_step));
+        polylines.reserve(size_t(n_max - n_min + 1) * levels.size());
+        for (int64_t n = n_min; n <= n_max; ++n) {
+            const Vec2d offset(double(n) * row_step, -double(n) * row_step);
+            const int64_t j_min = int64_t(std::floor((cover.min.x() - offset.x()) / (2. * row_step))) - 1;
+            const int64_t j_max = int64_t(std::ceil((cover.max.x() - offset.x()) / (2. * row_step))) + 1;
+            for (const std::vector<Vec2d> &level : levels) {
+                Polyline row;
+                row.points.reserve(size_t(j_max - j_min + 1) * level.size());
+                for (int64_t j = j_min; j <= j_max; ++j) {
+                    for (const Vec2d &bend_point : level) {
+                        const Vec2d q = offset + bend_point + Vec2d(2. * double(j) * row_step, 0.);
+                        const Point point(coord_t(std::round(transposed ? q.y() : q.x())),
+                                          coord_t(std::round(transposed ? q.x() : q.y())));
+                        if (row.points.empty() ||
+                            (point - row.points.back()).cwiseAbs().maxCoeff() > coord_t(SCALED_EPSILON))
+                            row.points.emplace_back(point);
+                    }
+                }
+                polylines.emplace_back(std::move(row));
+            }
+        }
+        for (Polyline& row : polylines)
+            row.translate(rotate_vector.second);
+        break;
+    }
+
     default:
         // Handle unknown pattern type
         break;
@@ -3523,6 +3607,12 @@ Polylines FillQuarterCubic::fill_surface(const Surface* surface, const FillParam
 {
     using namespace boost::math::float_constants;
     Polylines polylines_out;
+
+    if (params.multiline > 1) {
+        if (!this->fill_surface_trapezoidal(surface, params, {{0.f, 0.f}}, polylines_out, 4))
+            BOOST_LOG_TRIVIAL(error) << "FillQuarterCubic::fill_surface_trapezoidal() failed.";
+        return polylines_out;
+    }
 
     coord_t line_width = coord_t(scale_(this->spacing)) * params.multiline;
     coord_t period = coord_t(scale_(this->spacing) *params.multiline / params.density) * 4;

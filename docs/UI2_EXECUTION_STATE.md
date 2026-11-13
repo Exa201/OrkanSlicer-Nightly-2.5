@@ -1,5 +1,13 @@
 # Nightly execution state — 2026-11-13
 
+## Orca Nightly Batch 17 — Punkt 1/10 verifiziert — 2026-11-13
+
+- Orca-Upstream `f55615d748` ergänzt eine nicht kreuzende Quarter-Cubic-Multilinefüllung. Android bot Quarter Cubic bereits als Muster an, verwendete bei `fill_multiline > 1` aber weiterhin die kreuzenden Standardlinien.
+- Port in `FillRectilinear`: lokaler, um den Infill-Mittelpunkt zentrierter Musterrahmen, Orcas Vier-Wand-Periode und versetzte Treppenlinien; vorhandene Einzelstrang-Erzeugung bleibt unverändert. Der Android-Aufruf führt Quarter Cubic mit `fill_multiline > 1` nun durch diesen eigenen Generator.
+- Regression `NativeSliceDeviceTest#quarterCubicMultilineUsesNonCrossingNativeToolpaths`: slicet ein 20×20×12-mm-Modell auf Kobra-Profil mit `fill_multiline=1` und `2`, prüft echte Sparse-Infill-G-Codezüge, abweichende/zusätzliche Mehrstrangpfade und deren Begrenzung auf das Modell. API-36-Emulator: 1/1 bestanden.
+- `:app:assembleSliceTestAndroidTest` (ARM64-Nativbibliothek und Instrumentierung) sowie `git diff --check` bestanden. Der gezielte Gerätetest lief im x86_64-API-36-Emulator mit ARM64-Übersetzung; kein physisches Xiaomi/HONOR wurde geprüft.
+- Batch 17 steht bei **1/10**. Kein Versionssprung, APK oder Release vor 10/10. Nächster konkreter Schritt: den nächsten noch nicht portierten Orca-2.5-Commit auf einen aktiven Android-Slice- oder Modellpfad abbilden und eine echte Ergebnisregression ergänzen.
+
 ## Batch 16 released; app language added — 2026-11-13
 
 - Current branch `codex/nightly-batch11-next`; product source commit `e20c0668aeeec92e557727e6636b2e19131aca66`; app identity remains isolated as `com.exa201.orkanslicer.nightly25`, version `0.8.455` / code `490`.
