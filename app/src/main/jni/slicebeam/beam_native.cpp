@@ -6251,6 +6251,46 @@ extern "C" {
         }
     }
 
+    JNIEXPORT jintArray JNICALL Java_ru_ytkab0bp_slicebeam_slic3r_Native_sequential_1raft_1top_1clearance_1regression(JNIEnv* env, jclass) {
+        try {
+            auto validate_raft = [](int raft_layers) {
+                Model model;
+                for (float x : {40.f, 150.f}) {
+                    ModelObject* object = model.add_object();
+                    TriangleMesh mesh = make_cube(20.f, 20.f, 24.8f);
+                    mesh.translate(x, 80.f, 0.f);
+                    object->add_volume(std::move(mesh));
+                    object->add_instance();
+                }
+                DynamicPrintConfig config = DynamicPrintConfig::full_print_config();
+                config.set_deserialize_strict({
+                    {"print_sequence", "by object"},
+                    {"extruder_clearance_height_to_rod", 25},
+                    {"extruder_clearance_height_to_lid", 200},
+                    {"extruder_clearance_radius", 5},
+                    {"skirt_loops", 0},
+                    {"raft_layers", raft_layers},
+                    {"layer_change_gcode", "G92 E0\n"},
+                });
+                Print print;
+                print.apply(model, std::move(config));
+                if (raft_layers > 0 && print.objects().front()->slicing_parameters().object_print_z_min + 24.8 <= 25.)
+                    throw std::runtime_error("Raft fixture did not raise the model above the configured rod height");
+                return print.validate().string.find("too tall") != std::string::npos;
+            };
+            const bool raft_rejected = validate_raft(3);
+            const bool no_raft_rejected = validate_raft(0);
+            const std::array<jint, 2> values{raft_rejected ? 1 : 0, no_raft_rejected ? 1 : 0};
+            jintArray result = env->NewIntArray(static_cast<jsize>(values.size()));
+            if (result != nullptr) env->SetIntArrayRegion(result, 0, static_cast<jsize>(values.size()), values.data());
+            return result;
+        } catch (const std::exception& error) {
+            jclass runtime_error = env->FindClass("ru/ytkab0bp/slicebeam/slic3r/Slic3rRuntimeError");
+            if (runtime_error != nullptr) env->ThrowNew(runtime_error, error.what());
+            return nullptr;
+        }
+    }
+
     JNIEXPORT jboolean JNICALL Java_ru_ytkab0bp_slicebeam_slic3r_Native_model_1add_1spiral_1vase_1override_1test_1config(
         JNIEnv* env, jclass, jlong model_ptr)
     {

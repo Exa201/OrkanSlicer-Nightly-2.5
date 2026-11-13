@@ -87,6 +87,9 @@ class Native {
     /** Verifies matching transforms with different center offsets don't share shifted slice data. */
     @JvmStatic
     external fun center_offset_slice_cache_regression(configPath: String): IntArray
+    /** Verifies sequential-print rod checks include raft height above the bed. */
+    @JvmStatic
+    external fun sequential_raft_top_clearance_regression(): IntArray
     @JvmStatic
     external fun model_add_spiral_vase_override_test_config(model: Long): Boolean
     /** Exercises the inherited custom-printer preset merge when the child adds nozzle slots. */

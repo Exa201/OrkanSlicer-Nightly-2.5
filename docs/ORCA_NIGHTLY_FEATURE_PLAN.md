@@ -1,7 +1,7 @@
-# Aktueller Stand — Nightly 0.8.454; Batch 16: 5/10 verifiziert — 2026-11-13
+# Aktueller Stand — Nightly 0.8.454; Batch 16: 6/10 verifiziert — 2026-11-13
 
 Batch 15 ist funktional mit 10/10 geprüften Punkten abgeschlossen und im Nightly `v0.8.454-nightly.1` veröffentlicht. Der geprüfte Release umfasst zusätzlich den Merge der veröffentlichten 0.8.453-Linie, damit deren Fixes zusammen mit dem neueren Nightly erhalten bleiben. Debug-/SliceTest-Unit jeweils 775/775 und drei gezielte API-36-Instrumentierungstests bestanden. Texture-Displacement-Persistenz bleibt ungezählt, da der produktive Bake-/Abbruch-/Undo-Pfad fehlt. Als Nächstes folgt Batch 16 nach erneutem Abgleich mit dem OrcaSlicer-Upstream.
-Aktueller Batch 16: **5/10**. Punkte 4 und 5 portieren Orca `6d312b0441` und `0f15db8b83`: abweichende Höhenbereichs-Overrides oder Objektzentren verhindern das Teilen inkompatibler Slice-Caches. Beide direkten Android-16-Emulator-Regressionen bestanden 1/1; Debug- und SliceTest-Unit jeweils 775/775 bestanden. APK/Release erst nach den verbleibenden fünf verifizierten Punkten.
+Aktueller Batch 16: **6/10**. Punkte 4 und 5 portieren Orca `6d312b0441` und `0f15db8b83`: abweichende Höhenbereichs-Overrides oder Objektzentren verhindern das Teilen inkompatibler Slice-Caches. Punkt 6 portiert `d0ca537ebe` und bezieht Raft/Z-Anhebung in die sequenzielle Stangenfreigabe ein; der gezielte Test plus drei bestehende Freigabe-/Reihenfolgetests bestanden auf Android 16/API 36 (4/4). Die JVM-Unit-Suiten stehen bei 775/775. APK/Release erst nach den verbleibenden vier verifizierten Punkten.
 
 
 ### Batch 16, Punkt 1/10 — relative E und Layer-Cooling-Geschwindigkeiten
@@ -16,7 +16,7 @@ Verifikation: `:app:assembleSliceTestAndroidTest` erfolgreich; der Laufzeittest 
 
 Zusätzlicher geprüfter Kandidat Orca `18ac48ed96` wurde nach einem x64-Hostbenchmark **nicht übernommen**: bei 20.000 gleichzeitig aktiven, nicht kreuzenden Rechtecken waren sieben Läufe mit Orcas Sortier-Skip 56.401 ms gegenüber 56.388 ms ohne Patch; die Polygonzahl und Fläche stimmten in beiden Varianten überein. Der getestete Fall zeigt damit keinen messbaren Nutzen, also wurde der Clipper2-Port wieder entfernt.
 
-Batch 16 steht bei **5/10**. Punkt 3 portiert Orca `97ee8d9197` und schützt Material-/Filament-Identität bei Dovetail-Schnitten; Punkte 4/5 portieren `6d312b0441` und `0f15db8b83` gegen falsche Slice-Cache-Übernahme bei abweichenden Höhenbereichen bzw. Objektzentren. Die beiden API-36-Emulator-Tests bestanden; beide Unit-Suiten stehen bei 775/775. Nächster Schritt: weitere Android-erreichbare Orca-Änderung ab `0f15db8b83` identifizieren und regressionsprüfen. Kein APK/Release vor 10/10.
+Batch 16 steht bei **6/10**. Punkte 3–5 sichern Mehrfarben-Dovetail-Schnitte und verhindern falsche Slice-Cache-Übernahme bei abweichenden Höhenbereichen bzw. Objektzentren. Punkt 6 portiert die raftbewusste sequenzielle Druckhöhenprüfung aus Orca `d0ca537ebe`. Vier Emulator-Regressionsprüfungen bestanden (4/4); beide Unit-Suiten stehen bei 775/775. Nächster Schritt: weitere Android-erreichbare Orca-Änderung ab `d0ca537ebe` identifizieren und regressionsprüfen. Kein APK/Release vor 10/10.
 
 ### Batch 15, Punkt 8/10 — Prime-Tower-Neuberechnung bei wiederverwendetem Print
 

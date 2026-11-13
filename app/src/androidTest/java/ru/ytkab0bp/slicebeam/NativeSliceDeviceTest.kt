@@ -114,6 +114,15 @@ class NativeSliceDeviceTest {
     }
 
     @Test
+    fun sequentialPrintRodClearanceIncludesRaftHeight() {
+        assertArrayEquals(
+            "A raft that lifts 24.8 mm objects above the 25 mm rod must be rejected; the same objects without a raft fit",
+            intArrayOf(1, 0),
+            Native.sequential_raft_top_clearance_regression(),
+        )
+    }
+
+    @Test
     fun textureDisplacementBakeMovesPaintedMeshAndCancellationCannotBeCommitted() {
         val bitmap = Bitmap.createBitmap(16, 16, Bitmap.Config.ARGB_8888).apply {
             eraseColor(android.graphics.Color.WHITE)

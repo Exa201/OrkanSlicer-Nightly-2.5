@@ -641,9 +641,13 @@ StringObjectException Print::sequential_print_clearance_valid(const Print &print
     }
     const bool skirt_reaches_rod = print.has_infinite_skirt() ||
         (print.config().skirt_loops > 0 && print.config().skirt_height * max_layer_height > rod_height);
-    auto above_rod_y_range = [rod_height](const PrintInstance &instance, coord_t &min_y, coord_t &max_y) -> bool {
+    // Include raft/Z compensation in the top above the bed. Belt printers are not supported by this Android app.
+    auto object_top = [](const PrintInstance &instance) -> double {
+        return scale_(instance.print_object->slicing_parameters().object_print_z_max);
+    };
+    auto above_rod_y_range = [rod_height, &object_top](const PrintInstance &instance, coord_t &min_y, coord_t &max_y) -> bool {
         const double rod_z = rod_height - instance.print_object->slicing_parameters().object_print_z_min;
-        if (instance.print_object->max_z() <= scale_(rod_height))
+        if (object_top(instance) <= scale_(rod_height))
             return false;
         double ymin = std::numeric_limits<double>::max();
         double ymax = std::numeric_limits<double>::lowest();
@@ -770,7 +774,7 @@ StringObjectException Print::sequential_print_clearance_valid(const Print &print
                     }
                 }
                 struct print_instance_info print_info {&instance, convex_hull.bounding_box(), convex_hull};
-                print_info.height = instance.print_object->height();
+                print_info.height = object_top(instance);
                 print_info.model_position = model_position_of(print.model(), instance.model_instance);
                 print_info.has_above_rod = above_rod_y_range(instance, print_info.rod_min_y, print_info.rod_max_y);
                 const BoundingBox footprint = print_info.bounding_box.inflated(
@@ -946,7 +950,8 @@ StringObjectException Print::sequential_print_clearance_valid(const Print &print
         std::map<const PrintInstance*, std::pair<Polygon, float>> too_tall_instances;
         for (int k = 0; k < print_instance_count; k++)
         {
-            auto inst = print_instance_with_bounding_box[k].print_instance;
+            const auto& info_k = print_instance_with_bounding_box[k];
+            auto inst = info_k.print_instance;
             // 只需要考虑喷嘴到滑杆的偏移量，这个比整个工具头的碰撞半径要小得多
             // Only the offset from the nozzle to the slide bar needs to be considered, which is much smaller than the collision radius of the entire tool head.
             const auto &instance_info = print_instance_with_bounding_box[k];
@@ -978,7 +983,7 @@ StringObjectException Print::sequential_print_clearance_valid(const Print &print
                     break;
                 }
             }
-            if (height < inst->print_object->max_z())
+            if (height < info_k.height)
                 too_tall_instances[inst] = std::make_pair(print_instance_with_bounding_box[k].hull_polygon, unscaled<double>(height));
         }
 
