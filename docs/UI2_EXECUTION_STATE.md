@@ -27,10 +27,12 @@ The earlier mixed-worktree changes remain backed up separately; this follow-up p
 - Verification: focused Kotlin regressions 24/24; full Debug JVM 771/771; full SliceTest JVM
   771/771; `MmuFilamentSyncDeviceTest` 22/22 on Android 16 API 36. ARM64 SliceTest native/app and
   instrumentation APKs rebuilt; `git diff --check` clean. No physical Anycubic printer or Xiaomi
-  device was attached, so firmware interoperability and device performance remain unverified.
-- GitHub browser inventory showed no signed-in GitHub tab, and `gh auth status` has no authenticated
-  host. No release upload was made. Next: commit and push these changes, then validate actual
-  `filament_hub` fields from Kobra firmware and continue the next pinned Orca 2.5 parity candidate.
+  device was attached, so firmware interoperability and device performance remain unverified. The
+  Debug APK installed and started on the API-36 emulator with no fatal, ANR or OOM log entries.
+- Code commit `64a84bc1e3` is pushed to `codex/nightly-batch15-release`. GitHub browser inventory
+  showed no signed-in GitHub tab, and `gh auth status` has no authenticated host; no release upload
+  was made. Next: validate actual `filament_hub` fields from Kobra firmware and continue the next
+  pinned Orca 2.5 parity candidate.
 
 # Nightly execution state — 2026-11-07
 
