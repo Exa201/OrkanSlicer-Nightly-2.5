@@ -1,13 +1,14 @@
 # Nightly execution state — 2026-11-13
 
-## 0.8.453-Regressionsprüfung und 0.8.454-Release-Gate
+## Aktueller Stand — Nightly 0.8.454 veröffentlicht
 
-- Git-Beweis: `v0.8.453-nightly.1` (`614d44b4b0`) ist Nachfolger von `v0.8.452-nightly.1` (`efbd829eea`). Zwischen den Tags änderten sich weder `MainActivity`-/`BedFragment`-Mehrfachimport noch `GLView`-/Modellmenü-Anordnung.
-- Exakter 453-Stand auf Android 16/API 36 geprüft: Mehrdatei-STL-Import läuft über eine gemeinsame Fortschritts-ID und einen `loadModelBatch`-Aufruf; der Batch-Import, Arrange-Erfolg, Arrange-Rollback und ein echter Menüpfad mit vier manuell von der Platte bewegten Objekten bestanden zusammen 5/5 gezielte Instrumentierungstests.
-- Dabei gefundener 453-Fehler: fehlgeschlagene Anordnung zeigte fälschlich die Meldung „Kein Platz für weitere Kopien“. Die Meldung existiert schon in 452 und ist daher keine 453-Code-Rücknahme. Der aktuelle Entwicklungszweig verwendet dafür `ModelContextArrangeFailed`.
-- Frische aktuelle JVM-Abnahme mit `--rerun-tasks`: Debug 773/773 und SliceTest 773/773, jeweils 0 Fehler/Errors/Skips. Aktuelle ARM64-SliceTest- und Instrumentierungs-APKs wurden auf dem Emulator installiert; Mehr-Objekt-Anordnen über das Menü und expliziter Externspulenstatus bestanden 2/2.
-- Das zuerst gestartete Gradle-Instrumentierungsziel hatte auf dem Emulator noch die alten 453-Test-APKs installiert und blockierte vor dem Test. Nach Installation der aktuellen SliceTest-/Test-APKs lief der Test direkt erfolgreich; der veraltete Paketstand wurde nicht als Fehler der aktuellen Quelle gewertet.
-- Release-Kandidat wird auf `0.8.454` / `versionCode 489` vorbereitet. Debug-APK, Start-/Logcat-Prüfung und GitHub-Prerelease sind noch offen. Kein physisches Xiaomi/HONOR-Gerät für ACE-Firmware- oder Leistungsprüfung verbunden.
+- Ursache der Rücknahmen: Vor dem Abgleich war `codex/nightly-batch11-next` kein Nachfolger von `v0.8.453-nightly.1` (`614d44b4b0`). Der Entwicklungszweig war abgezweigt und hatte sieben Commits aus 453s Veröffentlichungs-Linie nicht in seiner Historie. Deshalb konnte ein Nightly-Build aus dem falschen Zweig tatsächlich veröffentlichte Änderungen auslassen. Die sichtbaren Sammelimport- und Arrange-Aufrufpfade sind zwischen den Tags 452 und 453 selbst unverändert; die 453-Version besteht ihre jeweiligen Emulatorregressionen.
+- Korrektur: 453 wurde mit den neueren Nightly-Funktionen zusammengeführt. Merge-Commit `1d35cffb585f0bc67f26f87e6c45cb3ab51e1c4e` enthält nun beide Linien. Der irreführende Arrange-Fehlertext „Kein Platz für weitere Kopien“ stammt bereits aus 452; im aktuellen Code wird dafür `ModelContextArrangeFailed` verwendet.
+- Verifikation auf Android 16/API 36: Debug-Unit **775/775**, SliceTest-Unit **775/775**, jeweils 0 Fehler/Errors/Skips. Drei gezielte Instrumentierungstests bestanden: `NativeSliceDeviceTest#spiralInsetArachneKeepsSolidSurfaceWallPaths`, `MmuFilamentSyncDeviceTest#explicitExternalSpoolReadyStatusIsRetainedWithEnabledMmuConfiguration` und `InitialProjectMenuDeviceTest#modelMenuArrangeRepacksSeveralMovedObjectsInsteadOfFillingWithCopies` (**3/3**). Debug- und SliceTest-APK gebaut; Haupt-APK installiert und gestartet, `SetupActivity` sichtbar, kein `AndroidRuntime`-Absturz im Logcat.
+- Release: [OrkanSlicer Nightly 2.5 · 0.8.454](https://github.com/Exa201/OrkanSlicer-Nightly-2.5/releases/tag/v0.8.454-nightly.1), `versionCode 489`, APK `OrkanSlicerNightly25_1d35cffb58.apk`, SHA-256 `99dc2c7da085afcd68461696d3e6fa4ff996d6b9d49315df315163fad45d58f5`. Tag `v0.8.454-nightly.1` bleibt auf dem geprüften Merge-Commit; der Branch erhält zusätzlich den nachfolgenden Status-Dokumentationscommit.
+- Release-Retention gemäß Nutzerwunsch bereinigt: die fünf jüngsten Nightly-Releases bleiben vorhanden. Ein physisches Xiaomi/HONOR-Gerät war für diese Abnahme nicht per ADB verbunden; Drucker-/ACE-Firmwareverhalten bleibt daher auf echter Hardware ungeprüft.
+
+## 0.8.453-Regressionsprüfung — abgeschlossen
 
 ## Nightly continuation — fill-bed ANR regression verified
 
