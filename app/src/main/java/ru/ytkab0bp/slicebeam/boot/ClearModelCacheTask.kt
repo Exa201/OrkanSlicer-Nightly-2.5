@@ -4,9 +4,7 @@ import ru.ytkab0bp.slicebeam.SliceBeam
 
 class ClearModelCacheTask : BootTask(Runnable {
     val cache = SliceBeam.getModelCacheDir()
-    if (cache.exists()) {
-        cache.listFiles()?.forEach { it.delete() }
-    }
+    ModelCacheCleanup.removeStaleEntries(cache)
 }) {
     init {
         nonCritical = true
