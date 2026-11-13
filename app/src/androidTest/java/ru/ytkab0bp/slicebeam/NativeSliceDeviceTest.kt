@@ -629,6 +629,96 @@ class NativeSliceDeviceTest {
         }
     }
 
+    @Test(timeout = 120_000)
+    fun layerCoolingKeepsExtrusionSpeedsEquivalentForRelativeAndAbsoluteE() = withKobraProfile {
+        val context = InstrumentationRegistry.getInstrumentation().targetContext
+        val process = requireNotNull(SliceBeam.CONFIG?.findPrint("0.16mm Standard"))
+        val filament = requireNotNull(SliceBeam.CONFIG?.findFilament("Anycubic Generic PLA"))
+        val processKeys = listOf("layer_height", "initial_layer_print_height", "use_relative_e_distances")
+        val filamentKeys = listOf(
+            "filament_max_volumetric_speed", "slow_down_for_layer_cooling", "slow_down_layer_time", "slow_down_min_speed",
+        )
+        val previousProcess = processKeys.associateWith(process::get)
+        val previousFilament = filamentKeys.associateWith(filament::get)
+        val source = createThinCubeFixture("relative-e-layer-cooling.stl", 20.0, 20.0, 12.0)
+        val output = File(context.cacheDir, "relative-e-layer-cooling.gcode")
+        val model = Model(source).also { it.ensureOnBed(0) }
+
+        fun extrusionSpeeds(relativeE: Boolean): List<Double> {
+            process.put("layer_height", "0.3")
+            process.put("initial_layer_print_height", "0.3")
+            process.put("use_relative_e_distances", if (relativeE) "1" else "0")
+            filament.put("filament_max_volumetric_speed", "100")
+            filament.put("slow_down_for_layer_cooling", "1")
+            filament.put("slow_down_layer_time", "10")
+            filament.put("slow_down_min_speed", "1")
+            SliceBeam.genCurrentConfig(model)
+            val config = SliceBeam.getCurrentConfigFile()
+            val serialized = config.readText()
+            assertTrue("Relative/absolute E mode must reach the real slicer config", Regex("(?m)^use_relative_e_distances\\s*=\\s*${if (relativeE) "1" else "0"}\\s*$").containsMatchIn(serialized))
+            output.delete()
+            val result = model.slice(config.absolutePath, output.absolutePath, null)
+            val gcode = try {
+                assertTrue("The cooling regression fixture must produce G-code", output.isFile && output.length() > 0L)
+                output.readText()
+            } finally {
+                result.release()
+            }
+
+            var modalFeedrate = 0.0
+            var relativeExtrusion = relativeE
+            var x = 0.0
+            var y = 0.0
+            var e = 0.0
+            val speeds = mutableListOf<Double>()
+            // Match GCodeReader semantics: recognize omitted leading zero and count only positive XY extrusion.
+            val parameter = Regex("([XYEF])-?(?:\\d+(?:\\.\\d*)?|\\.\\d+)")
+            for (line in gcode.lineSequence()) {
+                val command = line.substringBefore(';').trim()
+                if (command == "M82") { relativeExtrusion = false; continue }
+                if (command == "M83") { relativeExtrusion = true; continue }
+                if (command.startsWith("G92 ")) {
+                    parameter.findAll(command).forEach { match ->
+                        if (match.groupValues[1] == "E") e = match.value.drop(1).toDouble()
+                    }
+                    continue
+                }
+                if (!command.startsWith("G0 ") && !command.startsWith("G1 ")) continue
+                val words = parameter.findAll(command).associate { it.groupValues[1] to it.value.drop(1).toDouble() }
+                words["F"]?.let { modalFeedrate = it }
+                val nextX = words["X"] ?: x
+                val nextY = words["Y"] ?: y
+                val extrusionDelta = words["E"]?.let { value -> if (relativeExtrusion) value else value - e } ?: 0.0
+                if (kotlin.math.hypot(nextX - x, nextY - y) > 1e-6 && extrusionDelta > 1e-6) speeds += modalFeedrate
+                words["E"]?.let { e = if (relativeExtrusion) e + it else it }
+                x = nextX
+                y = nextY
+            }
+            return speeds
+        }
+
+        try {
+            val absolute = extrusionSpeeds(relativeE = false)
+            val relative = extrusionSpeeds(relativeE = true)
+            assertTrue(
+                "Both slices must contain XY extrusion moves with identical counts (absolute=${absolute.size}, relative=${relative.size})",
+                absolute.isNotEmpty() && relative.size == absolute.size,
+            )
+            val largestDifference = absolute.zip(relative).maxOf { (left, right) -> kotlin.math.abs(left - right) }
+            assertTrue(
+                "Layer cooling must not change speeds in relative-E mode; largest feed-rate difference was $largestDifference mm/min",
+                largestDifference <= 1.0,
+            )
+        } finally {
+            processKeys.forEach { process.put(it, previousProcess[it]) }
+            filamentKeys.forEach { filament.put(it, previousFilament[it]) }
+            model.release()
+            source.delete()
+            output.delete()
+            SliceBeam.getCurrentConfigFile().delete()
+        }
+    }
+
     @Test
     fun lightningDistanceFieldExpandsBoundsToContainOpenedOverhangSamples() = withKobraProfile {
         val probe = Native.lightning_distance_field_bounds_probe()

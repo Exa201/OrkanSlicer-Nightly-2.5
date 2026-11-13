@@ -8,6 +8,14 @@
 - Release: [OrkanSlicer Nightly 2.5 · 0.8.454](https://github.com/Exa201/OrkanSlicer-Nightly-2.5/releases/tag/v0.8.454-nightly.1), `versionCode 489`, APK `OrkanSlicerNightly25_1d35cffb58.apk`, SHA-256 `99dc2c7da085afcd68461696d3e6fa4ff996d6b9d49315df315163fad45d58f5`. Tag `v0.8.454-nightly.1` bleibt auf dem geprüften Merge-Commit; der Branch erhält zusätzlich den nachfolgenden Status-Dokumentationscommit.
 - Release-Retention gemäß Nutzerwunsch bereinigt: die fünf jüngsten Nightly-Releases bleiben vorhanden. Ein physisches Xiaomi/HONOR-Gerät war für diese Abnahme nicht per ADB verbunden; Drucker-/ACE-Firmwareverhalten bleibt daher auf echter Hardware ungeprüft.
 
+
+## Nightly Batch 16 — 1/10
+
+- Orca-Upstream wurde bis `36815b4f037390a7aa2bcc066aced7f61698a703` aktualisiert. Die zwei jüngsten Commits wurden bewertet: GUI-Speed-Variant ist für die Android-App nicht einschlägig; der native Layer-Cooling-Bug ist übernommen. Der Short-Wipe-Tower-Fix aus dem Commit davor war bereits vorhanden.
+- Port in `CoolingBuffer.cpp`: Relative E wird vor dem Positionskopieren zurückgesetzt, damit Feedrate-only-Zeilen den vorherigen Extrusionswert nicht als neues Delta wiederverwenden.
+- Verifikation: `NativeSliceDeviceTest#layerCoolingKeepsExtrusionSpeedsEquivalentForRelativeAndAbsoluteE` auf Android 16/API 36 bestanden (1/1); Debug-Unit und SliceTest-Unit beide BUILD SUCCESSFUL. Beim Test wurde dessen Regex erweitert, damit führende Null-lose Werte wie `E.0123` erkannt werden.
+- Phase/Step: Orca-Nightly-Batch 16, Punkt 1/10 abgeschlossen. APK/Release noch nicht fällig. Kein physisches Smartphone/Drucker verbunden.
+- Nächster konkreter Schritt: weitere seit dem zuletzt portierten Upstream-Stand hinzugekommene Android-relevante Orca-Fixes einzeln auf Abdeckung prüfen, mit Fokus auf native G-Code-, Modell- und Werkzeugpfade; pro Kandidat Regression auf ARM64/Emulator ergänzen.
 ## 0.8.453-Regressionsprüfung — abgeschlossen
 
 ## Nightly continuation — fill-bed ANR regression verified
