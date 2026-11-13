@@ -9,7 +9,30 @@
 - Full Debug and SliceTest JVM suites: 772/772 each. The original mixed worktree was backed up separately; this candidate includes only these two batch implementations, their native/device regressions and this state entry.
 - Clean-worktree suites passed (Debug and SliceTest 764/764 each); both focused API-36 regressions passed; ARM64 SliceTest APK built, installed and launched without fatal/JNI errors. Commit `81f494054c` is pushed to `codex/nightly-batch15-release`. Pre-release upload is pending because `gh auth status` reports no authenticated GitHub host and this session has no token. Next: publish the verified APK when GitHub authentication is available; continue external-spool/TBB/UI backlog from the backed-up mixed worktree.
 
-The external-spool, TBB initialization, UI, scaling and upload changes from the original mixed worktree are backed up and remain outside this Batch 15 release candidate.# Nightly execution state — 2026-11-07
+The earlier mixed-worktree changes remain backed up separately; this follow-up ports and verifies the external-spool and TBB fixes in the clean Nightly release worktree.
+
+## Nightly follow-up — external spool routing and native concurrency safety — 2026-11-13
+
+- Kobra preflight now consumes Moonraker's current `filament_hub` status. External-spool routing
+  requires an explicit `ext_spool=1`, `ext_spool_status=ready`, and null ACE `filament_hubs` report,
+  exactly one active G-code tool, and a known material. Empty ACE inventory, missing status,
+  multiple active tools, or a stale prior `ready` signal do not qualify.
+- External-spool upload preserves the known material/color and omits ACE slot metadata,
+  synchronization and tool selectors. The send dialog identifies the external material; switching
+  printer profiles restores the normal ACE checks.
+- `libslic3r/Thread.cpp` now uses `std::call_once` for TBB worker-pool warm-up and locale setup.
+  Concurrent first entry from independent print-processing threads could race on a plain static
+  boolean. Native slicing still uses oneTBB task-arena concurrency. The app IO pool remains bounded
+  to two or three heavy jobs to limit simultaneous RAM peaks.
+- Verification: focused Kotlin regressions 24/24; full Debug JVM 771/771; full SliceTest JVM
+  771/771; `MmuFilamentSyncDeviceTest` 22/22 on Android 16 API 36. ARM64 SliceTest native/app and
+  instrumentation APKs rebuilt; `git diff --check` clean. No physical Anycubic printer or Xiaomi
+  device was attached, so firmware interoperability and device performance remain unverified.
+- GitHub browser inventory showed no signed-in GitHub tab, and `gh auth status` has no authenticated
+  host. No release upload was made. Next: commit and push these changes, then validate actual
+  `filament_hub` fields from Kobra firmware and continue the next pinned Orca 2.5 parity candidate.
+
+# Nightly execution state — 2026-11-07
 
 - **Batch 15, Punkt 7/10 — Qidi X-Smart 5 aus Orca 2.5:** eingebettetes Offline-Profilpaket (`1433316b55`) für vier Düsen, 17 Prozesse plus zwei gemeinsame Prozessprofile, 247 Filamente plus ein Vererbungsprofil. Import ist im Setup sichtbar und ergänzt bestehende Nightly-Konfigurationen idempotent, auch wenn nur Teilprofile vorhanden sind. `IOUtils.configJsonToIni` bewahrt die lesbaren Orca-Profilnamen. `NativeSliceDeviceTest#qidiXSmart5Orca25ProfileFamilyMergesAndSlicesOnAndroid` bestand auf API 36 (1/1): Profilzahlen, Drucker-/Prozess-/Filament-Defaults, Kompatibilität, 180-mm-Bett und -Höhe, Wiederholungsimport sowie echter ARM64-Testwürfel-Slice mit Extrusion. `:app:testDebugUnitTest` erfolgreich. Keine physische Qidi-Hardware und kein realer Druck getestet. Batch 15 jetzt 7/10; nächster Schritt: den nächsten geeigneten Orca-2.5-Commit gegen den Android-Aufrufpfad prüfen und gezielt portieren; APK/Release erst nach 10/10.
 - Orca `c01ac8ff44` portiert: Legacy-`bed_exclude_area` wird auf endliche Koordinaten, mindestens drei eindeutige Punkte, nichtleere Fläche und Selbstüberschneidungen geprüft. API-36-Test `NativeSliceDeviceTest#legacyBedExcludeAreaRejectsMalformedPolygonsFromProductionGeometry`: aktualisierter Android-16/API-36-Gerätetest 1/1 bestanden (0 Fehler/Skips); zusätzlich gültige Flächenzählung und produktive `get_bed_excluded_regions()`-Filterung geprüft. Er testet nicht den gesamten Arrange-Aufruf. Ein erster nativer Build fand den fehlenden Geometry-Include; nach dessen Ergänzung ARM64 Slice-Instrumentierung erfolgreich. Batch 15 6/10; kein APK/Release vor 10/10.

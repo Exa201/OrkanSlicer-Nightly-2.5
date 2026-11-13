@@ -41,6 +41,45 @@ class MmuFilamentSync private constructor() {
             synchronizeInternal(printer, true, callback)
         }
 
+        /** True only when the printer explicitly reports that no MMU/ACE is enabled. */
+        @JvmStatic
+        fun isMmuUnavailableError(error: String?): Boolean =
+            error != null && error.trim() == message(R.string.MmuSyncNotAvailable)
+
+        /** Reads the Kobra firmware's explicit external-spool-ready / ACE-absent status. */
+        @JvmStatic
+        fun isExternalSpoolReady(printerTitle: String): Boolean {
+            val prefs = Prefs.getPrefs() ?: return false
+            return prefs.getBoolean(MmuPrinterPreferenceKeys.forPrinter("external_spool_ready", printerTitle), false)
+        }
+
+        /** Pure firmware-status predicate; an empty ACE inventory alone is not enough. */
+        internal fun isExternalSpoolReadyStatus(filamentHub: JSONObject?): Boolean {
+            if (filamentHub == null || !filamentHub.has("filament_hubs") || !filamentHub.isNull("filament_hubs"))
+                return false
+            val externalEnabled = when (val value = filamentHub.opt("ext_spool")) {
+                is Number -> value.toInt() == 1
+                is String -> value == "1" || value.equals("true", ignoreCase = true)
+                is Boolean -> value
+                null -> false
+                else -> false
+            }
+            return isExternalSpoolReadyStatus(
+                externalEnabled,
+                filamentHub.optString("ext_spool_status"),
+                filamentHub.has("filament_hubs"),
+                filamentHub.isNull("filament_hubs"),
+            )
+        }
+
+        internal fun isExternalSpoolReadyStatus(
+            externalSpoolEnabled: Boolean,
+            externalSpoolStatus: String?,
+            hasAceHubState: Boolean,
+            aceHubsAreNull: Boolean,
+        ): Boolean = externalSpoolEnabled &&
+            externalSpoolStatus?.equals("ready", ignoreCase = true) == true && hasAceHubState && aceHubsAreNull
+
         private fun synchronizeInternal(printer: ConfigObject, replacePalette: Boolean, callback: Callback) {
             var host = printer.get("print_host")?.trim() ?: ""
             if (TextUtils.isEmpty(host)) {
@@ -52,6 +91,10 @@ class MmuFilamentSync private constructor() {
             if (!host.startsWith("http://") && !host.startsWith("https://")) host = "http://$host"
             while (host.endsWith("/")) host = host.dropLast(1)
             val apiKey = printer.get("printhost_apikey") ?: ""
+            // Only a fresh, explicit printer report can enable external-spool routing.
+            Prefs.getPrefs()?.edit()
+                ?.remove(MmuPrinterPreferenceKeys.forPrinter("external_spool_ready", printer.title.orEmpty()))
+                ?.apply()
             val headers: Array<Header> = if (TextUtils.isEmpty(apiKey)) emptyArray()
                 else arrayOf(BasicHeader("X-Api-Key", apiKey))
 
@@ -76,14 +119,18 @@ class MmuFilamentSync private constructor() {
                             body: ByteArray?,
                             error: Throwable?,
                         ) {
-                            callback.onResult(0, error?.message?.takeIf { it.isNotBlank() }
-                                ?: message(R.string.MmuSyncNotAvailable))
+                            val detail = if (statusCode == 400 || statusCode == 404) {
+                                message(R.string.MmuSyncNotAvailable)
+                            } else error?.message?.takeIf { it.isNotBlank() }
+                                ?: message(R.string.MmuSyncNotAvailable)
+                            callback.onResult(0, detail)
                         }
                     })
             }
-            client.get(SliceBeam.requireInstance(), "$host/printer/objects/query?mmu", headers, null,
+            client.get(SliceBeam.requireInstance(), "$host/printer/objects/query?mmu&filament_hub", headers, null,
                 object : AsyncHttpResponseHandler() {
                     override fun onSuccess(statusCode: Int, responseHeaders: Array<Header>?, body: ByteArray?) {
+                        rememberExternalSpoolStatus(printer, body)
                         val hasMmu = try {
                             body != null && JSONObject(String(body, Charsets.UTF_8))
                                 .optJSONObject("result")?.optJSONObject("status")?.optJSONObject("mmu")?.optBoolean("enabled", false) == true
@@ -109,6 +156,21 @@ class MmuFilamentSync private constructor() {
                         callback.onResult(0, detail)
                     }
                 })
+        }
+
+        private fun rememberExternalSpoolStatus(printer: ConfigObject, body: ByteArray?) {
+            val ready = try {
+                body?.takeIf { it.isNotEmpty() }
+                    ?.let { JSONObject(String(it, Charsets.UTF_8)) }
+                    ?.optJSONObject("result")?.optJSONObject("status")
+                    ?.let { isExternalSpoolReadyStatus(it.optJSONObject("filament_hub")) }
+                    ?: false
+            } catch (_: Exception) {
+                false
+            }
+            Prefs.getPrefs()?.edit()
+                ?.putBoolean(MmuPrinterPreferenceKeys.forPrinter("external_spool_ready", printer.title.orEmpty()), ready)
+                ?.apply()
         }
 
         private fun applySyncResponse(printer: ConfigObject, replacePalette: Boolean, responseText: String): Int {

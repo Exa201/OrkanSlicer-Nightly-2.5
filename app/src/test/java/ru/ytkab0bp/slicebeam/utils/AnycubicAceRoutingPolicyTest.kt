@@ -6,6 +6,22 @@ import org.junit.Assert.assertNull
 import org.junit.Test
 
 class AnycubicAceRoutingPolicyTest {
+    @Test fun externalSpoolFallbackRequiresFreshReadyStateKnownMaterialAndOneTool() {
+        for (material in listOf("TPU", "PLA", "PETG", "ABS", "ASA", "PA-CF")) {
+            assertEquals(material, true,
+                AnycubicAceRoutingPolicy.canUseExternalSpool(true, intArrayOf(0), listOf(material)))
+        }
+        assertEquals(false, AnycubicAceRoutingPolicy.canUseExternalSpool(false, intArrayOf(0), listOf("PLA")))
+        assertEquals(false, AnycubicAceRoutingPolicy.canUseExternalSpool(true, intArrayOf(0), listOf(" ")))
+        assertEquals(false, AnycubicAceRoutingPolicy.canUseExternalSpool(true, intArrayOf(0), emptyList()))
+        assertEquals(false, AnycubicAceRoutingPolicy.canUseExternalSpool(true, intArrayOf(0, 1), listOf("PLA", "PLA")))
+    }
+
+    @Test fun missingExternalSpoolStatusDoesNotQualifyEvenWhenMmuIsUnavailable() {
+        // An unavailable MMU alone does not prove that an external spool is ready.
+        assertEquals(false, AnycubicAceRoutingPolicy.canUseExternalSpool(false, intArrayOf(0), listOf("TPU")))
+    }
+
     @Test fun keepsUnusedHolesAndRoutesUsedToolsToTheirDefaultLoadedGates() {
         val routing = AnycubicAceRoutingPolicy.resolve(
             toolCount = 3,

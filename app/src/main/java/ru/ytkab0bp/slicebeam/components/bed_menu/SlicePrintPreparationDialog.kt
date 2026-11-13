@@ -43,6 +43,7 @@ import ru.ytkab0bp.slicebeam.components.AcePhysicalSlotsBar
 import ru.ytkab0bp.slicebeam.config.ConfigObject
 import ru.ytkab0bp.slicebeam.fragment.BedFragment
 import ru.ytkab0bp.slicebeam.utils.MmuFilamentSync
+import ru.ytkab0bp.slicebeam.utils.Prefs
 import ru.ytkab0bp.slicebeam.utils.QidiBoxToolMappingPolicy
 import ru.ytkab0bp.slicebeam.utils.QidiBoxToolMappingStore
 import ru.ytkab0bp.slicebeam.utils.QidiGCode3mfPackager
@@ -81,6 +82,7 @@ object SlicePrintPreparationDialog {
         sourceFilamentTypes: List<String>,
         pressureAdvance: SlicePreparationTools.PressureAdvanceCommands,
         slicingWarning: String? = null,
+        externalSpool: Boolean = false,
         activateProfile: PrinterProfileAction,
         reopenAfterReslice: (ConfigObject) -> Unit,
         sendAction: PrinterSendAction,
@@ -94,7 +96,8 @@ object SlicePrintPreparationDialog {
         }.getOrDefault(listOf(printer))
         var spiralVaseWarningAcknowledged = false
         fun warningFor(targetPrinter: ConfigObject): PrintPreparationWarning? {
-            if (isAnycubicKobra(targetPrinter) && activeTools.isNotEmpty()) {
+            val targetUsesExternalSpool = externalSpool && targetPrinter.title == printer.title
+            if (!targetUsesExternalSpool && isAnycubicKobra(targetPrinter) && activeTools.isNotEmpty()) {
                 val title = targetPrinter.title.orEmpty()
                 val routing = AnycubicAceRoutingPolicy.resolve(
                     gcodeToolCount,
@@ -116,7 +119,7 @@ object SlicePrintPreparationDialog {
                     AnycubicAceRoutingPolicy.toolValues(profile["nozzle_temperature"]),
                 )?.let { return PrintPreparationWarning.SharedAceGate(it) }
             }
-            if (print && isAnycubicKobra(targetPrinter)) {
+            if (!targetUsesExternalSpool && print && isAnycubicKobra(targetPrinter)) {
                 val title = targetPrinter.title.orEmpty()
                 val selectedGates = MmuFilamentSync.getSelectedGates(title, gcodeToolCount)
                 val mapping = AnycubicAceRoutingPolicy.resolve(
@@ -165,6 +168,7 @@ object SlicePrintPreparationDialog {
                 activeTools = activeTools,
                 firstToolUse = firstToolUse,
                 sourceFilamentTypes = sourceFilamentTypes,
+                externalSpool = externalSpool,
                 pressureAdvance = pressureAdvance,
                 onDismiss = dismiss,
                 onWarningAcknowledged = { acknowledged ->
@@ -246,6 +250,7 @@ private fun PrintPreparationDialog(
     activeTools: IntArray,
     firstToolUse: IntArray,
     sourceFilamentTypes: List<String>,
+    externalSpool: Boolean,
     pressureAdvance: SlicePreparationTools.PressureAdvanceCommands,
     onDismiss: () -> Unit,
     onWarningAcknowledged: (PrintPreparationWarning) -> Unit,
@@ -262,11 +267,20 @@ private fun PrintPreparationDialog(
     }
     val selectedGates = MmuFilamentSync.getSelectedGates(printer.title.orEmpty(), gcodeToolCount)
         ?: IntArray(gcodeToolCount) { tool -> MmuFilamentSync.defaultGateForTool(printer.title.orEmpty(), tool) }
-    val mappingSummary = SlicePrintPreparationDialog.formatToolMapping(
+    val externalTool = activeTools.firstOrNull() ?: 0
+    val targetUsesExternalSpool = externalSpool && printer.title == initialPrinter.title &&
+        SlicePrintPreparationDialog.isAnycubicKobra(printer)
+    val externalMaterial = sourceFilamentTypes.getOrNull(externalTool)?.takeIf(String::isNotBlank)
+        ?: Prefs.getFilamentSlots().getOrNull(externalTool)?.type?.takeIf(String::isNotBlank)
+    val mappingSummary = if (targetUsesExternalSpool) stringResource(
+        R.string.ExternalSpoolMapping,
+        externalMaterial ?: stringResource(R.string.FilamentType),
+    )
+    else SlicePrintPreparationDialog.formatToolMapping(
         context, printer.title.orEmpty(), firstToolUse, selectedGates,
     )
-    val emptyAceSlots = remember(printer.title, selectedGates.contentHashCode()) {
-        SlicePreparationTools.emptyAceSlotsBeforeUsedGate(
+    val emptyAceSlots = remember(printer.title, selectedGates.contentHashCode(), targetUsesExternalSpool) {
+        if (targetUsesExternalSpool) null else SlicePreparationTools.emptyAceSlotsBeforeUsedGate(
             activeTools,
             selectedGates,
             MmuFilamentSync.loadedGates(printer.title.orEmpty()),
@@ -284,8 +298,9 @@ private fun PrintPreparationDialog(
                 mappingSummary = mappingSummary.takeIf {
                     !resliceRequired && SlicePrintPreparationDialog.isAnycubicKobra(printer) && activeTools.isNotEmpty()
                 },
+                externalSpool = targetUsesExternalSpool,
                 emptyAceSlots = emptyAceSlots.takeIf {
-                    !resliceRequired && SlicePrintPreparationDialog.isAnycubicKobra(printer) && it.isNotEmpty()
+                    it != null && !resliceRequired && SlicePrintPreparationDialog.isAnycubicKobra(printer) && it.isNotEmpty()
                 },
                 pressureAdvance = pressureAdvance,
                 qidiBoxSlots = qidiBoxSlots.takeIf {
@@ -488,6 +503,7 @@ private fun PrintPreparationContent(
     availablePrinters: List<ConfigObject>,
     resliceRequired: Boolean,
     mappingSummary: String?,
+    externalSpool: Boolean,
     emptyAceSlots: IntArray?,
     pressureAdvance: SlicePreparationTools.PressureAdvanceCommands,
     qidiBoxSlots: IntArray?,
@@ -550,7 +566,7 @@ private fun PrintPreparationContent(
             }
             Text("▾", color = secondary, fontSize = 20.sp)
         }
-        if (!resliceRequired && SlicePrintPreparationDialog.isAnycubicKobra(printer)) {
+        if (!externalSpool && !resliceRequired && SlicePrintPreparationDialog.isAnycubicKobra(printer)) {
             AcePhysicalSlotsBar(MmuFilamentSync.physicalGates(printer.title.orEmpty()))
         }
         if (!resliceRequired && qidiBoxSlots != null && qidiActiveTools.isNotEmpty()) {

@@ -84,6 +84,7 @@ object SliceUploadController {
         activeTools: IntArray,
         precomputedAnycubicScan: AnycubicGCodeProcessor.ScanResult? = null,
         qidiBoxSlots: IntArray? = null,
+        externalSpool: Boolean = false,
     ) {
         val context = fragment.getContext() ?: return
         val slicedResult = fragment.glView?.renderer?.gcodeResult
@@ -108,7 +109,7 @@ object SliceUploadController {
         val modelInstances = currentModel?.objectsCount?.coerceAtLeast(1) ?: 1
         val qidiQ2 = QidiGCode3mfPackager.isQidiQ2(printer)
         val anycubicKobra3 = isAnycubicKobra3(printer)
-        val aceBefore = if (anycubicKobra3) MmuFilamentSync.assignedGates(
+        val aceBefore = if (anycubicKobra3 && !externalSpool) MmuFilamentSync.assignedGates(
             printer.title.orEmpty(), activeTools) else null
         val uploadName = if (qidiQ2) QidiGCode3mfPackager.uploadName(name) else name
         val continuePreparation: (ByteArray?) -> Unit = { preview -> IOUtils.IO_POOL.execute {
@@ -131,7 +132,7 @@ object SliceUploadController {
                     uploadFile = if (qidiQ2) prepareQidiUpload(source, printer, preview, uploadName)
                     else prepareAnycubicUpload(
                         source, printer, modelInstances, fragment, preview, progress,
-                        precomputedAnycubicScan,
+                        precomputedAnycubicScan, externalSpool,
                     )
                     if (uploadFile != null) {
                         if (qidiQ2) {
@@ -186,7 +187,7 @@ object SliceUploadController {
             if (qidiQ2 || anycubicKobra3) captureWorkspacePreview(fragment, continuePreparation)
             else continuePreparation(null)
         }
-        if (anycubicKobra3) {
+        if (anycubicKobra3 && !externalSpool) {
             progress.setMessage(context.getString(R.string.UploadAceChecking))
             MmuFilamentSync.synchronize(printer) { _, error ->
                 if (fragment.getContext() == null) {
@@ -640,6 +641,7 @@ object SliceUploadController {
         previewPng: ByteArray?,
         progress: PrinterUploadProgressDialog,
         precomputedScan: AnycubicGCodeProcessor.ScanResult?,
+        externalSpool: Boolean,
     ): File? {
         if (!isAnycubicKobra3(printer)) return source
 
@@ -664,7 +666,28 @@ object SliceUploadController {
         // Reuse it instead of scanning large G-code a second time.
         val usedTools = if (scan.usedTools.isEmpty()) intArrayOf(0) else scan.usedTools
         val loadedGates = MmuFilamentSync.loadedGates(printerTitle)
-        val routing = AnycubicAceRoutingPolicy.resolve(
+        val liveSlots = Prefs.getFilamentSlots()
+        val externalMaterials = MutableList(maxOf(scan.materials.size, liveSlots.size)) { index ->
+            if (scan.hasFilamentTypes) scan.materials.getOrNull(index).orEmpty() else ""
+        }.also { materials ->
+            liveSlots.forEachIndexed { index, slot ->
+                val material = slot.type
+                if (index < materials.size && materials[index].isBlank() && !material.isNullOrBlank()) {
+                    materials[index] = material
+                }
+            }
+        }
+        if (externalSpool && !AnycubicAceRoutingPolicy.canUseExternalSpool(
+                true, usedTools, externalMaterials,
+            )) {
+            showPreparationFailure(fragment, "External spool mode requires exactly one active tool with a known material.")
+            return null
+        }
+        val routing = if (externalSpool) AnycubicAceRoutingPolicy.Routing(
+            toolCommands = IntArray(logicalToolCount),
+            gates = IntArray(logicalToolCount) { -1 },
+            unavailableTool = null,
+        ) else AnycubicAceRoutingPolicy.resolve(
             logicalToolCount,
             usedTools,
             loadedGates,
@@ -680,7 +703,7 @@ object SliceUploadController {
             return null
         }
         val currentSliceConfig = SliceBeam.buildCurrentConfigObject(logicalToolCount)
-        val incompatibleSharedTool = AnycubicAceRoutingPolicy.firstIncompatibleSharedGateTool(
+        val incompatibleSharedTool = if (externalSpool) null else AnycubicAceRoutingPolicy.firstIncompatibleSharedGateTool(
             usedTools,
             routing.gates,
             scan.materials.toList(),
@@ -694,17 +717,27 @@ object SliceUploadController {
         val gates = routing.gates
         val remappedTools = routing.toolCommands
 
-        val liveSlots = Prefs.getFilamentSlots()
         // Vendor metadata describes the ACE gate that receives the tool, not the
         // source 3MF palette. Keep slicer temperatures unchanged in the G-code.
+        val externalTool = usedTools.firstOrNull() ?: 0
+        val externalMaterial = externalMaterials.getOrNull(externalTool)?.trim()?.takeIf(String::isNotEmpty)
+        if (externalSpool && externalMaterial == null) {
+            showPreparationFailure(fragment, "External spool mode requires a known material for the active tool.")
+            return null
+        }
+        val externalSlot = ru.ytkab0bp.slicebeam.utils.FilamentSlot(
+            liveSlots.getOrNull(externalTool)?.color ?: Color.WHITE,
+            externalMaterial ?: scan.materials.getOrNull(externalTool)?.takeIf(String::isNotBlank) ?: "PLA",
+        )
         val physicalSlots = (0 until logicalToolCount).map { tool ->
+            if (externalSpool) externalSlot else
             MmuFilamentSync.gateSlot(printerTitle, gates[tool])
                 ?: (if (gates[tool] in loadedGates) liveSlots.getOrNull(tool) else null)
                 ?: ru.ytkab0bp.slicebeam.utils.FilamentSlot(Color.rgb(25, 200, 160), "PLA")
         }
         val emittedPaintInfo = BooleanArray(4)
         var hasPaintInfo = false
-        val paintInfo = buildString {
+        val paintInfo = if (externalSpool) "[]" else buildString {
             append('[')
             for (tool in 0 until logicalToolCount) {
                 val mappedTool = remappedTools[tool]
@@ -731,6 +764,7 @@ object SliceUploadController {
             this.paintInfo = paintInfo
             colors = AnycubicGCodeProcessor.formatMappedPalette(remappedTools, physicalSlots, true)
             materials = AnycubicGCodeProcessor.formatMappedPalette(remappedTools, physicalSlots, false)
+            this.externalSpool = externalSpool
             val thumbnails = createAnycubicThumbnails(previewPng)
             smallThumbnail = thumbnails.first
             largeThumbnail = thumbnails.second

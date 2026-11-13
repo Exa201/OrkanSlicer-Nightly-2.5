@@ -221,10 +221,10 @@ bool is_main_thread_active()
 // Also it sets locale of the worker threads to "C" for the G-code generator to produce "." as a decimal separator.
 void name_tbb_thread_pool_threads_set_locale()
 {
-	static bool initialized = false;
-	if (initialized)
-		return;
-	initialized = true;
+	// Print::process and SLAPrint::process may start on separate worker threads.
+	// Protect the one-time TBB warm-up and locale setup against concurrent entry.
+	static std::once_flag initialized;
+	std::call_once(initialized, [] {
 
 	// see GH issue #5661 PrusaSlicer hangs on Linux when run with non standard task affinity
 	// TBB will respect the task affinity mask on Linux and spawn less threads than std::thread::hardware_concurrency().
@@ -281,6 +281,7 @@ void name_tbb_thread_pool_threads_set_locale()
 #endif
     		}
         });
+	});
 }
 
 }

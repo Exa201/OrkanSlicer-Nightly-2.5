@@ -354,6 +354,37 @@ class MmuFilamentSyncDeviceTest {
         assertEquals("ABS", Prefs.getFilamentSlots().single().type)
     }
 
+    @Test fun explicitExternalSpoolReadyStatusIsRetainedWithEnabledMmuConfiguration() {
+        val payload = response(intArrayOf(0), intArrayOf(0))
+        payload.getJSONObject("result").getJSONObject("status").put("filament_hub", JSONObject()
+            .put("ext_spool", 1)
+            .put("ext_spool_status", "ready")
+            .put("filament_hubs", JSONObject.NULL))
+
+        assertEquals(0 to null, sync(payload, full = false))
+        assertTrue(MmuFilamentSync.isExternalSpoolReady(title))
+    }
+
+    @Test fun disabledMmuUsesFreshExternalSpoolStatusAndNeverReusesAStaleReadySignal() {
+        val ready = response(intArrayOf(0), intArrayOf(0))
+        ready.getJSONObject("result").getJSONObject("status").apply {
+            getJSONObject("mmu").put("enabled", false)
+            put("filament_hub", JSONObject()
+                .put("ext_spool", 1)
+                .put("ext_spool_status", "ready")
+                .put("filament_hubs", JSONObject.NULL))
+        }
+        assertNotNull("disabled ACE still reports the unavailable-MMU result", sync(ready, full = false).second)
+        assertTrue("the current firmware response explicitly reports a ready external spool",
+            MmuFilamentSync.isExternalSpoolReady(title))
+
+        val unknown = response(intArrayOf(0), intArrayOf(0))
+        unknown.getJSONObject("result").getJSONObject("status").getJSONObject("mmu").put("enabled", false)
+        assertNotNull(sync(unknown, full = false).second)
+        assertFalse("a later response without external-spool status must clear the previous signal",
+            MmuFilamentSync.isExternalSpoolReady(title))
+    }
+
     @Test fun incompleteAndEmptyPrinterResponsesLeaveThePreviousPaletteAndMappingIntact() {
         Prefs.setFilamentSlots(listOf(FilamentSlot(0x123456, "ABS")))
         MmuFilamentSync.setSelectedGates(title, intArrayOf(3))
@@ -409,7 +440,7 @@ class MmuFilamentSyncDeviceTest {
                     server.accept().use { socket ->
                         socket.soTimeout = 10_000
                         val reader = socket.getInputStream().bufferedReader()
-                        assertTrue(reader.readLine().startsWith("GET /printer/objects/query?mmu "))
+                        assertTrue(reader.readLine().startsWith("GET /printer/objects/query?mmu&filament_hub "))
                         while (!reader.readLine().isNullOrEmpty()) { }
                         socket.getOutputStream().apply {
                             write("HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: ${body.size}\r\nConnection: close\r\n\r\n".toByteArray())
@@ -426,7 +457,7 @@ class MmuFilamentSyncDeviceTest {
                             while (!reader.readLine().isNullOrEmpty()) { }
                             val emptyBox = """{"result":{"status":{}}}""".toByteArray(Charsets.UTF_8)
                             socket.getOutputStream().apply {
-                                write("HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: ${emptyBox.size}\r\nConnection: close\r\n\r\n".toByteArray())
+                                write("HTTP/1.1 404 Not Found\r\nContent-Type: application/json\r\nContent-Length: ${emptyBox.size}\r\nConnection: close\r\n\r\n".toByteArray())
                                 write(emptyBox)
                                 flush()
                             }
@@ -467,7 +498,7 @@ class MmuFilamentSyncDeviceTest {
                         server.accept().use { socket ->
                         socket.soTimeout = 10_000
                         val reader = socket.getInputStream().bufferedReader()
-                            val expectedPath = if (index == 0) "?mmu" else "?box"
+                            val expectedPath = if (index == 0) "?mmu&filament_hub" else "?box"
                             assertTrue(reader.readLine().startsWith("GET /printer/objects/query$expectedPath "))
                             while (!reader.readLine().isNullOrEmpty()) { }
                             val body = response.toByteArray(Charsets.UTF_8)

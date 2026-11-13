@@ -55,4 +55,52 @@ class SinglePhysicalSlotOutputTest {
             assertTrue(result.indexOf("T2\n") < result.indexOf("G1 E-1"))
         } finally { source.delete(); output.delete() }
     }
+
+    @Test fun externalSpoolKeepsKnownMaterialAndColorWithoutAceMetadata() {
+        val source = File.createTempFile("external-spool-source", ".gcode")
+        val output = File.createTempFile("external-spool-output", ".gcode")
+        try {
+            source.writeText("; HEADER_BLOCK_START\n; HEADER_BLOCK_END\nT0\nG9111 bedTemp=60 T0 M117\nM104 T0 S210\nG1 X10 E1\n; comment T0 stays documentation\n")
+            val scan = AnycubicGCodeProcessor.scan(source)
+            assertFalse(scan.hasFilamentTypes)
+            assertTrue(AnycubicGCodeProcessor.rewrite(source, output, scan, AnycubicGCodeProcessor.Options().apply {
+                remappedTools = intArrayOf(0)
+                gates = intArrayOf(-1)
+                externalSpool = true
+                materials = "PETG"
+                colors = "#0055FF"
+            }))
+
+            val result = output.readText()
+            assertTrue(result.contains("; filament_type = PETG"))
+            assertTrue(result.contains("; filament_colour = #0055FF"))
+            assertFalse(result.contains("; paint_info ="))
+            assertFalse(result.contains("; filament: "))
+            val aceSelector = Regex("(?i)(?<![A-Z0-9_])T[0-9]{1,2}(?![0-9])")
+            assertFalse("ACE tool selectors must be absent in external spool mode",
+                result.lines().any { aceSelector.containsMatchIn(it.substringBefore(';')) })
+            assertTrue("embedded G9111 tool selector must be removed", Regex("G9111 bedTemp=60\\s+M117").containsMatchIn(result))
+            assertTrue("single-nozzle heater command must remain usable without a tool selector", Regex("M104\\s+S210").containsMatchIn(result))
+            assertTrue("tool text in comments must remain unchanged", result.contains("; comment T0 stays documentation"))
+        } finally { source.delete(); output.delete() }
+    }
+
+    @Test fun externalSpoolDoesNotInsertAnImplicitFirstAceTool() {
+        val source = File.createTempFile("external-spool-no-tool-source", ".gcode")
+        val output = File.createTempFile("external-spool-no-tool-output", ".gcode")
+        try {
+            source.writeText("; HEADER_BLOCK_END\nG28\nG1 X10 E1\n")
+            val scan = AnycubicGCodeProcessor.scan(source)
+            assertFalse(scan.hasToolSelection)
+            assertTrue(AnycubicGCodeProcessor.rewrite(source, output, scan, AnycubicGCodeProcessor.Options().apply {
+                remappedTools = intArrayOf(0)
+                gates = intArrayOf(-1)
+                externalSpool = true
+                materials = "PLA"
+            }))
+            val result = output.readText()
+            assertFalse("external spool mode must not synthesize T0", Regex("(?m)^\\s*T[0-9]+(?:\\s|$)").containsMatchIn(result))
+            assertTrue("the model extrusion must be retained", result.contains("G1 X10 E1"))
+        } finally { source.delete(); output.delete() }
+    }
 }
