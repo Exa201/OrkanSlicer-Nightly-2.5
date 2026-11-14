@@ -43,6 +43,9 @@ import java.io.File
 import java.io.FileOutputStream
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
+import java.util.concurrent.ConcurrentHashMap
+import java.util.concurrent.atomic.AtomicBoolean
+import java.util.concurrent.atomic.AtomicLong
 import java.util.zip.ZipEntry
 import java.util.zip.ZipFile
 import java.util.zip.ZipOutputStream
@@ -51,6 +54,84 @@ import java.util.zip.CRC32
 /** Runs an ARM64 native slice in an isolated app id, away from production app data. */
 @RunWith(AndroidJUnit4::class)
 class NativeSliceDeviceTest {
+    private data class TbbWorkerSliceMeasurement(
+        val cpuTicks: Map<String, Long>,
+        val processorIds: Set<Int>,
+    )
+
+    private data class TbbWorkerSnapshot(val cpuTicks: Long, val processorId: Int?)
+
+    private fun readTbbWorkerSnapshots(): Map<String, TbbWorkerSnapshot> =
+        File("/proc/self/task").listFiles().orEmpty().mapNotNull { task ->
+            val name = runCatching { File(task, "comm").readText().trim() }.getOrNull()
+                ?.takeIf { it.startsWith("slic3r_tbb_") } ?: return@mapNotNull null
+            val fields = runCatching {
+                File(task, "stat").readText().substringAfterLast(')').trim().split(Regex("\\s+"))
+            }.getOrNull() ?: return@mapNotNull null
+            val userTicks = fields.getOrNull(11)?.toLongOrNull() ?: return@mapNotNull null
+            val systemTicks = fields.getOrNull(12)?.toLongOrNull() ?: return@mapNotNull null
+            name to TbbWorkerSnapshot(userTicks + systemTicks, fields.getOrNull(36)?.toIntOrNull())
+        }.toMap()
+
+    private fun measureTbbWorkerCpuDuring(block: () -> Unit): TbbWorkerSliceMeasurement {
+        val sampling = AtomicBoolean(true)
+        val previous = ConcurrentHashMap<String, Long>()
+        val accumulated = ConcurrentHashMap<String, AtomicLong>()
+        val processorIds = ConcurrentHashMap.newKeySet<Int>()
+        val sampler = Thread({
+            while (sampling.get()) {
+                val current = readTbbWorkerSnapshots()
+                current.forEach { (name, snapshot) ->
+                    snapshot.processorId?.let(processorIds::add)
+                    val old = previous.put(name, snapshot.cpuTicks)
+                    if (old != null && snapshot.cpuTicks > old) {
+                        accumulated.computeIfAbsent(name) { AtomicLong() }.addAndGet(snapshot.cpuTicks - old)
+                    }
+                }
+                try {
+                    Thread.sleep(5)
+                } catch (_: InterruptedException) {
+                    break
+                }
+            }
+            readTbbWorkerSnapshots().forEach { (name, snapshot) ->
+                snapshot.processorId?.let(processorIds::add)
+                val old = previous.put(name, snapshot.cpuTicks)
+                if (old != null && snapshot.cpuTicks > old) {
+                    accumulated.computeIfAbsent(name) { AtomicLong() }.addAndGet(snapshot.cpuTicks - old)
+                }
+            }
+        }, "slice-tbb-cpu-monitor")
+        sampler.start()
+        try {
+            block()
+        } finally {
+            sampling.set(false)
+            sampler.join(2_000)
+        }
+        return TbbWorkerSliceMeasurement(
+            cpuTicks = accumulated.mapValues { it.value.get() },
+            processorIds = processorIds.toSet(),
+        )
+    }
+
+    @Test(timeout = 30_000)
+    fun slicingTbbRuntimeCanFanOutAcrossVisibleCpus() {
+        val result = Native.tbb_slicing_worker_probe()
+        assertEquals("the native probe reports CPU count, TBB capacity and used worker count", 3, result.size)
+        assertTrue("the runtime must report at least one visible CPU", result[0] >= 1)
+        assertTrue("the TBB arena must expose at least one worker slot", result[1] >= 1)
+        assertTrue("observed TBB workers cannot exceed arena capacity", result[2] in 1..result[1])
+        assertTrue("TBB should respect the process-visible CPU count when it is reported", result[0] == 0 || result[1] <= result[0])
+        if (result[1] > 1) {
+            assertTrue("a multi-CPU TBB arena must schedule work on more than one worker", result[2] > 1)
+        }
+        Log.i(
+            "NativeSliceDeviceTest",
+            "TBB slicing concurrency probe: hardwareConcurrency=${result[0]}, arenaMax=${result[1]}, workersUsed=${result[2]}",
+        )
+    }
+
     @Test(timeout = 30_000)
     fun reprapFirmwareG10TemperatureIsShownInGcodePreviewWithoutRetract() {
         val result = Native.reprapfirmware_g10_preview_probe()
@@ -370,6 +451,7 @@ class NativeSliceDeviceTest {
         )
     }
 
+
     @Test
     fun textureDisplacementBakeMovesPaintedMeshAndCancellationCannotBeCommitted() {
         val bitmap = Bitmap.createBitmap(16, 16, Bitmap.Config.ARGB_8888).apply {
@@ -530,6 +612,15 @@ class NativeSliceDeviceTest {
             "Shared-nozzle MMU should keep one filament after deletion; tool changers still need one per nozzle",
             intArrayOf(1, 2),
             Native.shared_nozzle_filament_count_regression(),
+        )
+    }
+
+    @Test
+    fun nullableConfigArrayNilChecksMirrorFirstValueForMissingToolSlots() {
+        assertArrayEquals(
+            "Out-of-range nullable reads must mirror ConfigOptionVector.get_at, and empty arrays must remain nil",
+            IntArray(10) { 1 },
+            Native.config_nil_bounds_regression(),
         )
     }
 
@@ -3317,6 +3408,47 @@ class NativeSliceDeviceTest {
     }
 
     @Test(timeout = 180_000)
+    fun treeSupportsKeepEveryOverhangThatJoinsAClusterOnTheSameLayer() = withKobraProfile {
+        val context = InstrumentationRegistry.getInstrumentation().targetContext
+        val process = requireNotNull(SliceBeam.CONFIG?.findPrint("0.16mm Standard"))
+        process.put("layer_height", "0.2")
+        process.put("enable_support", "1")
+        process.put("support_type", "tree(auto)")
+        process.put("support_style", "tree_hybrid")
+        process.put("support_on_build_plate_only", "1")
+        process.put("support_remove_small_overhang", "0")
+        process.put("line_width", "0.45")
+
+        val modelFile = createTreeClusterSameLayerFixture("orca25-tree-cluster-same-layer.stl")
+        val output = File(context.cacheDir, "orca25-tree-cluster-same-layer.gcode")
+        val model = Model(modelFile)
+        var result: GCodeProcessorResult? = null
+        try {
+            model.ensureOnBed(0)
+            val boundsMin = model.boundingBoxExactMin
+            val boundsMax = model.boundingBoxExactMax
+            val centerY = (boundsMin.y + boundsMax.y) / 2.0
+            SliceBeam.genCurrentConfig(model)
+            val nativeConfig = SliceBeam.getCurrentConfigFile().readText()
+            assertTrue("tree hybrid support must reach native slicing", nativeConfig.contains("support_style = tree_hybrid"))
+            result = model.slice(SliceBeam.getCurrentConfigFile().absolutePath, output.absolutePath, null)
+            val gcode = output.readText()
+            assertHasExtrusion(gcode)
+            val supportAtWingHeight = supportExtrusionSegments(gcode).filter { it.z in 4.0..5.25 }
+            val supportYs = supportAtWingHeight.flatMap { listOf(it.y0, it.y1) }
+            assertTrue("the fixture must produce tree-support extrusion below the front wing", supportYs.any { it < centerY - 6.0 })
+            assertTrue("the same-layer cluster must preserve the back-wing overhang and its support", supportYs.any { it > centerY + 6.0 })
+            Log.i("NativeSliceDeviceTest", "PASS tree support retained both same-layer wing contacts centerY=$centerY")
+        } finally {
+            result?.release()
+            model.release()
+            modelFile.delete()
+            output.delete()
+            SliceBeam.getCurrentConfigFile().delete()
+        }
+    }
+
+    @Test(timeout = 180_000)
     fun tallOrganicTreeSupportUsesMovementAwareReinforcementAndKeepsPathsValid() = withKobraProfile {
         val context = InstrumentationRegistry.getInstrumentation().targetContext
         val process = requireNotNull(SliceBeam.CONFIG?.findPrint("0.16mm Standard"))
@@ -3760,6 +3892,59 @@ class NativeSliceDeviceTest {
                 excludedErrorCode and 1 != 0)
         } finally {
             result?.release()
+            model.release()
+            source.delete()
+            output.delete()
+            SliceBeam.getCurrentConfigFile().delete()
+        }
+    }
+
+    @Test(timeout = 120_000)
+    fun disjointExtruderPrintableAreasReturnPrimeTowerValidationInsteadOfCrashing() = withToolChangerProfile {
+        val context = InstrumentationRegistry.getInstrumentation().targetContext
+        val config = requireNotNull(SliceBeam.CONFIG)
+        val process = requireNotNull(config.findPrint("0.20mm Standard"))
+        val previousPrimeTower = process["enable_prime_tower"]
+        process.put("enable_prime_tower", "1")
+
+        val source = copyCube(context, "disjoint-extruder-printable-areas.stl")
+        val output = File(context.cacheDir, "disjoint-extruder-printable-areas.gcode")
+        val model = Model(source)
+        try {
+            val secondObject = Model(source)
+            try {
+                model.addObject(secondObject, 0)
+            } finally {
+                secondObject.release()
+            }
+            model.translate(1, 35.0, 0.0, 0.0)
+            model.setUniformFilament(0, 1)
+            model.setUniformFilament(1, 2)
+            SliceBeam.genCurrentConfig(model)
+
+            val configFile = SliceBeam.getCurrentConfigFile()
+            val generated = configFile.readText()
+            val left = "0x0,100x0,100x350,0x350"
+            val right = "200x0,350x0,350x350,200x350"
+            val fullBed = "0x0,350x0,350x350,0x350"
+            val groupedAreas = (listOf(left, right) + List(3) { fullBed }).joinToString("#")
+            val configured = if (Regex("(?m)^extruder_printable_area\\s*=").containsMatchIn(generated)) {
+                generated.replace(Regex("(?m)^extruder_printable_area\\s*=.*$"), "extruder_printable_area = $groupedAreas")
+            } else {
+                "$generated\\nextruder_printable_area = $groupedAreas\\n"
+            }
+            configFile.writeText(configured)
+
+            val failure = runCatching {
+                model.slice(configFile.absolutePath, output.absolutePath, null)
+            }.exceptionOrNull()
+            assertNotNull("disjoint physical printable areas with a required prime tower must be rejected", failure)
+            assertTrue(
+                "the slicer should report the missing common printable area instead of crashing: $failure",
+                failure.toString().contains("share no common area", ignoreCase = true),
+            )
+        } finally {
+            process.put("enable_prime_tower", previousPrimeTower)
             model.release()
             source.delete()
             output.delete()
@@ -5870,14 +6055,27 @@ class NativeSliceDeviceTest {
             assertEquals("both synthetic materials must remain assigned to distinct parts", listOf(1, 2),
                 model.getUsedFilaments(0).toList())
             SliceBeam.genCurrentConfig(model)
-            val result = model.slice(SliceBeam.getCurrentConfigFile().absolutePath, output.absolutePath, null)
-            try {
-                val gcode = output.readText()
-                assertHasExtrusion(gcode)
-                assertTrue("the twelve-part slice must retain the second filament tool", Regex("(?m)^T1(?:\\s|$)").containsMatchIn(gcode))
-                assertTrue("the synthetic multipart G-code must contain layer output", gcode.contains(";LAYER_CHANGE"))
-            } finally {
-                result.release()
+            val workerCpuTicks = measureTbbWorkerCpuDuring {
+                val result = model.slice(SliceBeam.getCurrentConfigFile().absolutePath, output.absolutePath, null)
+                try {
+                    val gcode = output.readText()
+                    assertHasExtrusion(gcode)
+                    assertTrue("the twelve-part slice must retain the second filament tool", Regex("(?m)^T1(?:\\s|$)").containsMatchIn(gcode))
+                    assertTrue("the synthetic multipart G-code must contain layer output", gcode.contains(";LAYER_CHANGE"))
+                } finally {
+                    result.release()
+                }
+            }
+            val activeTbbWorkers = workerCpuTicks.cpuTicks.filterValues { it > 0L }
+            Log.i(
+                "NativeSliceDeviceTest",
+                "Real multipart slice TBB workers with CPU ticks: ${activeTbbWorkers.entries.sortedBy { it.key }.joinToString { "${it.key}=${it.value}" }}; observed processor IDs=${workerCpuTicks.processorIds.sorted()}",
+            )
+            if (Runtime.getRuntime().availableProcessors() > 1) {
+                assertTrue(
+                    "a real multi-part slice should execute work on at least two TBB workers when multiple CPUs are available; observed=$activeTbbWorkers",
+                    activeTbbWorkers.size >= 2,
+                )
             }
         } finally {
             model.release()
@@ -9353,6 +9551,38 @@ class NativeSliceDeviceTest {
         box(-4.0, -4.0, 2.0, 4.0, 4.0, 17.0)
         box(-25.0, -25.0, 16.0, 25.0, 25.0, 19.0)
         stl.append("endsolid tree_bottom_contact_tiers\n")
+        target.writeText(stl.toString())
+        return target
+    }
+
+    /** One slab overhang and two wings join a single tree-support cluster on the same slice. */
+    private fun createTreeClusterSameLayerFixture(name: String): File {
+        val target = File(InstrumentationRegistry.getInstrumentation().targetContext.cacheDir, name)
+        data class P(val x: Double, val y: Double, val z: Double)
+        val stl = StringBuilder("solid tree_cluster_same_layer\n")
+        fun triangle(a: P, b: P, c: P) {
+            stl.append("facet normal 0 0 0\nouter loop\n")
+            listOf(a, b, c).forEach { stl.append("vertex ${it.x} ${it.y} ${it.z}\n") }
+            stl.append("endloop\nendfacet\n")
+        }
+        fun box(x0: Double, y0: Double, z0: Double, x1: Double, y1: Double, z1: Double) {
+            val p = listOf(
+                P(x0, y0, z0), P(x1, y0, z0), P(x1, y1, z0), P(x0, y1, z0),
+                P(x0, y0, z1), P(x1, y0, z1), P(x1, y1, z1), P(x0, y1, z1),
+            )
+            val faces = arrayOf(
+                intArrayOf(0, 2, 1), intArrayOf(0, 3, 2), intArrayOf(4, 5, 6), intArrayOf(4, 6, 7),
+                intArrayOf(0, 1, 5), intArrayOf(0, 5, 4), intArrayOf(1, 2, 6), intArrayOf(1, 6, 5),
+                intArrayOf(2, 3, 7), intArrayOf(2, 7, 6), intArrayOf(3, 0, 4), intArrayOf(3, 4, 7),
+            )
+            faces.forEach { face -> triangle(p[face[0]], p[face[1]], p[face[2]]) }
+        }
+        // Match Orca's regression geometry: three same-layer overhangs connect through one cluster.
+        box(-5.0, -5.0, 0.0, 5.0, 5.0, 5.1)       // column
+        box(-7.0, -5.0, 5.0, 7.0, 5.0, 10.0)      // slab
+        box(8.0, -9.05, 5.2, 12.0, -2.95, 10.0)  // front wing
+        box(8.0, 6.85, 5.2, 12.0, 12.95, 10.0)   // back wing
+        stl.append("endsolid tree_cluster_same_layer\n")
         target.writeText(stl.toString())
         return target
     }

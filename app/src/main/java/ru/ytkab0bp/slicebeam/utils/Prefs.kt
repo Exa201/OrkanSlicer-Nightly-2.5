@@ -82,12 +82,22 @@ open class Prefs {
         }
 
         @JvmStatic
-        fun getLastCommit(): String? = requirePrefs().getString("last_commit", null)
+        fun getLastChangelogBuild(): String? = requirePrefs().getString("last_changelog_build", null)
 
         @JvmStatic
-        fun setLastCommit() {
-            requirePrefs().edit().putString("last_commit", BuildConfig.COMMIT).apply()
+        fun setLastChangelogBuild() {
+            requirePrefs().edit().putString(
+                "last_changelog_build",
+                "${BuildConfig.VERSION_NAME}:${BuildConfig.COMMIT}",
+            ).apply()
         }
+
+        /** Compatibility for existing device tests and integrations that used the old name. */
+        @JvmStatic
+        fun getLastCommit(): String? = getLastChangelogBuild()
+
+        @JvmStatic
+        fun setLastCommit() = setLastChangelogBuild()
 
         /** Up to sixteen material/color pairs used for multi-color printing and painting. */
         @JvmStatic

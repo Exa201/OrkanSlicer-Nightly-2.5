@@ -39,7 +39,6 @@ internal fun CustomizableBedMenuActionsContent(
     menuKey: String,
     actions: List<BedComposeMenuAction>,
     portrait: Boolean,
-    multiRow: Boolean = false,
     modifier: Modifier = Modifier,
 ) {
     val context = LocalContext.current
@@ -157,7 +156,7 @@ internal fun CustomizableBedMenuActionsContent(
         // reduced every action to an unusable touch target.
         Row(modifier.fillMaxSize(), verticalAlignment = Alignment.CenterVertically) {
             BedMenuActionsContent(
-                visibleActions, portrait, multiRow, Modifier.weight(1f),
+                visibleActions, portrait, Modifier.weight(1f),
                 onActionPositioned = onActionPositioned,
                 onActionDragStart = onActionDragStart,
                 onActionDrag = onActionDrag,
@@ -193,7 +192,7 @@ internal fun CustomizableBedMenuActionsContent(
                 ) { Text(stringResource(R.string.MenuCustomize)) }
             }
             BedMenuActionsContent(
-                visibleActions, portrait, multiRow, Modifier.weight(1f),
+                visibleActions, portrait, Modifier.weight(1f),
                 onActionPositioned = onActionPositioned,
                 onActionDragStart = onActionDragStart,
                 onActionDrag = onActionDrag,

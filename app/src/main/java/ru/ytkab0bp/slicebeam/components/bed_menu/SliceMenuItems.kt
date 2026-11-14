@@ -49,7 +49,7 @@ object SliceMenuItems {
             BedComposeMenuAction(R.string.MenuSliceLayers, R.drawable.square_stack_up_outline_28, {
                 showSliceLayersWorkspace(fragment)
             }),
-            BedComposeMenuAction(R.string.MenuSliceExportToFile, R.drawable.vk_share_external_outline_24, {
+            BedComposeMenuAction(R.string.MenuSliceExportToFile, R.drawable.arrow_down_to_square_outline_28, {
                 val activity = fragment.getContext() as? Activity ?: return@BedComposeMenuAction
                 val intent = Intent(Intent.ACTION_CREATE_DOCUMENT).apply {
                     type = "application/x-gcode"

@@ -241,7 +241,7 @@ class FileMenu : ListBedMenu() {
 
         items += BedMenuItem(R.string.MenuFileCalibrations, R.drawable.menu_calibrate_la_28)
             .onClick { showCalibrationWorkspace(bed) }
-        items += BedMenuItem(R.string.MenuFileImportProfiles, R.drawable.vk_folder_simple_outline_24)
+        items += BedMenuItem(R.string.MenuFileImportProfiles, R.drawable.folder_simple_arrow_up_outline_28)
             .onClick {
                 val activity = bed.getContext() as? Activity ?: return@onClick
                 val intent = Intent(Intent.ACTION_OPEN_DOCUMENT).apply {

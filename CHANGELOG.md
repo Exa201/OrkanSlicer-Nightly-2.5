@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.8.457 — Einheitliche, wischbare Workspace-Menüs — 2026-11-14
+
+- Alle unteren Menüs im Hochformat verwenden vier Spalten und bis zu zwei Reihen. Der separate Pfeilbutton entfällt; zusätzliche Aktionen werden direkt per horizontalem Wischen erreicht.
+- Modell-, Farb- und Bearbeitungsaktionen nutzen stärker unterscheidbare Symbole.
+- Der Changelog wird pro App-Build einmal angezeigt. APK-Builds prüfen, dass CHANGELOG.md und update.json zur versionName passen.
+
 ## 0.8.456 — OrcaSlicer 2.5.0 Übersetzungen — 2026-11-14
 
 - Refresh der 23 Orca-Sprachkataloge aus OrcaSlicer 2.5.0; fehlende Übersetzungen ergänzt und bestehende Nightly-Übersetzungen erhalten.

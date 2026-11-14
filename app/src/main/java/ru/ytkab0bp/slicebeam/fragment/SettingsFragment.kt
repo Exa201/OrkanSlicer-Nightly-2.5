@@ -378,7 +378,7 @@ class SettingsFragment : Fragment() {
         SliceBeam.getConfigFile().delete()
         SliceBeam.CONFIG = null
         Prefs.getPrefs()?.edit()?.clear()?.apply()
-        Prefs.setLastCommit()
+        Prefs.setLastChangelogBuild()
         activity.startActivity(Intent(activity, SetupActivity::class.java))
         activity.finish()
     }

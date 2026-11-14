@@ -61,7 +61,6 @@ import java.nio.charset.StandardCharsets
 import java.util.ArrayList
 import java.util.HashMap
 import java.util.Locale
-import java.util.Objects
 import java.util.UUID
 import java.util.zip.ZipEntry
 import java.util.zip.ZipFile
@@ -152,7 +151,6 @@ return
 }
 if (SliceBeam.CONFIG == null)
 {
-Prefs.setLastCommit()
 startActivity(Intent(this, SetupActivity::class.java))
 finish()
 return
@@ -245,9 +243,9 @@ if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q
 disableLegacySystemBarContrast()
 }
 applySystemBarAppearance()
-if (!Objects.equals(Prefs.getLastCommit(), BuildConfig.COMMIT) && SliceBeam.hasUpdateInfo)
+if (Prefs.getLastChangelogBuild() != "${BuildConfig.VERSION_NAME}:${BuildConfig.COMMIT}")
 {
-Prefs.setLastCommit()
+Prefs.setLastChangelogBuild()
 BeamServerData.load()
 changeLogDialog = ChangeLogDialog(this)
 }

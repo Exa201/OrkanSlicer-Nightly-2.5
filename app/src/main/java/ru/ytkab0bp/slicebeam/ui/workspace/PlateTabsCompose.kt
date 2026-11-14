@@ -100,15 +100,17 @@ internal fun PlateTabs(
     }
     val configuration = LocalConfiguration.current
     val screenHeightDp = configuration.screenHeightDp
+    val fontScale = ru.ytkab0bp.slicebeam.ui.LocalBeamLayoutFontScale.current
     val estimatedGridColumns = ((configuration.screenWidthDp - 88) / 104).coerceIn(1, 4)
     val pickerLayout = PlatePickerLayoutPolicy.choose(plateCount, configuration.screenWidthDp,
-        screenHeightDp, ru.ytkab0bp.slicebeam.ui.LocalBeamLayoutFontScale.current)
+        screenHeightDp, fontScale)
     val label = stringResource(R.string.PlatePickerCounterDescription, selectedIndex + 1, plateCount)
+    val counterMinHeight = if (fontScale >= 1.15f) 56.dp else OrkanUiTokens.touchTarget
     Surface(
         // The two counter labels scale with system font size. Keep the 48 dp minimum
         // touch target, but let the control grow vertically instead of clipping `/count`.
         modifier = Modifier.width(OrkanUiTokens.plateCounterWidth)
-            .heightIn(min = OrkanUiTokens.touchTarget)
+            .heightIn(min = counterMinHeight)
             .semantics { contentDescription = label }
             .clickable(role = Role.Button) { open = true; onOpen() },
         shape = RoundedCornerShape(OrkanUiTokens.cornerRadius),

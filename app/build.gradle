@@ -21,8 +21,8 @@ android {
         applicationId "com.exa201.orkanslicer.nightly25"
         minSdk 23
         targetSdk 36
-        versionCode 491
-        versionName "0.8.456"
+        versionCode 492
+        versionName "0.8.457"
         buildConfigField "boolean", "USE_PREBUILT_NATIVE", usePrebuiltNative.toString()
 
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
@@ -109,6 +109,31 @@ android {
         variant.outputs.all {
             outputFileName = "OrkanSlicerNightly25_" + commit + ".apk"
         }
+    }
+}
+
+// Keep release notes tied to the installable app version. A local or CI APK build
+// must not silently ship stale in-app notes.
+tasks.register('verifyNightlyChangelog') {
+    doLast {
+        def appVersion = android.defaultConfig.versionName
+        def changelog = rootProject.file('CHANGELOG.md').getText('UTF-8')
+        def updateNotes = new groovy.json.JsonSlurper().parse(file('src/main/assets/update.json'))
+        def versionHeading = "## ${appVersion}"
+        def noteHeading = "OrkanSlicer Nightly 2.5 · ${appVersion}"
+        if (!changelog.readLines().any { it.startsWith(versionHeading) }) {
+            throw new GradleException("CHANGELOG.md has no entry for ${appVersion}; update release notes before building an APK.")
+        }
+        ['de', 'en', 'ru'].each { language ->
+            if (!(updateNotes[language] instanceof String) || !updateNotes[language].startsWith(noteHeading)) {
+                throw new GradleException("update.json ${language} notes are not synchronized with ${appVersion}.")
+            }
+        }
+    }
+}
+tasks.configureEach { task ->
+    if (task.name == 'preBuild' || task.name.startsWith('assemble') || task.name.startsWith('package')) {
+        task.dependsOn tasks.named('verifyNightlyChangelog')
     }
 }
 

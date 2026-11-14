@@ -11,6 +11,7 @@ import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.assertHeightIsAtLeast
 import androidx.compose.ui.test.assertWidthIsAtLeast
 import androidx.compose.ui.test.hasScrollToIndexAction
@@ -23,6 +24,8 @@ import androidx.compose.ui.test.onAllNodesWithContentDescription
 import androidx.compose.ui.test.onFirst
 import androidx.compose.ui.test.onLast
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performTouchInput
+import androidx.compose.ui.test.swipeLeft
 import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.performTextInput
 import androidx.compose.ui.test.performSemanticsAction
@@ -571,7 +574,7 @@ class FilamentPaletteComposeDeviceTest {
             }
         }
 
-        compose.onNodeWithContentDescription(context.getString(R.string.PlateNumber, "1")).performClick()
+        compose.onNodeWithContentDescription(context.getString(R.string.PlatePickerCounterDescription, 1, 3)).performClick()
         val cancelLabel = context.getString(android.R.string.cancel)
         compose.onNodeWithText(cancelLabel).assertIsDisplayed()
             .assertWidthIsAtLeast(48.dp)
@@ -610,7 +613,7 @@ class FilamentPaletteComposeDeviceTest {
             }
         }
 
-        compose.onNodeWithContentDescription(context.getString(R.string.PlateNumber, "1"))
+        compose.onNodeWithContentDescription(context.getString(R.string.PlatePickerCounterDescription, 1, 1))
             .assertIsDisplayed()
             .assertHeightIsAtLeast(52.dp)
     }
@@ -652,7 +655,9 @@ class FilamentPaletteComposeDeviceTest {
                 selectedIndex.intValue = 0
             }
             compose.waitForIdle()
-            compose.onNodeWithContentDescription(context.getString(R.string.PlateNumber, "1")).performClick()
+            compose.onNodeWithContentDescription(
+                context.getString(R.string.PlatePickerCounterDescription, 1, plateCount),
+            ).performClick()
             if (plateCount > 2) {
                 compose.onNode(hasScrollToIndexAction()).performScrollToIndex(plateCount - 1)
             }
@@ -741,7 +746,6 @@ class FilamentPaletteComposeDeviceTest {
                                 )
                             },
                             portrait = true,
-                            multiRow = true,
                         )
                     }
                 }
@@ -784,14 +788,13 @@ class FilamentPaletteComposeDeviceTest {
                 LocalConfiguration provides configuration,
             ) {
                 BeamComposeTheme {
-                    Box(Modifier.width(widthDp.dp).height(160.dp).testTag("model-action-viewport")) {
+                    Box(Modifier.width(widthDp.dp).height(260.dp).testTag("model-action-viewport")) {
                         key(widthDp, fontScale) {
                             BedMenuActionsContent(
                                 actions = actionTitles.map { title ->
                                     BedComposeMenuAction(title, R.drawable.camera_mode_0_28, {})
                                 },
                                 portrait = true,
-                                multiRow = true,
                             )
                         }
                     }
@@ -824,27 +827,23 @@ class FilamentPaletteComposeDeviceTest {
                 ).assertWidthIsAtLeast(48.dp).assertHeightIsAtLeast(48.dp)
                 val action = actionNodes.first().boundsInRoot
                 assertTrue("Action $index starts outside $width dp viewport at ${scale}x", action.left >= viewport.left)
-                assertTrue("Action $index overlaps the scroll hint at $width dp / ${scale}x",
-                    action.right <= viewport.right - 52f)
+                assertTrue("Action $index starts outside $width dp viewport at ${scale}x", action.right <= viewport.right)
             }
             val context = InstrumentationRegistry.getInstrumentation().targetContext
-            val firstPageMaxIndex = visibleActions.maxOf { it.first }
-            compose.onNodeWithContentDescription(context.getString(R.string.WorkspaceMoreTitle))
-                .assertIsDisplayed().assertWidthIsAtLeast(48.dp).assertHeightIsAtLeast(48.dp).performClick()
-            compose.waitForIdle()
-            val afterPaging = actionTitles.mapIndexedNotNull { index, title ->
-                compose.onAllNodesWithContentDescription(context.getString(title))
-                    .fetchSemanticsNodes().firstOrNull()?.let { index to it.boundsInRoot }
+            compose.onNodeWithTag("workspace-menu-actions-grid").performTouchInput {
+                swipeLeft(startX = width * 0.9f, endX = width * 0.1f)
             }
-            assertTrue("more-tools button did not reveal another action at $width dp / ${scale}x; " +
-                "before=$visibleActions after=$afterPaging", afterPaging.any { it.first > firstPageMaxIndex })
+            compose.waitForIdle()
+            compose.onNodeWithContentDescription(context.getString(actionTitles[8])).assertIsDisplayed()
+            compose.onAllNodesWithContentDescription(context.getString(R.string.WorkspaceMoreTitle))
+                .assertCountEquals(0)
             compose.onNode(hasScrollToIndexAction()).performScrollToIndex(actionTitles.lastIndex)
             compose.waitForIdle()
             val finalActionDescription = context.getString(actionTitles.last())
             val finalAction = compose.onNodeWithContentDescription(finalActionDescription)
                 .assertIsDisplayed().fetchSemanticsNode().boundsInRoot
-            assertTrue("paging control must reveal complete actions at $width dp / ${scale}x",
-                finalAction.right <= viewport.right - 52f)
+            assertTrue("swipe navigation must reveal complete actions at $width dp / ${scale}x",
+                finalAction.right <= viewport.right)
         }
     }
 
@@ -872,7 +871,7 @@ class FilamentPaletteComposeDeviceTest {
     }
 
     @Test
-    fun shortOptionsMenuUsesWiderReadableTilesAt320DpAnd150PercentText() {
+    fun shortOptionsMenuUsesFourColumnsAt320DpAnd150PercentText() {
         val context = InstrumentationRegistry.getInstrumentation().targetContext
         val actionTitles = listOf(
             R.string.MenuFileCalibrations,
@@ -889,7 +888,7 @@ class FilamentPaletteComposeDeviceTest {
                 LocalConfiguration provides configuration,
             ) {
                 BeamComposeTheme {
-                    Box(Modifier.width(320.dp).height(176.dp)) {
+                    Box(Modifier.width(320.dp).height(260.dp)) {
                         BedMenuActionsContent(
                             actions = actionTitles.map { title ->
                                 BedComposeMenuAction(
@@ -905,17 +904,13 @@ class FilamentPaletteComposeDeviceTest {
             }
         }
 
-        // At 320 dp and 150% text, the toolbar deliberately uses one wide column.
-        // Short menus can therefore still page when they have more than two actions.
-        for (title in actionTitles.take(2)) {
+        // Short menus retain the same four-column grid as every other bottom menu.
+        for (title in actionTitles) {
             val action = compose.onNodeWithContentDescription(context.getString(title)).assertIsDisplayed()
-            action.assertWidthIsAtLeast(120.dp).assertHeightIsAtLeast(48.dp)
+            action.assertWidthIsAtLeast(48.dp).assertHeightIsAtLeast(48.dp)
         }
-        compose.onNodeWithContentDescription(context.getString(R.string.WorkspaceMoreTitle))
-            .assertIsDisplayed().performClick()
-        compose.waitForIdle()
-        compose.onNodeWithContentDescription(context.getString(actionTitles.last()))
-            .assertIsDisplayed().assertWidthIsAtLeast(120.dp).assertHeightIsAtLeast(48.dp)
+        compose.onAllNodesWithContentDescription(context.getString(R.string.WorkspaceMoreTitle))
+            .assertCountEquals(0)
         compose.onNodeWithText(context.getString(R.string.MenuFileImportProfilesCompact)).assertIsDisplayed()
         compose.onNodeWithText(context.getString(R.string.MenuFileExportProfilesCompact)).assertIsDisplayed()
     }

@@ -51,21 +51,21 @@ internal class TransformMenuItems(
             selectionAction(R.string.MenuToolbarRotate, R.drawable.menu_orientation_rotation_28, availability) {
                 showRotationMenu.accept(it)
             },
-            selectionAction(R.string.MenuTransformScale, R.drawable.arrow_up_right_corner_outline_24, availability) {
+            selectionAction(R.string.MenuTransformScale, R.drawable.menu_scale_28, availability) {
                 showScaleMenu.accept(it)
             },
-            selectionAction(R.string.ModelSimplify, R.drawable.sliders_outline_28, availability, ::showSimplifyDialog),
-            selectionAction(R.string.ModelSmoothMesh, R.drawable.sliders_outline_28, availability, ::showSmoothMeshDialog),
+            selectionAction(R.string.ModelSimplify, R.drawable.vk_magic_wand_outline_24, availability, ::showSimplifyDialog),
+            selectionAction(R.string.ModelSmoothMesh, R.drawable.vk_brush_outline_24, availability, ::showSmoothMeshDialog),
             selectionAction(R.string.MenuTransformCut, R.drawable.menu_transform_cut_or_mirror_28, availability) {
                 showCutMenu.accept(it)
             },
-            selectionAction(R.string.MenuToolbarVariableLayerHeight, R.drawable.sliders_outline_28, availability) {
+            selectionAction(R.string.MenuToolbarVariableLayerHeight, R.drawable.print_layers_28, availability) {
                 fragment.enterVariableLayerHeightMode()
             },
-            paintAction(R.string.MenuToolbarSupportPaint, GLRenderer.PAINT_MODE_SUPPORT, availability),
-            paintAction(R.string.MenuToolbarSeamPaint, GLRenderer.PAINT_MODE_SEAM, availability),
-            paintAction(R.string.MenuToolbarFuzzyPaint, GLRenderer.PAINT_MODE_FUZZY, availability),
-            paintAction(R.string.MenuToolbarColorPaint, GLRenderer.PAINT_MODE_COLOR, availability),
+            paintAction(R.string.MenuToolbarSupportPaint, GLRenderer.PAINT_MODE_SUPPORT, availability, R.drawable.vk_cube_box_outline_24),
+            paintAction(R.string.MenuToolbarSeamPaint, GLRenderer.PAINT_MODE_SEAM, availability, R.drawable.vk_brush_outline_24),
+            paintAction(R.string.MenuToolbarFuzzyPaint, GLRenderer.PAINT_MODE_FUZZY, availability, R.drawable.stars_outline_28),
+            paintAction(R.string.MenuToolbarColorPaint, GLRenderer.PAINT_MODE_COLOR, availability, R.drawable.vk_palette_outline_24),
             selectionAction(R.string.MenuToolbarEmboss, R.drawable.edit_outline_28, availability) {
                 fragment.enterEmbossMode()
             },
@@ -89,8 +89,8 @@ internal class TransformMenuItems(
         enabled = availability.hasSelectedObject,
     )
 
-    private fun paintAction(titleRes: Int, mode: Int, availability: ModelSelectionAvailability) =
-        selectionAction(titleRes, R.drawable.paint_roller_outline_28, availability) {
+    private fun paintAction(titleRes: Int, mode: Int, availability: ModelSelectionAvailability, iconRes: Int) =
+        selectionAction(titleRes, iconRes, availability) {
             fragment.enterPaintModeForCurrentSelection(mode)
         }
 

@@ -2021,7 +2021,9 @@ private fun createWorkspaceContent(ctx: Context, portrait: Boolean): View {
                 WorkspaceShell(
                     portrait = portrait,
                     toolPanelExpanded = menuToolsExpanded,
-                    toolPanelNeedsTwoRows = currentMenuSlot == WorkspaceDestination.MODEL.ordinal ||
+                    // Every portrait workspace menu shares the same 4×2 action surface.
+                    // Reserve its height consistently so routes do not jump when switched.
+                    toolPanelNeedsTwoRows = portrait || currentMenuSlot == WorkspaceDestination.MODEL.ordinal ||
                         currentMenuSlot == WorkspaceDestination.EDIT.ordinal ||
                         currentMenuSlot == WorkspaceDestination.CAMERA.ordinal ||
                         currentMenuSlot == WorkspaceDestination.TOOLS.ordinal,

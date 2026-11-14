@@ -11,8 +11,12 @@
 #include <optional>
 #include <stdexcept>
 #include <cmath>
+#include <chrono>
 
 #include <thread>
+#include <tbb/blocked_range.h>
+#include <tbb/parallel_for.h>
+#include <tbb/task_arena.h>
 
 #include <jni.h>
 #include "libslic3r/libslic3r.h"
@@ -6841,6 +6845,34 @@ extern "C" {
         }
     }
 
+    // Mirrors ConfigOptionVector::get_at(): an out-of-range nullable lookup uses
+    // the first configured value, while an empty vector is considered nil.
+    JNIEXPORT jintArray JNICALL Java_ru_ytkab0bp_slicebeam_slic3r_Native_config_1nil_1bounds_1regression(
+        JNIEnv* env, jclass)
+    {
+        using namespace Slic3r;
+        const ConfigOptionFloatsNullable float_value(std::vector<double>{1.25});
+        const ConfigOptionFloatsNullable float_nil(std::vector<double>{ConfigOptionFloatsNullable::nil_value()});
+        const ConfigOptionFloatsNullable empty_float;
+        const ConfigOptionIntsNullable int_value(std::vector<int>{7});
+        const ConfigOptionIntsNullable int_nil(std::vector<int>{ConfigOptionIntsNullable::nil_value()});
+        const ConfigOptionFloatsOrPercentsNullable percent_value(std::vector<FloatOrPercent>{FloatOrPercent{0.5, false}});
+        const ConfigOptionFloatsOrPercentsNullable percent_nil(std::vector<FloatOrPercent>{ConfigOptionFloatsOrPercentsNullable::nil_value()});
+        const ConfigOptionBoolsNullable bool_value(std::vector<unsigned char>{1});
+        const ConfigOptionBoolsNullable bool_nil(std::vector<unsigned char>{ConfigOptionBoolsNullable::nil_value()});
+        const ConfigOptionBoolsNullable empty_bool;
+        const jint values[] = {
+            !float_value.is_nil(1), float_nil.is_nil(1), empty_float.is_nil(0),
+            !int_value.is_nil(1), int_nil.is_nil(1),
+            !percent_value.is_nil(1), percent_nil.is_nil(1),
+            !bool_value.is_nil(1), bool_nil.is_nil(1), empty_bool.is_nil(0),
+        };
+        jintArray result = env->NewIntArray(static_cast<jsize>(std::size(values)));
+        if (result != nullptr)
+            env->SetIntArrayRegion(result, 0, static_cast<jsize>(std::size(values)), values);
+        return result;
+    }
+
     // Confirms a tray sync updates the physical color while retaining an inherited
     // compatible user preset and its custom extrusion-speed override.
     JNIEXPORT jintArray JNICALL Java_ru_ytkab0bp_slicebeam_slic3r_Native_ams_1sync_1preserves_1inherited_1filament_1regression(
@@ -7015,6 +7047,31 @@ extern "C" {
         jintArray result = env->NewIntArray(static_cast<jsize>(values.size()));
         if (result != nullptr && !values.empty())
             env->SetIntArrayRegion(result, 0, static_cast<jsize>(values.size()), values.data());
+        return result;
+    }
+
+    // Measures the CPU visibility and worker fan-out of the same TBB runtime used by slicing.
+    JNIEXPORT jintArray JNICALL Java_ru_ytkab0bp_slicebeam_slic3r_Native_tbb_1slicing_1worker_1probe(JNIEnv* env, jclass) {
+        const unsigned int hardware_threads = std::thread::hardware_concurrency();
+        const int arena_concurrency = tbb::this_task_arena::max_concurrency();
+        std::mutex workers_mutex;
+        std::unordered_set<std::thread::id> worker_ids;
+        tbb::parallel_for(tbb::blocked_range<size_t>(0, 256, 1), [&](const tbb::blocked_range<size_t>& range) {
+            {
+                std::lock_guard<std::mutex> lock(workers_mutex);
+                worker_ids.insert(std::this_thread::get_id());
+            }
+            // Keep each short task alive long enough for TBB to distribute work to its worker pool.
+            for (size_t task = range.begin(); task != range.end(); ++task)
+                std::this_thread::sleep_for(std::chrono::milliseconds(1));
+        });
+        const jint values[] = {
+            static_cast<jint>(hardware_threads),
+            static_cast<jint>(arena_concurrency),
+            static_cast<jint>(worker_ids.size()),
+        };
+        jintArray result = env->NewIntArray(3);
+        if (result != nullptr) env->SetIntArrayRegion(result, 0, 3, values);
         return result;
     }
 

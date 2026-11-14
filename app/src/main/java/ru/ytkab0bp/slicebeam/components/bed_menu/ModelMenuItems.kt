@@ -49,16 +49,16 @@ internal class ModelMenuItems(
             BedComposeMenuAction(R.string.ModelMenuMoveToPlate, R.drawable.vk_folder_move_outline_24, {
                 objectActions.showMoveToPlateDialog(it)
             }, enabled = availability.hasSelectedObject && fragment.plateCount > 1),
-            BedComposeMenuAction(R.string.ModelMenuSplit, R.drawable.square_stack_up_outline_28, {
+            BedComposeMenuAction(R.string.ModelMenuSplit, R.drawable.folder_simple_arrow_right_outline_28, {
                 val activeGlView = fragment.glView ?: return@BedComposeMenuAction
                 captureSelectionSnapshot(activeGlView) { snapshot ->
                     fragment.splitSelectedObjectInternal(snapshot)
                 }
             }, enabled = availability.hasSelectedObject),
-            BedComposeMenuAction(R.string.ModelMenuModifiers, R.drawable.square_stack_up_outline_28, { anchor ->
+            BedComposeMenuAction(R.string.ModelMenuModifiers, R.drawable.sliders_outline_28, { anchor ->
                 showModifierVolumesDialog(anchor, currentSelection.selectedObject)
             }, enabled = availability.hasSelectedObject),
-            BedComposeMenuAction(R.string.ModelMenuObjectSettings, R.drawable.vk_sliders_outline_20, { anchor ->
+            BedComposeMenuAction(R.string.ModelMenuObjectSettings, R.drawable.settings_outline_28, { anchor ->
                 showObjectProcessSettingsDialog(anchor)
             }, enabled = availability.hasSelectedObject),
             BedComposeMenuAction(R.string.ModelMenuCenterOnBed, R.drawable.vk_scan_viewfinder_outline_24, { anchor ->
@@ -113,7 +113,7 @@ internal class ModelMenuItems(
                     }
                 }
             }, enabled = availability.hasSelectedObject),
-            BedComposeMenuAction(R.string.ModelMenuPlaceOnObject, R.drawable.vk_scan_viewfinder_outline_24, { anchor ->
+            BedComposeMenuAction(R.string.ModelMenuPlaceOnObject, R.drawable.vk_cube_box_outline_24, { anchor ->
                 showPlaceOnObjectDialog(anchor)
             }, enabled = availability.hasSelectedObject && objectCount > selectedCount),
             BedComposeMenuAction(R.string.ModelMenuPlaceOnSurface, R.drawable.vk_scan_viewfinder_outline_24, { anchor ->
@@ -122,7 +122,7 @@ internal class ModelMenuItems(
             BedComposeMenuAction(R.string.ModelMenuAlignSelected, R.drawable.vk_grid_layout_outline_28, { anchor ->
                 showAlignmentDialog(anchor)
             }, enabled = selectedCount >= 2),
-            BedComposeMenuAction(R.string.ModelMenuAlignPrimaryAxes, R.drawable.vk_grid_layout_outline_28, { anchor ->
+            BedComposeMenuAction(R.string.ModelMenuAlignPrimaryAxes, R.drawable.hashtag_outline_28, { anchor ->
                 showAlignmentDialog(anchor, ModelAlignmentCoordinateSystem.PRIMARY_OBJECT)
             }, enabled = selectedCount >= 2),
             BedComposeMenuAction(R.string.ModelMenuDistributeSelected, R.drawable.vk_grid_layout_outline_28, { anchor ->
@@ -154,7 +154,7 @@ internal class ModelMenuItems(
                     }
                 }
             }, enabled = selectedCount >= 2),
-            BedComposeMenuAction(R.string.ModelMenuBoolean, R.drawable.square_stack_up_outline_28, { anchor ->
+            BedComposeMenuAction(R.string.ModelMenuBoolean, R.drawable.vk_cube_box_outline_24, { anchor ->
                 showBooleanDialog(anchor)
             }, enabled = selectedCount >= 2),
             BedComposeMenuAction(R.string.ModelMenuFillBed, R.drawable.picture_stack_outline_28, { anchor ->
@@ -186,7 +186,7 @@ internal class ModelMenuItems(
                     SliceBeam.EVENT_BUS.fireEvent(NeedSnackbarEvent(R.string.MenuOrientationArrangeFinished))
                 }
             }, enabled = availability.canArrange),
-            BedComposeMenuAction(R.string.ModelMenuCreatePrimitive, R.drawable.square_stack_up_outline_28, { anchor ->
+            BedComposeMenuAction(R.string.ModelMenuCreatePrimitive, R.drawable.vk_cube_box_outline_24, { anchor ->
                 val activeGlView = fragment.glView ?: return@BedComposeMenuAction
                 fragment.showWorkspaceComposeDialog { dismiss ->
                     PrimitiveModelDialog(

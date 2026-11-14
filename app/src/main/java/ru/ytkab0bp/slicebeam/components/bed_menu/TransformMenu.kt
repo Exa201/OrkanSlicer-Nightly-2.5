@@ -24,7 +24,7 @@ class TransformMenu : ListBedMenu() {
             items.invalidateSelectionState()
             composeActions.value = items.createItems()
         }
-        CustomizableBedMenuActionsContent("edit", composeActions.value, portrait, multiRow = true)
+        CustomizableBedMenuActionsContent("edit", composeActions.value, portrait)
     }
 
     @EventHandler(runOnMainThread = true)

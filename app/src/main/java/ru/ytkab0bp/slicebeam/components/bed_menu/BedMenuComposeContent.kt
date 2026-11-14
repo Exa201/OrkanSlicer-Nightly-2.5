@@ -3,16 +3,13 @@ package ru.ytkab0bp.slicebeam.components.bed_menu
 import android.view.View
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.gestures.animateScrollBy
 import androidx.compose.foundation.gestures.scrollBy
+import androidx.compose.foundation.gestures.snapping.rememberSnapFlingBehavior
 import androidx.compose.foundation.gestures.detectDragGesturesAfterLongPress
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyHorizontalGrid
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.lazy.grid.rememberLazyGridState
-import androidx.compose.foundation.lazy.LazyRow
-import androidx.compose.foundation.lazy.itemsIndexed
-import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -20,7 +17,6 @@ import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -44,7 +40,6 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
@@ -73,7 +68,6 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import kotlinx.coroutines.launch
 import kotlinx.coroutines.delay
 
 /** A menu route whose visible workspace content is hosted directly by WorkspaceShell. */
@@ -106,19 +100,10 @@ internal data class BedComposeMenuAction(
     val enabled: Boolean = true,
 )
 
-/** Keeps phone portrait action menus consistent with three tiles in each of two rows. */
+/** Keeps phone portrait action menus consistent with four tiles in each of two rows. */
 internal object BedMenuActionTileWidthPolicy {
     @Suppress("UNUSED_PARAMETER")
-    fun columnsForLayout(fontScale: Float, screenWidthDp: Int): Int = 3
-
-    /** Avoid showing a clipped last action in a single-row phone menu. */
-    fun usesTwoRows(actionCount: Int, portrait: Boolean, screenWidthDp: Int, fontScale: Float): Boolean =
-        portrait && actionCount > columnsForLayout(fontScale, screenWidthDp)
-
-    fun widthDp(screenWidthDp: Int, actionCount: Int): Int = when {
-        actionCount <= 0 -> 72
-        else -> ((screenWidthDp.coerceAtLeast(320) - 8) / actionCount.coerceIn(1, 4)).coerceIn(72, 128)
-    }
+    fun columnsForLayout(fontScale: Float, screenWidthDp: Int): Int = 4
 
     /** Fits the fixed-column horizontal grid after accounting for both paddings and inter-column gaps. */
     fun gridTileWidthDp(
@@ -129,9 +114,9 @@ internal object BedMenuActionTileWidthPolicy {
         reservedEndDp: Int = horizontalPaddingDp,
     ): Int {
         val safeColumns = columns.coerceAtLeast(1)
-        val available = screenWidthDp.coerceAtLeast(320) - horizontalPaddingDp -
+        val available = screenWidthDp.coerceAtLeast(0) - horizontalPaddingDp -
             reservedEndDp - spacingDp * (safeColumns - 1)
-        return (available / safeColumns).coerceAtLeast(72)
+        return (available / safeColumns).coerceAtLeast(48)
     }
 }
 
@@ -139,7 +124,6 @@ internal object BedMenuActionTileWidthPolicy {
 internal fun BedMenuActionsContent(
     actions: List<BedComposeMenuAction>,
     portrait: Boolean,
-    multiRow: Boolean = false,
     modifier: Modifier = Modifier,
     onActionPositioned: ((Int, Rect) -> Unit)? = null,
     onActionDragStart: ((Int, Offset) -> Unit)? = null,
@@ -155,27 +139,15 @@ internal fun BedMenuActionsContent(
     val menuView = LocalView.current
     val widthDp = LocalConfiguration.current.screenWidthDp
     val fontScale = ru.ytkab0bp.slicebeam.ui.LocalBeamLayoutFontScale.current
-    if (portrait && (multiRow || BedMenuActionTileWidthPolicy.usesTwoRows(
-            actions.size, portrait, widthDp, fontScale,
-        ))) {
+    if (portrait) {
         val columns = BedMenuActionTileWidthPolicy.columnsForLayout(fontScale, widthDp)
-        val scrollHintWidth = OrkanUiTokens.touchTarget
-        val scrollHintEndGap = 4.dp
-        val scrollHintDescription = stringResource(R.string.WorkspaceMoreTitle)
-        val coroutineScope = rememberCoroutineScope()
         BoxWithConstraints(modifier.fillMaxSize()) {
             val rows = WorkspaceShellLayoutPolicy.portraitMenuRows(
                 availableHeightDp = maxHeight.value.toInt(),
                 fontScale = fontScale,
             )
-            val reservePagingSlot = actions.size > rows * columns
-            val pagingSlotWidth = if (reservePagingSlot) scrollHintWidth + scrollHintEndGap else 0.dp
-            val gridWidth = maxWidth - pagingSlotWidth
-            val scrollPagePx = with(LocalDensity.current) {
-                gridWidth.toPx()
-            }
             val tileWidth = BedMenuActionTileWidthPolicy.gridTileWidthDp(
-                screenWidthDp = gridWidth.value.toInt(),
+                screenWidthDp = maxWidth.value.toInt(),
                 columns = columns,
                 horizontalPaddingDp = 4,
                 spacingDp = 2,
@@ -208,127 +180,57 @@ internal fun BedMenuActionsContent(
                     delay(16)
                 }
             }
-            val gridTileHeight = if (fontScale >= 1.15f) 112.dp else 88.dp
-            Row(Modifier.fillMaxSize(), verticalAlignment = Alignment.CenterVertically) {
-                LazyHorizontalGrid(
-                    rows = GridCells.Fixed(rows),
-                    state = gridState,
-                    modifier = Modifier.weight(1f).fillMaxHeight()
-                        .onGloballyPositioned { gridBounds = it.boundsInRoot() }
-                        .testTag("workspace-menu-actions-grid"),
-                    contentPadding = PaddingValues(horizontal = 4.dp),
-                    horizontalArrangement = Arrangement.spacedBy(2.dp),
-                ) {
-                    // Slice menus replace their whole action set after slicing. Stable action
-                    // identity prevents LazyHorizontalGrid from reusing an old pre-slice tile
-                    // (and its click handler) for a result action at the same index.
-                    items(actions, key = { action -> action.titleRes }) { action ->
-                        BedMenuActionTile(action, portrait = true, menuView = menuView,
-                            // Keep all three columns at every font scale. At large
-                            // scales the icon yields its space to the complete label.
-            compactPortraitGrid = fontScale >= 1.3f,
-                            // LazyHorizontalGrid can measure the one-row fallback using only the
-                            // label's intrinsic height. Set the cell height explicitly so it
-                            // keeps a useful touch target on compact viewports.
-                            modifier = Modifier.width(tileWidth).height(gridTileHeight),
-                            onActionPositioned = onActionPositioned,
-                            onActionDragStart = onActionDragStart,
-                            onActionDrag = onActionDrag,
-                            onActionDragEnd = onActionDragEnd,
-                            onMoveAction = onMoveAction,
-                            draggedActionTitleRes = draggedActionTitleRes,
-                            dropTargetTitleRes = dropTargetTitleRes,
-                            draggedActionTranslation = draggedActionTranslation,
-                            draggedActionPointerInRoot = draggedActionPointerInRoot,
-                            onDragAutoScroll = onDragAutoScroll,
-                        )
-                    }
+            val gridTileHeight = if (fontScale >= 1.15f) 112.dp else 96.dp
+            // LazyHorizontalGrid fills cells top-to-bottom. Reorder each 4×2 page so the
+            // user's action order reads left-to-right across the first row, then the second.
+            val rowMajorActions = remember(actions, columns, rows) {
+                actions.chunked(columns * rows).flatMap { page ->
+                    page.indices.sortedWith(compareBy({ it % columns }, { it / columns })).map(page::get)
                 }
-                if (reservePagingSlot) {
-                    if (gridState.canScrollForward) {
-                        Surface(
-                            modifier = Modifier
-                                .padding(end = scrollHintEndGap)
-                                .size(scrollHintWidth)
-                                .semantics { contentDescription = scrollHintDescription }
-                                .clickable(role = Role.Button) {
-                                    coroutineScope.launch { gridState.animateScrollBy(scrollPagePx) }
-                                },
-                            shape = RoundedCornerShape(OrkanUiTokens.cornerRadius),
-                            color = MaterialTheme.colorScheme.primaryContainer,
-                            contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
-                        ) {
-                            Box(contentAlignment = Alignment.Center) {
-                                Text("›", fontSize = 32.sp, lineHeight = 32.sp)
-                            }
-                        }
-                    } else {
-                        Spacer(Modifier.width(pagingSlotWidth))
-                    }
+            }
+            val actionIds = remember(rowMajorActions) { rowMajorActions.map { it.titleRes } }
+            var previousActionIds by remember { mutableStateOf<List<Int>?>(null) }
+            LaunchedEffect(rows, actionIds) {
+                if (previousActionIds != null && previousActionIds != actionIds) {
+                    gridState.scrollToItem(0)
+                }
+                previousActionIds = actionIds
+            }
+            LazyHorizontalGrid(
+                rows = GridCells.Fixed(rows),
+                state = gridState,
+                flingBehavior = rememberSnapFlingBehavior(gridState),
+                modifier = Modifier.fillMaxSize()
+                    .onGloballyPositioned { gridBounds = it.boundsInRoot() }
+                    .testTag("workspace-menu-actions-grid"),
+                contentPadding = PaddingValues(horizontal = 4.dp),
+                horizontalArrangement = Arrangement.spacedBy(2.dp),
+            ) {
+                // Slice menus replace their whole action set after slicing. Stable action
+                // identity prevents the grid from reusing an old tile and its click handler.
+                items(rowMajorActions, key = { action -> action.titleRes }) { action ->
+                    BedMenuActionTile(
+                        action,
+                        portrait = true,
+                        menuView = menuView,
+                        // At large text sizes the icon yields its space to the full label.
+                        compactPortraitGrid = fontScale >= 1.3f,
+                        modifier = Modifier.width(tileWidth).height(gridTileHeight),
+                        onActionPositioned = onActionPositioned,
+                        onActionDragStart = onActionDragStart,
+                        onActionDrag = onActionDrag,
+                        onActionDragEnd = onActionDragEnd,
+                        onMoveAction = onMoveAction,
+                        draggedActionTitleRes = draggedActionTitleRes,
+                        dropTargetTitleRes = dropTargetTitleRes,
+                        draggedActionTranslation = draggedActionTranslation,
+                        draggedActionPointerInRoot = draggedActionPointerInRoot,
+                        onDragAutoScroll = onDragAutoScroll,
+                    )
                 }
             }
         }
         return
-    }
-    if (portrait) {
-        val portraitActionTileWidth = BedMenuActionTileWidthPolicy.widthDp(
-            LocalConfiguration.current.screenWidthDp,
-            actions.size,
-        ).dp
-        val tileHeight = if (fontScale >= 1.3f) 82.dp else OrkanUiTokens.menuTileHeight
-        val listState = rememberLazyListState()
-        var rowBounds by remember { mutableStateOf(Rect.Zero) }
-        val latestDragPointer = rememberUpdatedState(draggedActionPointerInRoot)
-        val edgeSizePx = with(LocalDensity.current) { 44.dp.toPx() }
-        LaunchedEffect(draggedActionTitleRes) {
-            while (draggedActionTitleRes != null) {
-                val pointer = latestDragPointer.value
-                val bounds = rowBounds
-                if (pointer != null && bounds.width > 0f) {
-                    val delta = when {
-                        pointer.x < bounds.left + edgeSizePx -> -6f
-                        pointer.x > bounds.right - edgeSizePx -> 6f
-                        else -> 0f
-                    }
-                    if (delta != 0f) {
-                        val consumed = listState.scrollBy(delta)
-                        if (consumed != 0f) {
-                            withFrameNanos { }
-                            onDragAutoScroll?.invoke(consumed)
-                        }
-                    }
-                }
-                delay(16)
-            }
-        }
-        LazyRow(
-            state = listState,
-            modifier = modifier.fillMaxSize()
-                .onGloballyPositioned { rowBounds = it.boundsInRoot() }
-                .testTag("workspace-menu-actions-grid"),
-            contentPadding = PaddingValues(horizontal = 4.dp, vertical = 3.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            itemsIndexed(actions, key = { index, _ -> index }) { _, action ->
-                if (action.sectionBreakBefore) Spacer(Modifier.width(6.dp))
-                BedMenuActionTile(
-                    action,
-                    portrait = true,
-                    menuView = menuView,
-                    modifier = Modifier.width(portraitActionTileWidth).height(tileHeight),
-                    onActionPositioned = onActionPositioned,
-                    onActionDragStart = onActionDragStart,
-                    onActionDrag = onActionDrag,
-                    onActionDragEnd = onActionDragEnd,
-                    onMoveAction = onMoveAction,
-                    draggedActionTitleRes = draggedActionTitleRes,
-                    dropTargetTitleRes = dropTargetTitleRes,
-                    draggedActionTranslation = draggedActionTranslation,
-                    draggedActionPointerInRoot = draggedActionPointerInRoot,
-                    onDragAutoScroll = onDragAutoScroll,
-                )
-            }
-        }
     } else {
         Column(
             // A horizontal Android parent can temporarily measure MATCH_PARENT children
@@ -385,8 +287,8 @@ private fun BedMenuActionTile(
     val fontScale = ru.ytkab0bp.slicebeam.ui.LocalBeamLayoutFontScale.current
     val compactLabel = when (action.titleRes) {
         R.string.MenuCameraIsometric -> if (fontScale >= 1.3f) R.string.MenuCameraIsometricCompact else action.titleRes
-        R.string.MenuFileImportProfiles -> if (fontScale >= 1.3f) R.string.MenuFileImportProfilesCompact else action.titleRes
-        R.string.MenuFileExportProfiles -> if (fontScale >= 1.3f) R.string.MenuFileExportProfilesCompact else action.titleRes
+        R.string.MenuFileImportProfiles -> R.string.MenuFileImportProfilesCompact
+        R.string.MenuFileExportProfiles -> R.string.MenuFileExportProfilesCompact
         R.string.ModelUndo -> R.string.EditUndoShort
         R.string.ModelRedo -> R.string.EditRedoShort
         R.string.MenuArrangeAllObjects -> R.string.EditArrangeAllShort

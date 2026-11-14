@@ -222,5 +222,5 @@ internal fun CameraMenuContent(
             sectionBreakBefore = true,
         ),
     )
-    CustomizableBedMenuActionsContent("view", actions, portrait, multiRow = true)
+    CustomizableBedMenuActionsContent("view", actions, portrait)
 }

@@ -115,6 +115,9 @@ class Native {
     /** Verifies shared-nozzle multi-material presets stay at one after filament deletion. */
     @JvmStatic
     external fun shared_nozzle_filament_count_regression(): IntArray
+    /** Exercises safe nil checks for empty and shorter-than-tool-count config vectors. */
+    @JvmStatic
+    external fun config_nil_bounds_regression(): IntArray
     /** Verifies AMS sync keeps an inherited user filament override while updating tray color. */
     @JvmStatic
     external fun ams_sync_preserves_inherited_filament_regression(): IntArray
@@ -124,6 +127,9 @@ class Native {
     /** Exercises production short-path chaining against a four-segment optimality fixture. */
     @JvmStatic
     external fun shortest_path_exact_chain_regression(): IntArray
+    /** Reports OS-visible CPUs, TBB arena capacity and distinct workers used by a parallel workload. */
+    @JvmStatic
+    external fun tbb_slicing_worker_probe(): IntArray
     @JvmStatic
     external fun shortest_path_long_chain_refinement_regression(): IntArray
     /** Exercises exact default object-tour ordering against a six-object fixture. */
