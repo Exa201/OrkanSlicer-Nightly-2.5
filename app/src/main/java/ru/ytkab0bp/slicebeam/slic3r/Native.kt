@@ -506,6 +506,8 @@ class Native {
     @JvmStatic
     external fun gcoderesult_get_used_filament_g(ptr: Long, role: Int): Double
     @JvmStatic
+    external fun gcoderesult_get_wipe_tower_filament_volume(ptr: Long, filamentIndex: Int): Double
+    @JvmStatic
     external fun gcoderesult_release(ptr: Long): Unit
     @JvmStatic
     external fun vgcode_create(): Long

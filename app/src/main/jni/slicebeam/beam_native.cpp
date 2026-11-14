@@ -4002,6 +4002,14 @@ extern "C" {
         return info.second;
     }
 
+    JNIEXPORT jdouble JNICALL Java_ru_ytkab0bp_slicebeam_slic3r_Native_gcoderesult_1get_1wipe_1tower_1filament_1volume(JNIEnv*, jclass, jlong ptr, jint filament_index) {
+        GCodeResultRef* ref = (GCodeResultRef*) (intptr_t) ptr;
+        if (filament_index < 0)
+            return 0.0;
+        const auto it = ref->result.print_statistics.wipe_tower_volumes_per_extruder.find(static_cast<size_t>(filament_index));
+        return it == ref->result.print_statistics.wipe_tower_volumes_per_extruder.end() ? 0.0 : it->second;
+    }
+
     JNIEXPORT void JNICALL Java_ru_ytkab0bp_slicebeam_slic3r_Native_gcoderesult_1release(JNIEnv* env, jclass, jlong ptr) {
         GCodeResultRef* ref = (GCodeResultRef*) (intptr_t) ptr;
         delete ref;

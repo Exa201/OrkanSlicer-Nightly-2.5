@@ -42,6 +42,10 @@ open class GCodeProcessorResult {
     open fun getUsedFilamentG(@GCodeViewer.ExtrusionRole role: Int): Double =
         Native.gcoderesult_get_used_filament_g(pointer, role)
 
+    /** Wipe-tower volume in mm³ attributed by the native G-code analyzer to one zero-based filament index. */
+    open fun getWipeTowerFilamentVolumeMm3(filamentIndex: Int): Double =
+        if (pointer == 0L || filamentIndex < 0) 0.0 else Native.gcoderesult_get_wipe_tower_filament_volume(pointer, filamentIndex)
+
     open fun getRecommendedName(): String = Native.gcoderesult_get_recommended_name(pointer)
 
     /** Bitmask of native printable-area and print-height validation findings for this slice. */

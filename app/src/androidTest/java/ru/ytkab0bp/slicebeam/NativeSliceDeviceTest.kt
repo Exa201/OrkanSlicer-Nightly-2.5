@@ -4163,6 +4163,44 @@ class NativeSliceDeviceTest {
             SliceBeam.getCurrentConfigFile().delete()
         }
     }
+
+    @Test(timeout = 180_000)
+    fun qidiCompatibleType1AndType2TowersReportPerFilamentPurgeVolumes() = withToolChangerProfile {
+        val context = InstrumentationRegistry.getInstrumentation().targetContext
+        val process = requireNotNull(SliceBeam.CONFIG?.findPrint("0.20mm Standard"))
+        process.put("enable_prime_tower", "1")
+        val source = copyCube(context, "wipe-tower-filament-statistics.stl")
+        val model = Model(source)
+        val output = File(context.cacheDir, "wipe-tower-filament-statistics.gcode")
+        val configFile = SliceBeam.getCurrentConfigFile()
+        try {
+            model.addObject(model, 0)
+            model.translate(1, 35.0, 0.0, 0.0)
+            model.setUniformFilament(0, 1)
+            model.setUniformFilament(1, 2)
+            for (towerType in listOf("type1", "type2")) {
+                process.put("wipe_tower_type", towerType)
+                SliceBeam.genCurrentConfig(model)
+                val result = model.slice(configFile.absolutePath, output.absolutePath, null)
+                try {
+                    val gcode = output.readText()
+                    assertHasExtrusion(gcode)
+                    assertTrue("$towerType must generate a wipe tower", gcode.contains("WIPE_TOWER_START"))
+                    for (filamentIndex in 0..1) {
+                        val volume = result.getWipeTowerFilamentVolumeMm3(filamentIndex)
+                        assertTrue("$towerType purge tower must report filament ${filamentIndex + 1}: $volume", volume > 0.0)
+                    }
+                } finally {
+                    result.release()
+                }
+            }
+        } finally {
+            model.release()
+            source.delete()
+            output.delete()
+            configFile.delete()
+        }
+    }
     @Test(timeout = 120_000)
     fun klipperWipeTowerOmitsNonessentialPlannerStopsButKeepsToolchangeSync() = withToolChangerProfile {
         val context = InstrumentationRegistry.getInstrumentation().targetContext
