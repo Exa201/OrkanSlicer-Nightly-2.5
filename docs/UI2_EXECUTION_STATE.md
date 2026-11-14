@@ -1,5 +1,14 @@
 # Nightly execution state — 2026-11-13
 
+## Aktueller Fortsetzungsstand — 2026-11-14
+
+- Maßgeblicher Code-Stand: Branch `codex/nightly-batch11-next`, HEAD `dede33ab5b3e2676e142198a4aaf934ceda32846`; dieser Code-Commit ist auf `nightly25` gepusht. Die vorliegende Notiz ist die einzige lokale Änderung.
+- Nightly Batch 18 bleibt **5/10 zur Laufzeit abgenommen**. Neuere Punkte sind implementiert/gebaut, zählen aber ohne ihre vorgeschriebenen Slice-/Instrumentierungsläufe nicht als abgenommen. Daher derzeit kein APK-/Release-Gate.
+- Zuletzt vollständig verifizierter JVM-Stand auf HEAD `dede33ab5b`: Debug **774/774**, SliceTest **774/774**, 0 Fehler/Errors/Skips; `verifyNightlyChangelog` bestanden. Snapmaker U1-Profilprüfung und ACE-Leerfach-Mehrfarbenregression sind enthalten.
+- Xiaomi `e7dbd22e` (`2211133G`, Android 16, SM8550) ist online, acht CPUs `0–7` sichtbar und Gerät bleibt bevorzugtes Hardwareziel; kein Emulator für die aktuelle Prüfung verwendet. Aktuelle SliceTest-Installation wird von `com.google.android.devicelockcontroller` mit `INSTALL_FAILED_USER_RESTRICTED` blockiert; **0 aktuelle Tests liefen** und die Sperre wurde nicht umgangen.
+- Frühere reale Xiaomi-Messung auf Nightly `0.8.457` belegt TBB `hardwareConcurrency=8`, `arenaMax=8`, `workersUsed=8`; ein echter 12-Teil-Multimaterial-Slice lief in 4,53 s und Worker meldeten CPU-IDs `0–7`. Das belegt Erreichbarkeit aller Kerne in diesem Lauf, nicht eine konstante Vollauslastung oder eine Messung des aktuellen HEAD.
+- Nächster konkreter Schritt: sobald Android die Testinstallation zulässt, auf demselben Xiaomi die offenen Batch-18-Slice-/3MF-Roundtrips ausführen; danach Fehler beheben, Punkte einzeln abnehmen und erst bei 10/10 APK plus Nightly-Prerelease erzeugen.
+
 ## Orca Nightly Batch 18 — 5/10 geprüft; kein Release für Teilbatch — 2026-11-14
 
 - Xiaomi ist als bevorzugtes Testgerät wieder per ADB verfügbar (`e7dbd22e`, Modell 2211133G, Android 16). Der neueste gezielte Painted-Modifier-Test wurde mit dem korrekten Gradle-Runner gestartet, aber Android verweigerte die SliceTest-APK-Installation weiterhin mit `INSTALL_FAILED_USER_RESTRICTED` / „Install canceled by user“; **0 Tests liefen**. `com.google.android.devicelockcontroller` bleibt EnforcingAdmin. Kein Emulator wurde für diesen Lauf verwendet und keine Richtlinie umgangen.
