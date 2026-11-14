@@ -3568,9 +3568,17 @@ unsigned int PresetBundle::sync_ams_list(std::vector<std::pair<DynamicPrintConfi
 
 void PresetBundle::update_filament_multi_color()
 {
+    const auto &single_colors = project_config.option<ConfigOptionStrings>("filament_colour")->values;
     std::vector<std::string> exsit_multi_colors;
-    for (auto &fil_item : ams_multi_color_filment){
-        if (fil_item.empty()) break;
+    exsit_multi_colors.reserve(ams_multi_color_filment.size());
+    for (size_t i = 0; i < ams_multi_color_filment.size(); ++i) {
+        const auto &fil_item = ams_multi_color_filment[i];
+        // Placeholder trays keep their slot index but have no multi-colour list.
+        // Fall back to the slot's single colour so later trays remain aligned.
+        if (fil_item.empty()) {
+            exsit_multi_colors.push_back(i < single_colors.size() ? single_colors[i] : std::string());
+            continue;
+        }
         if (fil_item.size() == 1)
             exsit_multi_colors.push_back(fil_item[0]);
         else {

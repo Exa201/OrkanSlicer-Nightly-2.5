@@ -679,6 +679,15 @@ class NativeSliceDeviceTest {
     }
 
     @Test
+    fun emptyAmsSlotsKeepMultiColorRowsAlignedWithLaterSlots() {
+        assertArrayEquals(
+            "Empty tray placeholders must fall back to their own slot color without dropping later multi-colour rows",
+            intArrayOf(4, 1, 1, 1, 1),
+            Native.ams_multi_color_placeholder_alignment_regression(),
+        )
+    }
+
+    @Test
     fun projectWithFewerFilamentsThanToolsKeepsAllSlotArraysInSync() {
         assertArrayEquals(
             "Project load must extend parallel slot arrays, preserve imported colors, and complete a four-tray overwrite sync",

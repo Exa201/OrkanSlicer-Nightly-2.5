@@ -125,6 +125,9 @@ class Native {
     /** Verifies AMS sync keeps an inherited user filament override while updating tray color. */
     @JvmStatic
     external fun ams_sync_preserves_inherited_filament_regression(): IntArray
+    /** Verifies empty synchronized trays preserve multi-colour rows for following slots. */
+    @JvmStatic
+    external fun ams_multi_color_placeholder_alignment_regression(): IntArray
     /** Loads a short-filament multi-tool project, checks paired arrays, then overwrites all tray slots. */
     @JvmStatic
     external fun short_project_filament_arrays_regression(): IntArray

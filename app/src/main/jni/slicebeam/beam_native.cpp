@@ -7165,6 +7165,78 @@ extern "C" {
         }
     }
 
+    // Missing multi-colour tray metadata must fall back to its single colour and
+    // keep later ACE/CFS multi-colour rows aligned after the production sync path.
+    JNIEXPORT jintArray JNICALL Java_ru_ytkab0bp_slicebeam_slic3r_Native_ams_1multi_1color_1placeholder_1alignment_1regression(
+        JNIEnv* env, jclass)
+    {
+        try {
+            PresetBundle bundle;
+            const std::string system_name = "Nightly Multi-Color Sync PLA";
+            const std::string filament_id = "NIGHTLY_MULTI_COLOR_SYNC_PLA";
+            DynamicPrintConfig system_config = DynamicPrintConfig::full_print_config();
+            system_config.set_num_extruders(1);
+            system_config.set_key_value("filament_type", new ConfigOptionStrings({"PLA"}));
+            system_config.set_key_value("filament_settings_id", new ConfigOptionStrings({system_name}));
+            Preset& system = bundle.filaments.load_preset("nightly-multi-color-sync-pla", system_name,
+                                                           std::move(system_config), false);
+            system.is_system = true;
+            system.is_compatible = true;
+            system.filament_id = filament_id;
+            bundle.filament_presets.assign(4, system_name);
+
+            Preset& printer = bundle.printers.get_edited_preset();
+            printer.printer_technology_ref() = ptFFF;
+            printer.config.set_num_extruders(4);
+            printer.config.set_key_value("nozzle_diameter", new ConfigOptionFloats({0.4, 0.4, 0.4, 0.4}));
+            bundle.project_config = DynamicPrintConfig::full_print_config();
+            bundle.project_config.set_num_extruders(4);
+            bundle.project_config.set_key_value("filament_colour", new ConfigOptionStrings({"#111111", "#222222", "#333333", "#444444"}));
+            bundle.project_config.set_key_value("filament_colour_type", new ConfigOptionStrings({"1", "1", "1", "1"}));
+            bundle.project_config.set_key_value("filament_multi_colour", new ConfigOptionStrings({"#111111", "#222222", "#333333", "#444444"}));
+            bundle.project_config.set_key_value("filament_map", new ConfigOptionInts({1, 1, 1, 1}));
+
+            auto make_tray = [&filament_id](const std::string& color, const std::vector<std::string>& multi_color,
+                                            const std::string& slot) {
+                DynamicPrintConfig tray;
+                tray.set_key_value("filament_id", new ConfigOptionStrings({filament_id}));
+                tray.set_key_value("filament_colour", new ConfigOptionStrings({color}));
+                tray.set_key_value("filament_colour_type", new ConfigOptionStrings({"1"}));
+                tray.set_key_value("filament_multi_colour", new ConfigOptionStrings(multi_color));
+                tray.set_key_value("filament_type", new ConfigOptionStrings({"PLA"}));
+                tray.set_key_value("ams_id", new ConfigOptionStrings({"0"}));
+                tray.set_key_value("slot_id", new ConfigOptionStrings({slot}));
+                return tray;
+            };
+            bundle.filament_ams_list.emplace(0, make_tray("#AA0000", {"#AA0000"}, "0"));
+            bundle.filament_ams_list.emplace(1, make_tray("#222222", {}, "1"));
+            bundle.filament_ams_list.emplace(2, make_tray("#00BB00", {"#00BB00", "#00CC00"}, "2"));
+            bundle.filament_ams_list.emplace(3, make_tray("#444444", {"#444444"}, "3"));
+            std::vector<std::pair<DynamicPrintConfig *, std::string>> unknowns;
+            std::map<int, AMSMapInfo> maps;
+            MergeFilamentInfo merge_info;
+            bundle.sync_ams_list(unknowns, false, maps, false, merge_info);
+
+            const auto* option = bundle.project_config.option<ConfigOptionStrings>("filament_multi_colour");
+            const auto& rows = option->values;
+            const jint values[] = {
+                static_cast<jint>(rows.size()),
+                rows.size() > 0 && rows[0] == "#AA0000" ? 1 : 0,
+                rows.size() > 1 && rows[1] == "#222222" ? 1 : 0,
+                rows.size() > 2 && rows[2] == "#00BB00 #00CC00" ? 1 : 0,
+                rows.size() > 3 && rows[3] == "#444444" ? 1 : 0,
+            };
+            jintArray result = env->NewIntArray(5);
+            if (result != nullptr)
+                env->SetIntArrayRegion(result, 0, 5, values);
+            return result;
+        } catch (const std::exception& error) {
+            jclass runtime_error = env->FindClass("ru/ytkab0bp/slicebeam/slic3r/Slic3rRuntimeError");
+            if (runtime_error != nullptr) env->ThrowNew(runtime_error, error.what());
+            return nullptr;
+        }
+    }
+
     // Loads a four-tool project that stores only two filament slots through the
     // same PresetBundle project-config path used by imported 3MF projects.
     JNIEXPORT jintArray JNICALL Java_ru_ytkab0bp_slicebeam_slic3r_Native_short_1project_1filament_1arrays_1regression(
