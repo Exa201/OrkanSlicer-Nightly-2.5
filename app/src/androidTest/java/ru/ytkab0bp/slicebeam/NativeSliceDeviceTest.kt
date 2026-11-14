@@ -177,7 +177,7 @@ class NativeSliceDeviceTest {
         try {
             val result = Native.painted_modifier_bbs_roundtrip(file.absolutePath)
 
-            assertEquals("BBS and classic roundtrip result shape", 12, result.size)
+            assertEquals("roundtrip and clone result shape", 14, result.size)
             assertEquals("BBS retains all +X cube facets", 12, result[0])
             assertEquals(12, result[1])
             assertEquals("BBS painted facet mask is identical", 1, result[2])
@@ -190,6 +190,8 @@ class NativeSliceDeviceTest {
             assertEquals("classic modifier host reference is restored", 1, result[9])
             assertEquals("classic modifier depth is restored", 1, result[10])
             assertEquals("classic modifier config is restored", 1, result[11])
+            assertEquals("a cloned modifier points to its cloned host", 1, result[12])
+            assertEquals("cloning preserves the painted facet mask", 1, result[13])
         } finally {
             file.delete()
             File(file.parentFile, file.name + ".classic.3mf").delete()

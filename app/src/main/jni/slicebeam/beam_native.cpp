@@ -6812,6 +6812,19 @@ extern "C" {
             modifier->painted_modifier_facets.set(selector);
             object->add_instance();
 
+            Model clone_model;
+            ModelObject* cloned_object = clone_model.add_object(*object);
+            ModelVolume* cloned_modifier = nullptr;
+            ModelVolume* cloned_host = nullptr;
+            for (ModelVolume* volume : cloned_object->volumes) {
+                if (volume->is_painted_modifier()) cloned_modifier = volume;
+                else if (volume->is_model_part()) cloned_host = volume;
+            }
+            const bool clone_host_matches = cloned_modifier != nullptr && cloned_host != nullptr &&
+                cloned_object->painted_modifier_host(*cloned_modifier) == cloned_host && cloned_host->id() != host->id();
+            const bool clone_paint_matches = cloned_modifier != nullptr &&
+                cloned_modifier->painted_modifier_facets.equals(modifier->painted_modifier_facets);
+
             DynamicPrintConfig config = DynamicPrintConfig::full_print_config();
             std::set<std::pair<int, int>> object_instances{{0, 0}};
             PlateData plate(0, object_instances, false);
@@ -6886,6 +6899,7 @@ extern "C" {
                 painted_facets, facet_count, paint_matches, host_matches, depth_matches, config_matches,
                 classic_painted_facets, static_cast<int>(classic_modifier->mesh().its.indices.size()), classic_paint_matches,
                 classic_host_matches, classic_depth_matches, classic_config_matches,
+                clone_host_matches ? 1 : 0, clone_paint_matches ? 1 : 0,
             };
             release_PlateData_list(loaded_plates);
             jintArray result = env->NewIntArray(static_cast<jsize>(std::size(values)));
