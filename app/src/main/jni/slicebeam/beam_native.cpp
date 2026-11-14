@@ -2580,6 +2580,66 @@ extern "C" {
         }
     }
 
+    JNIEXPORT jboolean JNICALL Java_ru_ytkab0bp_slicebeam_slic3r_Native_model_1apply_1adaptive_1layer_1height_1to_1objects(
+        JNIEnv* env, jclass, jlong ptr, jintArray objectIndices, jstring configPath, jfloat qualityFactor) {
+        try {
+            ModelRef* model = reinterpret_cast<ModelRef*>(static_cast<intptr_t>(ptr));
+            if (model == nullptr || objectIndices == nullptr || configPath == nullptr ||
+                !std::isfinite(qualityFactor) || qualityFactor < 0.f || qualityFactor > 1.f) return JNI_FALSE;
+            const jsize count = env->GetArrayLength(objectIndices);
+            if (count < 2) return JNI_FALSE;
+            std::vector<jint> indices(static_cast<size_t>(count));
+            env->GetIntArrayRegion(objectIndices, 0, count, indices.data());
+            if (env->ExceptionCheck()) return JNI_FALSE;
+            std::sort(indices.begin(), indices.end());
+            if (std::adjacent_find(indices.begin(), indices.end()) != indices.end()) return JNI_FALSE;
+
+            const char* chars = env->GetStringUTFChars(configPath, nullptr);
+            if (chars == nullptr) return JNI_FALSE;
+            DynamicPrintConfig config;
+            try {
+                config.load(std::string(chars), ForwardCompatibilitySubstitutionRule::Disable);
+                env->ReleaseStringUTFChars(configPath, chars);
+            } catch (...) {
+                env->ReleaseStringUTFChars(configPath, chars);
+                throw;
+            }
+            config.normalize_fdm();
+
+            std::vector<ModelObject*> objects;
+            std::vector<std::vector<coordf_t>> profiles;
+            objects.reserve(indices.size());
+            profiles.reserve(indices.size());
+            for (jint index : indices) {
+                if (index < 0 || static_cast<size_t>(index) >= model->model.objects.size()) return JNI_FALSE;
+                ModelObject* object = model->model.objects[static_cast<size_t>(index)];
+                if (object == nullptr) return JNI_FALSE;
+                const SlicingParameters params = PrintObject::slicing_parameters(config, *object, 0.0f, Vec3d::Zero());
+                std::vector<coordf_t> profile = layer_height_profile_adaptive(params, *object, qualityFactor);
+                if (profile.size() < 4 || profile.size() % 2 != 0) return JNI_FALSE;
+                objects.push_back(object);
+                profiles.push_back(std::move(profile));
+            }
+
+            const std::vector<coordf_t> merged = layer_height_profile_merge_finest(profiles);
+            if (merged.size() < 4) return JNI_FALSE;
+            std::vector<std::vector<coordf_t>> fittedProfiles;
+            fittedProfiles.reserve(objects.size());
+            for (ModelObject* object : objects) {
+                const double height = object->raw_mesh_bounding_box().size().z();
+                std::vector<coordf_t> fitted = layer_height_profile_fit_to_height(merged, height);
+                if (fitted.size() < 4) return JNI_FALSE;
+                fittedProfiles.push_back(std::move(fitted));
+            }
+            for (size_t index = 0; index < objects.size(); ++index)
+                objects[index]->layer_height_profile.set(std::move(fittedProfiles[index]));
+            return JNI_TRUE;
+        } catch (const std::exception& e) {
+            env->ThrowNew(env->FindClass("java/lang/RuntimeException"), e.what());
+            return JNI_FALSE;
+        }
+    }
+
     JNIEXPORT jboolean JNICALL Java_ru_ytkab0bp_slicebeam_slic3r_Native_model_1adjust_1layer_1height_1at_1world_1point(
         JNIEnv* env, jclass, jlong ptr, jint i, jstring configPath, jdouble worldX, jdouble worldY, jdouble worldZ,
         jdouble bandWidth, jdouble delta, jint action, jfloat qualityFactor) {

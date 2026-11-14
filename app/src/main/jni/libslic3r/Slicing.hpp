@@ -158,6 +158,9 @@ std::vector<coordf_t> layer_height_profile_fit_to_height(
     const std::vector<coordf_t> &layer_height_profile,
     coordf_t                     object_height);
 
+std::vector<coordf_t> layer_height_profile_merge_finest(
+    const std::vector<std::vector<coordf_t>> &layer_height_profiles);
+
 std::vector<double> layer_height_profile_adaptive(
     const SlicingParameters& slicing_params,
     const ModelObject& object, float quality_factor);

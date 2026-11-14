@@ -1352,6 +1352,8 @@
     <string name="NoObjectSelected">Kein Objekt ausgewählt.</string>
     <string name="VariableLayerAdaptive">Adaptiv</string>
     <string name="VariableLayerApplied">Adaptive Schichthöhe wurde angewendet.</string>
+    <string name="VariableLayerApplySelected">Adaptiv auf Auswahl</string>
+    <string name="VariableLayerMultiApplied">Gemeinsame adaptive Schichten auf %1$d Objekte angewendet.</string>
     <string name="VariableLayerFailed">Adaptive Schichthöhe konnte nicht berechnet werden: %1$s</string>
     <string name="VariableLayerDefault">Standard (konstant)</string>
     <string name="VariableLayerBrushHelp">Tippe auf eine exakte Modelloberfläche, um das Schichthöhenprofil zu bearbeiten. Mit zwei Fingern bewegst du weiterhin die Kamera.</string>

@@ -1377,6 +1377,8 @@
     <string name="NoObjectSelected">No object selected.</string>
     <string name="VariableLayerAdaptive">Adaptive</string>
     <string name="VariableLayerApplied">Adaptive layer height applied.</string>
+    <string name="VariableLayerApplySelected">Adaptive for selected objects</string>
+    <string name="VariableLayerMultiApplied">Shared adaptive layers applied to %1$d objects.</string>
     <string name="VariableLayerFailed">Could not calculate adaptive layer height: %1$s</string>
     <string name="VariableLayerDefault">Default (constant)</string>
     <string name="VariableLayerBrushHelp">Touch an exact model surface to edit its layer profile. Two fingers still move the camera.</string>

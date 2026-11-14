@@ -547,6 +547,17 @@ open class Model private constructor(@JvmField var pointer: Long) {
         markStateChanged()
     }
 
+    /** Applies Orca's finest shared adaptive layer schedule to multiple independent objects. */
+    open fun applyAdaptiveLayerHeightToObjects(indices: IntArray, configPath: String, qualityFactor: Float): Boolean {
+        if (pointer == 0L || indices.size < 2 || indices.any { !hasObject(it) } ||
+            indices.toSet().size != indices.size || configPath.isBlank() ||
+            !qualityFactor.isFinite() || qualityFactor !in 0f..1f
+        ) return false
+        val applied = Native.model_apply_adaptive_layer_height_to_objects(pointer, indices, configPath, qualityFactor)
+        if (applied) markStateChanged()
+        return applied
+    }
+
     /** Paints the Orca layer-height profile at an exact surface hit in build-volume coordinates. */
     open fun adjustLayerHeightAtWorldPoint(
         i: Int,

@@ -392,6 +392,8 @@ class Native {
     external fun model_remap_filaments(ptr: Long, sourceFilaments: IntArray, targetFilaments: IntArray): Unit
     @JvmStatic
     external fun model_apply_adaptive_layer_height(ptr: Long, i: Int, configPath: String, qualityFactor: Float): Unit
+    @JvmStatic
+    external fun model_apply_adaptive_layer_height_to_objects(ptr: Long, objectIndices: IntArray, configPath: String, qualityFactor: Float): Boolean
 
     /** Applies one Orca layer-height brush sample in build-volume coordinates. */
     @JvmStatic

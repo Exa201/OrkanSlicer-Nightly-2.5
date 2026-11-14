@@ -336,6 +336,61 @@ std::vector<coordf_t> layer_height_profile_fit_to_height(
     return out;
 }
 
+std::vector<coordf_t> layer_height_profile_merge_finest(
+    const std::vector<std::vector<coordf_t>> &layer_height_profiles)
+{
+    if (layer_height_profiles.empty()) return {};
+    const std::vector<coordf_t> *tallest = &layer_height_profiles.front();
+    for (const std::vector<coordf_t> &profile : layer_height_profiles) {
+        if (profile.size() < 4 || profile.size() % 2 != 0 || !is_approx(profile.front(), 0.)) return {};
+        if (profile[profile.size() - 2] > (*tallest)[tallest->size() - 2]) tallest = &profile;
+    }
+    const coordf_t top = (*tallest)[tallest->size() - 2];
+
+    std::vector<size_t> cursors(layer_height_profiles.size(), 0);
+    const auto finest_at = [&layer_height_profiles, &cursors](coordf_t z) {
+        coordf_t height = std::numeric_limits<coordf_t>::max();
+        for (size_t idx = 0; idx < layer_height_profiles.size(); ++idx) {
+            const std::vector<coordf_t> &profile = layer_height_profiles[idx];
+            const size_t end = profile.size() - 2;
+            const coordf_t profile_top = profile[end];
+            if (z > profile_top + EPSILON) {
+                const coordf_t last = profile[end - 1];
+                height = std::min(height, std::sqrt(last * last + 2. * LAYER_HEIGHT_CHANGE_STEP * (z - profile_top)));
+                continue;
+            }
+            size_t &cursor = cursors[idx];
+            while (cursor + 2 < end && profile[cursor + 2] <= z) cursor += 2;
+            if (cursor + 2 < end) {
+                const coordf_t span = profile[cursor + 2] - profile[cursor];
+                if (span <= EPSILON) return coordf_t(0.);
+                height = std::min(height, lerp(profile[cursor + 1], profile[cursor + 3],
+                    (z - profile[cursor]) / span));
+            } else {
+                height = std::min(height, profile[cursor + 1]);
+            }
+        }
+        return height;
+    };
+
+    std::vector<coordf_t> merged{0., (*tallest)[1]};
+    coordf_t print_z = (*tallest)[1];
+    if (std::abs((*tallest)[2] - print_z) < EPSILON && std::abs((*tallest)[3] - print_z) < EPSILON) {
+        merged.push_back(print_z);
+        merged.push_back(print_z);
+    }
+    while (print_z + EPSILON < top) {
+        const coordf_t height = finest_at(print_z);
+        if (!std::isfinite(height) || height < EPSILON) return {};
+        merged.push_back(print_z);
+        merged.push_back(height);
+        print_z += height;
+    }
+    merged.push_back(top);
+    merged.push_back(merged[merged.size() - 2]);
+    return merged;
+}
+
 // Based on the work of @platsch
 // Fill layer_height_profile by heights ensuring a prescribed maximum cusp height.
 std::vector<double> layer_height_profile_adaptive(const SlicingParameters& slicing_params, const ModelObject& object, float quality_factor)

@@ -13,6 +13,13 @@
 - Der erste Lauf mit skalierter Instanz scheiterte bei Layer 2 (`0,400000` vs. `0,446667` mm); diese Geometrie war kein Orca-Positivfall. Nach Umstellung auf zwei separate Meshes bestand `NativeSliceDeviceTest#differentHeightObjectsWithAdaptiveProfilesSharePrimeTowerLayers` auf Android 16/API 36, ARM64 über `libndk_translation`: **1/1**, einschließlich positivem Slice und Negativregression. SliceTest-App und Instrumentierungs-APK bauten erfolgreich.
 - Punkt 5 ist **verifiziert**. Batch 17: **5/10**. Vollständige Debug-/SliceTest-Unit-Suiten nach dem nativen Port stehen noch aus; kein APK/Release für Batch 17. Nächster Schritt: den nächsten geeigneten Orca-2.5-Änderungspunkt mit aktivem Android-Aufrufpfad auswählen und mit Verhaltenstest belegen.
 
+## Orca Nightly Batch 17 — Punkt 6/10 verifiziert — 2026-11-14
+
+- Mehrfachauswahl im vorhandenen Layerhöhen-Panel zeigt jetzt „Adaptiv auf Auswahl“. Der Kotlin-Model-Wrapper validiert Auswahl und Profilparameter; JNI erzeugt je ausgewähltem Objekt das Orca-Adaptive-Profil, erstellt daraus den feinsten gemeinsamen Plan und passt ihn vor dem atomaren Schreiben an die jeweilige Meshhöhe an. Einzelobjekte behalten die bisherige Aktion.
+- `AdaptiveLayerMultiSelectionDeviceTest` slicet zwei getrennte STL-Meshes unterschiedlicher Höhe mit T0/T1, Precise-Z und Prime Tower. Der Test bestätigt adaptive Profile für beide Objekte, übereinstimmende Layergrenzen bis zur Höhe des kurzen Meshes, Extrusion, beide Toolbefehle und Prime-Tower-G-Code: **1/1** auf API 36.
+- `:app:compileDebugKotlin` und `:app:assembleSliceTestAndroidTest` erfolgreich. API-36-Emulator: gezielter Instrumentierungstest 1/1 bestanden. `:app:testDebugUnitTest` und `:app:testSliceTestUnitTest`: jeweils **779/779**, 0 failures/errors/skips. `git diff --check` sauber.
+- Punkt 6 ist **verifiziert**. Batch 17: **6/10**. Kein APK/Release vor dem 10/10-Gate. Nächster konkreter Schritt: einen noch fehlenden Orca-2.5-Kernfix mit aktivem Android-Aufrufpfad auswählen und durch Verhaltenstest abnehmen.
+
 ## Orca Nightly Batch 17 — Punkt 4/10 verifiziert — 2026-11-13
 
 - Punkt 4 ergänzt Orcas `adjust_layer_height_profile()` als direktes Ein-Finger-Pinselwerkzeug im vorhandenen Layerhöhenmodus. Die GL-Oberflächen-Treffpunkte werden in Objektkoordinaten zurücktransformiert; Zwei-Finger-Gesten bleiben für Kamera/Zoom frei. Der exakte Raycaster wird je Auswahl vorgewärmt und bei Touchsamples wiederverwendet; Samples sind auf höchstens etwa 18/s begrenzt.
