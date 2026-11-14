@@ -6824,6 +6824,13 @@ extern "C" {
                 cloned_object->painted_modifier_host(*cloned_modifier) == cloned_host && cloned_host->id() != host->id();
             const bool clone_paint_matches = cloned_modifier != nullptr &&
                 cloned_modifier->painted_modifier_facets.equals(modifier->painted_modifier_facets);
+            TriangleMesh replacement_host_mesh(cloned_host->mesh());
+            replacement_host_mesh.scale(Vec3f(0.8f, 1.f, 1.f));
+            cloned_host->set_mesh(std::move(replacement_host_mesh));
+            cloned_object->sync_painted_modifiers();
+            const bool synced_mesh_matches = cloned_modifier->mesh_ptr() == cloned_host->mesh_ptr();
+            const int synced_painted_facets = static_cast<int>(cloned_modifier->painted_modifier_facets
+                .get_facets(*cloned_modifier, EnforcerBlockerType::ENFORCER).indices.size());
 
             DynamicPrintConfig config = DynamicPrintConfig::full_print_config();
             std::set<std::pair<int, int>> object_instances{{0, 0}};
@@ -6900,6 +6907,7 @@ extern "C" {
                 classic_painted_facets, static_cast<int>(classic_modifier->mesh().its.indices.size()), classic_paint_matches,
                 classic_host_matches, classic_depth_matches, classic_config_matches,
                 clone_host_matches ? 1 : 0, clone_paint_matches ? 1 : 0,
+                synced_mesh_matches ? 1 : 0, synced_painted_facets,
             };
             release_PlateData_list(loaded_plates);
             jintArray result = env->NewIntArray(static_cast<jsize>(std::size(values)));

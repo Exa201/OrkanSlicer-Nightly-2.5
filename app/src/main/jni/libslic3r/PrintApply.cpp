@@ -1362,6 +1362,7 @@ Print::ApplyStatus Print::apply(const Model &model, DynamicPrintConfig new_full_
                 model_object_status_db.add(*model.objects[i], ModelObjectStatus::New);
                 m_model.objects.emplace_back(ModelObject::new_copy(*model.objects[i]));
 				m_model.objects.back()->set_model(&m_model);
+                m_model.objects.back()->sync_painted_modifiers();
             }
             //BBS: add more logs
             BOOST_LOG_TRIVIAL(info) << __FUNCTION__ << boost::format(" %1%: new model objects added.")%__LINE__;
@@ -1385,6 +1386,7 @@ Print::ApplyStatus Print::apply(const Model &model, DynamicPrintConfig new_full_
                     // New ModelObject added.
 					m_model.objects.emplace_back(ModelObject::new_copy(*mobj));
 					m_model.objects.back()->set_model(&m_model);
+                    m_model.objects.back()->sync_painted_modifiers();
                     model_object_status_db.add(*mobj, ModelObjectStatus::New);
                 } else {
                     // Existing ModelObject re-added (possibly moved in the list).
@@ -1473,6 +1475,7 @@ Print::ApplyStatus Print::apply(const Model &model, DynamicPrintConfig new_full_
                 model_object_status.print_object_regions->clear();
             // Copy content of the ModelObject including its ID, do not change the parent.
             model_object.assign_copy(model_object_new);
+            model_object.sync_painted_modifiers();
         } else {
             model_object_status.print_object_regions_status = ModelObjectStatus::PrintObjectRegionsStatus::Valid;
             if (supports_differ || model_custom_supports_data_changed(model_object, model_object_new)) {
