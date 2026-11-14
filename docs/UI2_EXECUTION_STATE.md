@@ -4833,7 +4833,7 @@ Phase 4 — workspace overlay migration is continuing. The model context menu an
 - Nächster konkreter Schritt: Laufzeittest für die Regressionen ausführen, sobald die MIUI-Installationsrichtlinie Installationen zulässt; parallel einen weiteren Orca-2.5-Fix suchen, der im mobilen Pfad fehlt und gezielt testbar ist.
 
 - Nachtrag zur aktuellen Abnahme: :app:testDebugUnitTest :app:testSliceTestUnitTest :app:verifyNightlyChangelog erneut erfolgreich; Debug **773/773**, SliceTest **773/773**, jeweils 0 Fehler/Skips.
-- Identitäts-/Isolations-Sanity-Check im aktiven Branch bestätigt: pplicationId=com.exa201.orkanslicer.nightly25, FileProvider-Autorität aus dieser ID abgeleitet und Slicer-Konfigurationen im privaten ilesDir. Adaptive Low-GPU-Vorschaupolitik bleibt in DevicePerformancePolicy/GLRenderer aktiv.
+- Identitäts-/Isolations-Sanity-Check im aktiven Branch bestätigt: applicationId=com.exa201.orkanslicer.nightly25, FileProvider-Autorität aus dieser ID abgeleitet und Slicer-Konfigurationen im privaten filesDir. Adaptive Low-GPU-Vorschaupolitik bleibt in DevicePerformancePolicy/GLRenderer aktiv.
 - Xiaomi per ADB verbunden; MIUI blockierte die Test-APK-Installation mit INSTALL_FAILED_USER_RESTRICTED, daher **0 Instrumentierungstests gestartet**. git diff --check sauber; Release-Gate geschlossen.
 
 
@@ -4845,3 +4845,14 @@ Phase 4 — workspace overlay migration is continuing. The model context menu an
 - Xiaomi 2211133G erkannt, MIUI verweigerte erneut Testinstallation mit INSTALL_FAILED_USER_RESTRICTED; **0 Gerätetests gestartet**. Punkt ist implementiert/gebaut, jedoch nicht hardware-abgenommen.
 - Batch 18 bleibt **5/10 verifiziert**; die bisher aufgenommenen Punkte 6-9 sind ohne Xiaomi-Laufzeitbeleg nicht abgenommen. Kein APK/Release für diesen Zwischenstand.
 - Nächster Schritt: tatsächlichen Slice-Test ausführen, sobald MIUI die Testinstallation zulässt; anschließend Orca-Fix 17431-Fall in G-Code und Modellvorschau abgleichen.
+
+## Xiaomi- und CPU-Auslastungsprüfung — 2026-11-14
+
+- Xiaomi 2211133G (Android 16, ADB `e7dbd22e`) ist verbunden und wach; kein Emulator verwendet.
+- `:app:connectedSliceTestAndroidTest` auf HEAD `3dcdf2818c` erneut ausgeführt. ARM64-Testpakete wurden gebaut, aber MIUI brach die Installation mit `INSTALL_FAILED_USER_RESTRICTED` ab; Gradle meldet **0 Tests gestartet**. Lesbare `dumpsys`-Diagnose zeigt `no_install_apps` und `com.google.android.devicelockcontroller` als durchsetzenden Admin. Keine Gerätesicherheitsrichtlinie geändert.
+- Vollständige JVM-Verifikation auf demselben HEAD: `:app:testDebugUnitTest :app:testSliceTestUnitTest :app:verifyNightlyChangelog` — **BUILD SUCCESSFUL**.
+- Slicer-CPU-Nachweis ist im Testcode vorhanden: nativer TBB-Probe meldet sichtbare CPUs, Arena-Kapazität und genutzte Worker; ein echter 12-Teil-Multiobjekt-Slice erfasst TBB-Worker-CPU-Ticks und Prozessor-IDs. Diese Hardwaremessungen sind noch offen, weil die Instrumentierung nicht installiert/gestartet werden darf.
+- Der G-Code-Export nutzt TBB-Parallelpipelines mit bis zu 12 Pipeline-Tokens; zahlreiche Geometrie-, Füllungs-, Support- und G-Code-Pfade nutzen `tbb::parallel_for`/`parallel_reduce`. Das belegt vorhandene Parallelisierung, nicht die tatsächlich beim Xiaomi-Slice ausgelastete Kernzahl.
+- Direkte Xiaomi-Systemabfrage: ABI `arm64-v8a`, CPU online `0-7`, Prozess-Affinität `0-7`, Thermal-Service-Status `0` (normal). Das Betriebssystem schränkt die App damit nicht auf einen einzelnen CPU-Kern ein; tatsächlich genutzte TBB-Worker bleiben bis zum erfolgreichen Slice-Instrumentierungslauf unbestätigt.
+- Orca-Delta-Nachkontrolle: `d7534d7fb9` (leere gemeinsame Extruder-Druckfläche), `2c50d15451` (kein finaler Wipe-Tower-Mid-Air-Ram beim Toolchanger), `36815b4f03` (Feed-Rate-only-Linien bei Layer-Cooling) und `ea80024735` (T-Befehl vor Start-G-Code) sind bereits funktional im mobilen Kern vorhanden; erneutes Portieren wäre doppelte Arbeit.
+- Nächster konkreter Schritt: auf dem Xiaomi die vom Android-/Device-Lock-System angezeigte Testinstallationsfreigabe zulassen und danach `slicingTbbRuntimeCanFanOutAcrossVisibleCpus` sowie `manyPartMultipartObjectSlicesWithBrimGroupingAndKeepsMaterials` ausführen; anschließend die Orca-Supportregressionen auf dem Gerät abnehmen.
