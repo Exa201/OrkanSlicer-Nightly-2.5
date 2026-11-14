@@ -3420,6 +3420,70 @@ class NativeSliceDeviceTest {
     }
 
     @Test(timeout = 180_000)
+    fun synchronizedVariableLayerGapPreservesBottomSupportInterfaces() = withKobraProfile {
+        val context = InstrumentationRegistry.getInstrumentation().targetContext
+        val process = requireNotNull(SliceBeam.CONFIG?.findPrint("0.16mm Standard"))
+        process.put("layer_height", "0.2")
+        process.put("initial_layer_print_height", "0.2")
+        process.put("enable_support", "1")
+        process.put("support_type", "normal(auto)")
+        process.put("support_on_build_plate_only", "0")
+        process.put("independent_support_layer_height", "0")
+        process.put("support_top_z_distance", "0.2")
+        process.put("support_bottom_z_distance", "0.2")
+        process.put("support_object_xy_distance", "0.35")
+        process.put("support_interface_top_layers", "0")
+        process.put("support_interface_bottom_layers", "2")
+
+        val modelFile = createSupportCapitalFixture("orca25-support-variable-gap-bottom-capital.stl")
+        val output = File(context.cacheDir, "orca25-support-variable-gap-bottom-capital.gcode")
+        val model = Model(modelFile)
+        var result: GCodeProcessorResult? = null
+        try {
+            model.ensureOnBed(0)
+            SliceBeam.genCurrentConfig(model)
+            val configFile = SliceBeam.getCurrentConfigFile()
+            model.applyAdaptiveLayerHeight(0, configFile.absolutePath, 0.5f)
+            val boundsMin = model.boundingBoxExactMin
+            val boundsMax = model.boundingBoxExactMax
+            val centerX = (boundsMin.x + boundsMax.x) / 2.0
+            val centerY = (boundsMin.y + boundsMax.y) / 2.0
+            assertTrue(
+                "a finer synchronized layer schedule must be applied at the base-to-stem transition",
+                model.adjustLayerHeightAtWorldPoint(
+                    0, configFile.absolutePath, centerX, centerY, boundsMin.z + 2.08,
+                    8.0, 0.04, 1, 0.5f,
+                ),
+            )
+            val profile = model.adaptiveLayerHeightProfile(0)
+            assertTrue("the variable profile must include a layer thinner than the nominal 0.2 mm",
+                profile.toList().chunked(2).any { it.size == 2 && it[0] in 1.6..2.4 && it[1] < 0.2 - 1e-6 })
+
+            SliceBeam.genCurrentConfig(model)
+            val generated = configFile.readText()
+            assertTrue("support bottom interface layers must reach native slicing",
+                generated.contains("support_interface_bottom_layers = 2"))
+            assertTrue("support and object layer heights must be synchronized",
+                generated.contains("independent_support_layer_height = 0"))
+            result = model.slice(configFile.absolutePath, output.absolutePath, null)
+            val gcode = output.readText()
+            assertHasExtrusion(gcode)
+            val interfaceZs = supportExtrusionSegments(gcode)
+                .filter { it.type.contains("support interface", ignoreCase = true) }
+                .map { kotlin.math.round(it.z * 1000.0).toLong() }
+                .distinct()
+            assertEquals("two bottom-contact interface layers must survive the rounded variable gap", 2, interfaceZs.size)
+            Log.i("NativeSliceDeviceTest", "PASS synchronized bottom support contact interface layers=$interfaceZs")
+        } finally {
+            result?.release()
+            model.release()
+            modelFile.delete()
+            output.delete()
+            SliceBeam.getCurrentConfigFile().delete()
+        }
+    }
+
+    @Test(timeout = 180_000)
     fun organicTreeSupportPathsAreStableAcrossRepeatedSlices() = withKobraProfile {
         val context = InstrumentationRegistry.getInstrumentation().targetContext
         val config = requireNotNull(SliceBeam.CONFIG)

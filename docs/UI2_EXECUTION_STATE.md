@@ -4835,3 +4835,13 @@ Phase 4 — workspace overlay migration is continuing. The model context menu an
 - Nachtrag zur aktuellen Abnahme: :app:testDebugUnitTest :app:testSliceTestUnitTest :app:verifyNightlyChangelog erneut erfolgreich; Debug **773/773**, SliceTest **773/773**, jeweils 0 Fehler/Skips.
 - Identitäts-/Isolations-Sanity-Check im aktiven Branch bestätigt: pplicationId=com.exa201.orkanslicer.nightly25, FileProvider-Autorität aus dieser ID abgeleitet und Slicer-Konfigurationen im privaten ilesDir. Adaptive Low-GPU-Vorschaupolitik bleibt in DevicePerformancePolicy/GLRenderer aktiv.
 - Xiaomi per ADB verbunden; MIUI blockierte die Test-APK-Installation mit INSTALL_FAILED_USER_RESTRICTED, daher **0 Instrumentierungstests gestartet**. git diff --check sauber; Release-Gate geschlossen.
+
+
+## Orca-Batch 18 — Kandidat Bottom-Supportkontakt bei synchronisierten Layern — 2026-11-14
+
+- Orca-Fix 17431f363a im mobilen SupportMaterial.cpp portiert: BottomContact-Trimming startet an support_layer.bottom_z + EPSILON, damit die aufliegende Fläche bei auf null gerundetem synchronisiertem Z-Gap nicht selbst als Trimfläche entfernt wird. Andere Supportlayer behalten den bisherigen Schwellwert.
+- Instrumentierung NativeSliceDeviceTest#synchronizedVariableLayerGapPreservesBottomSupportInterfaces ergänzt. Sie verwendet das Kapital-Fixture, aktiviert adaptive Layerhöhen, prüft ein tatsächlich feineres Profil nahe der Basis und kontrolliert zwei Support-Interface-Layer im erzeugten G-Code.
+- :app:assembleSliceTestAndroidTest erfolgreich (Arm64-Nativecode und Instrumentierungs-Kotlin kompiliert); git diff --check sauber.
+- Xiaomi 2211133G erkannt, MIUI verweigerte erneut Testinstallation mit INSTALL_FAILED_USER_RESTRICTED; **0 Gerätetests gestartet**. Punkt ist implementiert/gebaut, jedoch nicht hardware-abgenommen.
+- Batch 18 bleibt **5/10 verifiziert**; die bisher aufgenommenen Punkte 6-9 sind ohne Xiaomi-Laufzeitbeleg nicht abgenommen. Kein APK/Release für diesen Zwischenstand.
+- Nächster Schritt: tatsächlichen Slice-Test ausführen, sobald MIUI die Testinstallation zulässt; anschließend Orca-Fix 17431-Fall in G-Code und Modellvorschau abgleichen.
