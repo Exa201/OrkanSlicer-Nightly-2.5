@@ -1138,3 +1138,11 @@ Der weitere Vergleich am 2026-11-04 prüfte Orca `5fd0edf5cc` (Z-Schrumpfung von
 - Xiaomi 2211133G ist online und wurde als einziges Testgerät verwendet. Der gezielte Gerätetest konnte nicht starten: Android verweigerte die Installation mit `INSTALL_FAILED_USER_RESTRICTED`; `dumpsys` bestätigt `no_install_apps` durch `com.google.android.devicelockcontroller`. **0 Gerätetests ausgeführt**; keine Richtlinie umgangen.
 - Die Änderung ist daher implementiert und gebaut, aber nicht zur Laufzeit abgenommen. Batch 18 bleibt **5/10 verifiziert**, kein Release aus diesem Zwischenstand.
 - Nächster Schritt: Xiaomi-Testinstallation durch die Geräteverwaltung freigeben lassen und `NativeSliceDeviceTest#emptyAmsSlotsKeepMultiColorRowsAlignedWithLaterSlots` auf dem Xiaomi ausführen; danach Farbreihenfolge im echten ACE/CFS-Slice und Werkzeugbefehle im G-Code prüfen.
+
+## Snapmaker U1 — Orca-CAD-Stangenabstände — 2026-11-14
+
+- Orca `868686b307` korrigiert die U1-Maschinengeometrie: `extruder_clearance_height_to_rod=26`, `extruder_clearance_dist_to_rod=41.2` und Radius `72.5` gehören zu allen U1-Düsenvarianten. Das Android-Profil hatte die Rod-Abstände ausgelassen und bei zwei Varianten einen kleineren Radius eingetragen; dadurch konnten By-Object-Abstände und Kollisionsprüfungen vom CAD-Maß abweichen.
+- Alle drei U1-Varianten im gebündelten `Snapmaker.ini` aktualisiert. `SnapmakerU1ClearanceProfileTest` prüft die tatsächlich ausgelieferten Profilabschnitte gegen alle drei Werte.
+- Verifikation: kompletter `:app:testDebugUnitTest` und `:app:testSliceTestUnitTest` nach `--rerun-tasks` erfolgreich, jeweils **774/774**, 0 Fehler/Errors/Skips; `verifyNightlyChangelog` und `git diff --check` erfolgreich.
+- Die Werte sind auf Profilebene getestet. Native By-Object-Kollisions-/Arrange-Laufzeitprüfung auf dem Xiaomi bleibt wegen `INSTALL_FAILED_USER_RESTRICTED` offen. Diese Änderung wird deshalb nicht als vollständig abgenommener Batch-Punkt gezählt; Batch 18 bleibt **5/10 verifiziert**.
+- Nächster Schritt: instrumentierten U1-By-Object-Clearance-Test am Xiaomi nach Freigabe der Testinstallation laufen lassen; danach die installierten Orca-Funktionen weiter nach Android-Aufrufpfad triagieren.
