@@ -39781,3 +39781,44 @@ msgstr ""
 # AI Translated
 #~ msgid "import SVG failed: could not parse imported svg data."
 #~ msgstr "помилка імпорту svg: не вдалося розібрати імпортовані дані svg."
+
+msgid "Subdivision mesh (Lost color)"
+msgstr "Сітка розділення (Втрачений колір)"
+
+msgid "Show options when importing STEP file"
+msgstr "Показувати параметри під час імпортування файлу STEP"
+
+# AI Translated
+msgid "STEP importing: linear deflection"
+msgstr "Імпорт STEP: лінійне відхилення"
+
+# AI Translated
+msgid "STEP importing: angle deflection"
+msgstr "Імпорт STEP: кутове відхилення"
+
+msgid "STEP importing: Split into multiple objects"
+msgstr "Імпортування STEP: Розділити на декілька обʼєктів"
+
+# AI Translated
+msgid ""
+"If enabled, compound and compsolid shapes in imported STEP files are split into multiple objects.\n"
+"Used as the default in the import dialog, or directly when the import dialog is disabled.\n"
+"Default: disabled."
+msgstr ""
+"Якщо увімкнено, складені (compound) та compsolid форми в імпортованих файлах STEP розділяються на кілька обʼєктів.\n"
+"Використовується як типове значення в діалоговому вікні імпорту або безпосередньо, коли діалогове вікно імпорту вимкнено.\n"
+"Типово: вимкнено."
+
+msgid "Behavior"
+msgstr "Поведінка"
+
+# AI Translated
+msgid "G-code Preview"
+msgstr "Перегляд G-code"
+
+msgid "Associate"
+msgstr "Ассоціювати"
+
+# AI Translated
+msgid "The Adaptive Pressure Advance model for one or more extruders may contain invalid values."
+msgstr "Модель адаптивного Pressure Advance для одного або кількох екструдерів може містити некоректні значення."

@@ -40041,3 +40041,48 @@ msgstr ""
 # AI Translated
 #~ msgid "import SVG failed: could not parse imported svg data."
 #~ msgstr "nhập svg thất bại: không thể phân tích dữ liệu svg đã nhập."
+
+# AI Translated
+msgid "Subdivision mesh (Lost color)"
+msgstr "Chia nhỏ lưới (Mất màu)"
+
+# AI Translated
+msgid "Show options when importing STEP file"
+msgstr "Hiện tùy chọn khi nhập file STEP"
+
+# AI Translated
+msgid "STEP importing: linear deflection"
+msgstr "Nhập STEP: độ lệch tuyến tính"
+
+# AI Translated
+msgid "STEP importing: angle deflection"
+msgstr "Nhập STEP: độ lệch góc"
+
+# AI Translated
+msgid "STEP importing: Split into multiple objects"
+msgstr "Nhập STEP: Tách thành nhiều vật thể"
+
+# AI Translated
+msgid ""
+"If enabled, compound and compsolid shapes in imported STEP files are split into multiple objects.\n"
+"Used as the default in the import dialog, or directly when the import dialog is disabled.\n"
+"Default: disabled."
+msgstr ""
+"Nếu bật, các hình compound và compsolid trong file STEP được nhập sẽ được tách thành nhiều vật thể.\n"
+"Được dùng làm mặc định trong hộp thoại nhập, hoặc dùng trực tiếp khi hộp thoại nhập bị tắt.\n"
+"Mặc định: tắt."
+
+# AI Translated
+msgid "Behavior"
+msgstr "Hành vi"
+
+# AI Translated
+msgid "G-code Preview"
+msgstr "Xem trước G-code"
+
+msgid "Associate"
+msgstr "Liên kết"
+
+# AI Translated
+msgid "The Adaptive Pressure Advance model for one or more extruders may contain invalid values."
+msgstr "Mô hình Adaptive Pressure Advance của một hoặc nhiều extruder có thể chứa giá trị không hợp lệ."

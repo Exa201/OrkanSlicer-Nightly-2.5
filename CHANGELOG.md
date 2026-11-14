@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.8.456 — OrcaSlicer 2.5.0 Übersetzungen — 2026-11-14
+
+- Refresh der 23 Orca-Sprachkataloge aus OrcaSlicer 2.5.0; fehlende Übersetzungen ergänzt und bestehende Nightly-Übersetzungen erhalten.
+- Sprachkatalog-Instrumentierung auf Android 16/API 36 bestanden; Debug- und SliceTest-Unit jeweils 779/779.
+
 ## 0.8.451 — Nightly plate arrangement feedback race — 2026-11-06
 
 - Invalidate any in-flight Fill Bed result as soon as plate-wide Arrange starts. A stale copy-capacity failure can no longer appear over a successful Arrange or restore its earlier layout.

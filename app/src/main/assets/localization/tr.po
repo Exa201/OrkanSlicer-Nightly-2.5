@@ -39173,3 +39173,45 @@ msgstr ""
 # AI Translated
 #~ msgid "import SVG failed: could not parse imported svg data."
 #~ msgstr "SVG içe aktarma başarısız oldu: içe aktarılan SVG verileri ayrıştırılamadı."
+
+msgid "Subdivision mesh (Lost color)"
+msgstr "Poligon artırma (Renk kaybı)"
+
+msgid "Show options when importing STEP file"
+msgstr "STEP dosyasını içe aktarırken seçenekleri göster"
+
+# AI Translated
+msgid "STEP importing: linear deflection"
+msgstr "STEP içe aktarma: doğrusal sapma"
+
+# AI Translated
+msgid "STEP importing: angle deflection"
+msgstr "STEP içe aktarma: açısal sapma"
+
+# AI Translated
+msgid "STEP importing: Split into multiple objects"
+msgstr "STEP içe aktarma: Birden çok nesneye ayır"
+
+# AI Translated
+msgid ""
+"If enabled, compound and compsolid shapes in imported STEP files are split into multiple objects.\n"
+"Used as the default in the import dialog, or directly when the import dialog is disabled.\n"
+"Default: disabled."
+msgstr ""
+"Etkinleştirildiğinde, içe aktarılan STEP dosyalarındaki bileşik (compound) ve compsolid şekiller birden çok nesneye ayrılır.\n"
+"İçe aktarma iletişim kutusunda varsayılan olarak, iletişim kutusu devre dışıysa doğrudan kullanılır.\n"
+"Varsayılan: devre dışı."
+
+msgid "Behavior"
+msgstr "Davranış"
+
+# AI Translated
+msgid "G-code Preview"
+msgstr "G-code Önizleme"
+
+msgid "Associate"
+msgstr "Ortak"
+
+# AI Translated
+msgid "The Adaptive Pressure Advance model for one or more extruders may contain invalid values."
+msgstr "Bir veya daha fazla ekstruder için Uyarlanabilir Pressure Advance modeli geçersiz değerler içeriyor olabilir."

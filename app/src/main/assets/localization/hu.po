@@ -39279,3 +39279,45 @@ msgstr ""
 # AI Translated
 #~ msgid "import SVG failed: could not parse imported svg data."
 #~ msgstr "Az svg importálása sikertelen: az importált svg-adatok nem dolgozhatók fel."
+
+msgid "Subdivision mesh (Lost color)"
+msgstr "Háló felosztása (Elveszett szín)"
+
+msgid "Show options when importing STEP file"
+msgstr "Beállítások megjelenítése STEP fájl importálásakor"
+
+# AI Translated
+msgid "STEP importing: linear deflection"
+msgstr "STEP importálás: lineáris eltérés"
+
+# AI Translated
+msgid "STEP importing: angle deflection"
+msgstr "STEP importálás: szögeltérés"
+
+# AI Translated
+msgid "STEP importing: Split into multiple objects"
+msgstr "STEP importálás: felosztás több objektumra"
+
+# AI Translated
+msgid ""
+"If enabled, compound and compsolid shapes in imported STEP files are split into multiple objects.\n"
+"Used as the default in the import dialog, or directly when the import dialog is disabled.\n"
+"Default: disabled."
+msgstr ""
+"Ha be van kapcsolva, az importált STEP fájlokban lévő compound és compsolid alakzatok több objektumra lesznek felosztva.\n"
+"Az importálási párbeszédablak alapértelmezett értékeként, illetve közvetlenül akkor használatos, ha az importálási párbeszédablak ki van kapcsolva.\n"
+"Alapértelmezett: kikapcsolva."
+
+msgid "Behavior"
+msgstr "Viselkedés"
+
+# AI Translated
+msgid "G-code Preview"
+msgstr "G-code előnézet"
+
+msgid "Associate"
+msgstr "Társítás"
+
+# AI Translated
+msgid "The Adaptive Pressure Advance model for one or more extruders may contain invalid values."
+msgstr "Egy vagy több extruder adaptív Pressure Advance modellje érvénytelen értékeket tartalmazhat."

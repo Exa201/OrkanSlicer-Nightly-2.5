@@ -40415,3 +40415,45 @@ msgid ""
 msgstr ""
 "避免翹曲\n"
 "您知道嗎？當列印容易翹曲的材料（如 ABS）時，適當提高熱床溫度可以降低翹曲的機率。"
+
+msgid "Subdivision mesh (Lost color)"
+msgstr "細分網格（失去顏色）"
+
+# AI Translated
+msgid "Show options when importing STEP file"
+msgstr "匯入 STEP 檔案時顯示選項"
+
+# AI Translated
+msgid "STEP importing: linear deflection"
+msgstr "STEP 匯入：線性偏差"
+
+# AI Translated
+msgid "STEP importing: angle deflection"
+msgstr "STEP 匯入：角度偏差"
+
+# AI Translated
+msgid "STEP importing: Split into multiple objects"
+msgstr "STEP 匯入：分割為多個物件"
+
+# AI Translated
+msgid ""
+"If enabled, compound and compsolid shapes in imported STEP files are split into multiple objects.\n"
+"Used as the default in the import dialog, or directly when the import dialog is disabled.\n"
+"Default: disabled."
+msgstr ""
+"若啟用，匯入的 STEP 檔案中的 compound 與 compsolid 形狀會分割為多個物件。\n"
+"用作匯入對話框中的預設值，或在停用匯入對話框時直接使用。\n"
+"預設值：停用。"
+
+msgid "Behavior"
+msgstr "行為"
+
+# AI Translated
+msgid "G-code Preview"
+msgstr "G-code 預覽"
+
+msgid "Associate"
+msgstr "關聯"
+
+msgid "The Adaptive Pressure Advance model for one or more extruders may contain invalid values."
+msgstr "一個或多個擠出機的適應性 Pressure Advance 模型可能包含無效值。"

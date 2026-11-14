@@ -1,12 +1,17 @@
 # Nightly execution state — 2026-11-13
 
-## Orca Nightly Batch 17 — Punkt 9/10 verifiziert — 2026-11-14
+## Orca Nightly Batch 17 — 10/10 Punkte verifiziert; Release-Gate läuft — 2026-11-14
+
+- OrcaSlicer 2.5.0 Übersetzungsaktualisierung (`146b78f5be`, mit den vollständigen chinesischen Übersetzungen aus `c44e957730`) verlustfrei in die 23 Nightly-PO-Assets übernommen. Neue übersetzte Einträge und zuvor leere Übersetzungen ergänzt; vorhandene Nightly-/App-Übersetzungen bleiben erhalten. Das betrifft insbesondere die seit dem letzten Catalog-Import hinzugekommenen Orca-Texte und die vervollständigten chinesischen Einträge.
+- `OrcaLanguageAssetDeviceTest#everySelectableOrcaLanguageCatalogIsPackagedAndReadable` bestand auf dem Android-16/API-36-Emulator **1/1** nach dem Asset-Update.
+- Vollständige Debug- und SliceTest-Unit-Suiten bestanden jeweils **779/779**, 0 Fehler/Skips.
+- Batch 17: **10/10**. Version für das Release-Gate auf **0.8.456 / versionCode 491** gesetzt; APK-Build, Installations-/Startkontrolle und Nightly-Prerelease stehen noch aus.
 
 - Orca `fb0c9884c9` support für RepRapFirmware-G10-Temperaturwechsel wurde in den Android-G-Code-Preview-Parser übernommen. `G10 P<n> S<temp>` und Varianten ohne P aktualisieren die Temperatur des passenden Filaments; RRF-Heizbefehle werden nicht länger als künstliche Retracts angezeigt. Plain `G10` bleibt weiterhin der Retract-Pfad; Marlin-Verhalten bleibt unverändert.
 - `NativeSliceDeviceTest#reprapFirmwareG10TemperatureIsShownInGcodePreviewWithoutRetract` prüft über den produktiven nativen Parser: RRF setzt 220 °C für den folgenden Extrusionsmove und erzeugt keinen Retract, während Marlin-G10 weiterhin Retract-Moves erzeugt. Android-16/API-36-Emulator, ARM64: **1/1 bestanden**.
 - Die Orca-Sprachwahl ist bereits integriert: 23 auswählbare Sprachen, native Namen und je ein mitgelieferter `.po`-Katalog. `OrcaLanguageAssetDeviceTest#everySelectableOrcaLanguageCatalogIsPackagedAndReadable` bestand auf API 36 **1/1**. Zusätzlich gibt es generierte Android-UI-Übersetzungsressourcen für die 20 nicht standardmäßig vorhandenen Sprachen; diese umfassen einen Teil der app-eigenen Strings. Nicht abgedeckte Einträge fallen auf die Standardressource zurück.
 - `:app:assembleSliceTest :app:assembleSliceTestAndroidTest` erfolgreich. Die gezielten Instrumentierungstests bestanden; volle JVM-Suiten Debug und SliceTest jeweils **779/779**, ohne Fehler/Skips. `git diff --check` sauber.
-- Batch 17: **9/10**. Noch kein APK/Release vor dem 10/10-Gate. Nächster Schritt: einen weiteren nicht bereits portierten, Android-erreichbaren Orca-Änderungspunkt auswählen und gezielt verifizieren.
+- Batch 17: **10/10**. Release-Gate läuft für 0.8.456; APK/Release noch offen.
 
 ## Release 452/453 Regression Audit — 2026-11-14
 

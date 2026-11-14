@@ -39597,3 +39597,47 @@ msgstr ""
 # AI Translated
 #~ msgid "import SVG failed: could not parse imported svg data."
 #~ msgstr "SVG 가져오기 실패: 가져온 SVG 데이터를 구문 분석할 수 없습니다."
+
+msgid "Subdivision mesh (Lost color)"
+msgstr "서브디비전 메쉬 (색상 손실)"
+
+# AI Translated
+msgid "Show options when importing STEP file"
+msgstr "STEP 파일 가져오기 시 옵션 표시"
+
+# AI Translated
+msgid "STEP importing: linear deflection"
+msgstr "STEP 가져오기: 선형 편차"
+
+# AI Translated
+msgid "STEP importing: angle deflection"
+msgstr "STEP 가져오기: 각도 편차"
+
+# AI Translated
+msgid "STEP importing: Split into multiple objects"
+msgstr "STEP 가져오기: 여러 객체로 분할"
+
+# AI Translated
+msgid ""
+"If enabled, compound and compsolid shapes in imported STEP files are split into multiple objects.\n"
+"Used as the default in the import dialog, or directly when the import dialog is disabled.\n"
+"Default: disabled."
+msgstr ""
+"활성화하면 가져온 STEP 파일의 복합(compound) 및 복합 솔리드(compsolid) 형상이 여러 객체로 분할됩니다.\n"
+"가져오기 대화 상자의 기본값으로 사용되며, 가져오기 대화 상자를 사용하지 않는 경우 직접 적용됩니다.\n"
+"기본값: 비활성화."
+
+# AI Translated
+msgid "Behavior"
+msgstr "동작"
+
+# AI Translated
+msgid "G-code Preview"
+msgstr "G-code 미리보기"
+
+msgid "Associate"
+msgstr "링크"
+
+# AI Translated
+msgid "The Adaptive Pressure Advance model for one or more extruders may contain invalid values."
+msgstr "하나 이상의 압출기에 대한 적응형 Pressure Advance 모델에 잘못된 값이 포함되어 있을 수 있습니다."

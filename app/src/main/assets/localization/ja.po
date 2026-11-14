@@ -40485,3 +40485,45 @@ msgstr ""
 # AI Translated
 #~ msgid "import SVG failed: could not parse imported svg data."
 #~ msgstr "SVGのインポートに失敗しました: インポートしたSVGデータを解析できませんでした。"
+
+msgid "Subdivision mesh (Lost color)"
+msgstr "サブディビジョンメッシュ（色が失われました）"
+
+msgid "Show options when importing STEP file"
+msgstr "STEPファイルインポート時にオプションを表示"
+
+# AI Translated
+msgid "STEP importing: linear deflection"
+msgstr "STEPインポート: 線形偏差"
+
+# AI Translated
+msgid "STEP importing: angle deflection"
+msgstr "STEPインポート: 角度偏差"
+
+# AI Translated
+msgid "STEP importing: Split into multiple objects"
+msgstr "STEPインポート: 複数オブジェクトに分割"
+
+# AI Translated
+msgid ""
+"If enabled, compound and compsolid shapes in imported STEP files are split into multiple objects.\n"
+"Used as the default in the import dialog, or directly when the import dialog is disabled.\n"
+"Default: disabled."
+msgstr ""
+"有効にすると、インポートしたSTEPファイル内のコンパウンドおよびコンプソリッド形状が複数のオブジェクトに分割されます。\n"
+"インポートダイアログの初期値として、またはインポートダイアログが無効な場合は直接使用されます。\n"
+"デフォルト: 無効。"
+
+msgid "Behavior"
+msgstr "動作"
+
+# AI Translated
+msgid "G-code Preview"
+msgstr "G-codeプレビュー"
+
+msgid "Associate"
+msgstr "関連付け"
+
+# AI Translated
+msgid "The Adaptive Pressure Advance model for one or more extruders may contain invalid values."
+msgstr "1つ以上の押出機のアダプティブPressure Advanceモデルに、無効な値が含まれている可能性があります。"
