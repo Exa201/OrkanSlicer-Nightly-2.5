@@ -20,6 +20,13 @@
 - `:app:compileDebugKotlin` und `:app:assembleSliceTestAndroidTest` erfolgreich. API-36-Emulator: gezielter Instrumentierungstest 1/1 bestanden. `:app:testDebugUnitTest` und `:app:testSliceTestUnitTest`: jeweils **779/779**, 0 failures/errors/skips. `git diff --check` sauber.
 - Punkt 6 ist **verifiziert**. Batch 17: **6/10**. Kein APK/Release vor dem 10/10-Gate. Nächster konkreter Schritt: einen noch fehlenden Orca-2.5-Kernfix mit aktivem Android-Aufrufpfad auswählen und durch Verhaltenstest abnehmen.
 
+## Orca Nightly Batch 17 — Punkt 7/10 verifiziert — 2026-11-14
+
+- Orca `ea80024735d68b56133ea85623a67ef6e5c989a5` gibt den ersten `T<n>`-Befehl vor Filament-Start-G-Code aus. Nightly fehlte dieser Fix auf dem aktuellen Entwicklungszweig, obwohl er auf einem anderen Nightly-Zweig bereits vorhanden war. Bei Ein-Extruder-/Mehrmaterial-Druckern kann die Werkzeugwahl die Düsentemperatur zurücksetzen; bei SEMM ohne Reinigungsturm setzt der Slicer deshalb direkt nach `T<n>` nochmals die konfigurierte Düsentemperatur.
+- `SingleFilamentToolStartOrderDeviceTest#firstToolAndSlicerTemperaturePrecedeFilamentStartTemperature` slicet mit zwei Filamenten und prüft die echte G-Code-Reihenfolge: `T0`, Slicer-Temperatur `M104 S240`, danach benutzerdefinierter Filament-Startcode `M104 S255`. API-36-Emulator: **1/1 bestanden**. SliceTest-Haupt-APK und Instrumentierungs-APK wurden neu gebaut und vor dem Lauf installiert.
+- Vollständige JVM-Suiten nach dem Fix: Debug **779/779**, SliceTest **779/779**, keine Fehler oder übersprungenen Tests. `git diff --check` sauber. Noch nicht committet; kein Batch-APK oder Release vor 10/10.
+- Batch 17 steht bei **7/10**. Nächster Schritt: einen weiteren Orca-2.5-Änderungspunkt mit aktivem Android-Aufrufpfad auswählen und auf bereits vorhandene Ports prüfen.
+
 ## Orca Nightly Batch 17 — Punkt 4/10 verifiziert — 2026-11-13
 
 - Punkt 4 ergänzt Orcas `adjust_layer_height_profile()` als direktes Ein-Finger-Pinselwerkzeug im vorhandenen Layerhöhenmodus. Die GL-Oberflächen-Treffpunkte werden in Objektkoordinaten zurücktransformiert; Zwei-Finger-Gesten bleiben für Kamera/Zoom frei. Der exakte Raycaster wird je Auswahl vorgewärmt und bei Touchsamples wiederverwendet; Samples sind auf höchstens etwa 18/s begrenzt.
