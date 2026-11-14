@@ -1,3 +1,12 @@
+## OrkanSlicer Nightly 2.5 — Orca 2.5.0 Sprachkataloge — 2026-11-14 — 0.8.456
+
+- Prerelease: [v0.8.456-nightly.1](https://github.com/Exa201/OrkanSlicer-Nightly-2.5/releases/tag/v0.8.456-nightly.1), Product-Code-Commit `b7accb79776c562fd9413aa0867586d7c7def0ad`, Branch `codex/nightly-batch11-next`.
+- APK `OrkanSlicerNightly25_b7accb7977.apk`, **251,838,734 Bytes**, SHA-256 `facb42073be9d18eb785398aa0854f29d7e299a46e4bd3a9c02ca60e94c0254d`. GitHub meldet denselben Asset-Digest; APK-Signatur mit Android Debug-Zertifikat verifiziert.
+- Paket `com.exa201.orkanslicer.nightly25`, Version **0.8.456 / Code 491**. Auf API-36-Emulator installiert und `MainActivity` gestartet; keine Crash-, ANR- oder OOM-Marker in den geprüften Startlogs.
+- Orca-Sprachkatalog-Instrumentierung **1/1** bestanden. Debug- und SliceTest-Unit jeweils **779/779**, ohne Fehler oder Skips.
+- Batch 17 **10/10** abgeschlossen. Die 23 gebündelten `.po`-Kataloge wurden mit OrcaSlicer 2.5.0 aktualisiert; zusätzliche Nightly-/App-Übersetzungen blieben erhalten.
+- Die fünf jüngsten Nightly-Prereleases bleiben erhalten: **0.8.456, 0.8.455, 0.8.454, 0.8.453 und 0.8.452**. `v0.8.451-nightly.1` und sein Tag wurden entfernt. Kein Druckauftrag gestartet.
+
 ## OrkanSlicer Nightly 2.5 — Sprachwahl und Batch 16 — 2026-11-13 — 0.8.455
 
 - Prerelease: [v0.8.455-nightly.1](https://github.com/Exa201/OrkanSlicer-Nightly-2.5/releases/tag/v0.8.455-nightly.1), source commit `e20c0668aeeec92e557727e6636b2e19131aca66`, branch `codex/nightly-batch11-next`.
