@@ -179,7 +179,9 @@ namespace Slic3r
                 if (group_colors[i].empty())
                     continue;
                 if (machine_filament_info[i].empty()) {
-                    group_cost += group_colors.size() * fail_cost;
+                    // Charge every model filament that cannot be matched to a loaded printer slot.
+                    // A fixed per-group penalty makes candidate maps with different group sizes tie.
+                    group_cost += static_cast<int>(group_colors[i].size()) * fail_cost;
                     continue;
                 }
                 std::vector<std::vector<float>>distance_matrix(group_colors[i].size(), std::vector<float>(machine_filament_info[i].size()));

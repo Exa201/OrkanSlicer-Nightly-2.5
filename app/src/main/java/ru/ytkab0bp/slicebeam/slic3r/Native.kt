@@ -33,6 +33,9 @@ class Native {
     /** Verifies flush grouping may trade one transition to keep both matching loaded filaments together. */
     @JvmStatic
     external fun filament_group_flush_candidate_regression(): IntArray
+    /** Verifies empty printer groups are penalized for every model filament assigned to them. */
+    @JvmStatic
+    external fun filament_group_empty_loaded_slot_penalty_regression(): IntArray
     @JvmStatic
     external fun scarf_ramp_regression(): DoubleArray
     @JvmStatic

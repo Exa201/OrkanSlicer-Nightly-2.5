@@ -5575,6 +5575,41 @@ extern "C" {
         return result;
     }
 
+    // Orca regression: an unloaded extruder group must be penalized once per model filament,
+    // otherwise a 3:1 and 1:3 candidate split tie even when the latter matches loaded slots.
+    JNIEXPORT jintArray JNICALL Java_ru_ytkab0bp_slicebeam_slic3r_Native_filament_1group_1empty_1loaded_1slot_1penalty_1regression(JNIEnv* env, jclass) {
+        using namespace Slic3r;
+        using namespace Slic3r::FilamentGroupUtils;
+
+        const std::vector<unsigned int> used_filaments{0, 1, 2, 3};
+        const std::array<const char*, 4> colors{{"#FF0000", "#00FF00", "#0000FF", "#FFFFFF"}};
+        std::vector<Slic3r::FilamentGroupUtils::FilamentInfo> used_info;
+        used_info.reserve(colors.size());
+        for (const char* color : colors)
+            used_info.push_back({Color(color), "PLA", false});
+
+        std::vector<std::vector<MachineFilamentInfo>> loaded(2);
+        for (int filament = 1; filament < 4; ++filament) {
+            MachineFilamentInfo slot{};
+            slot.color = Color(colors[filament]);
+            slot.type = "PLA";
+            slot.is_support = false;
+            slot.extruder_id = 1;
+            slot.is_extended = false;
+            loaded[1].push_back(std::move(slot));
+        }
+
+        const std::vector<std::vector<int>> candidates{
+            {0, 0, 0, 1}, // Three filaments on the empty group, one match on the loaded group.
+            {0, 1, 1, 1}, // One filament on the empty group, three exact loaded-slot matches.
+        };
+        const std::vector<int> best = select_best_group_for_ams(candidates, used_filaments, used_info, loaded);
+        jintArray result = env->NewIntArray(static_cast<jsize>(best.size()));
+        if (result != nullptr && !best.empty())
+            env->SetIntArrayRegion(result, 0, static_cast<jsize>(best.size()), best.data());
+        return result;
+    }
+
     // Regression for Orca's flush-saving candidate pool: an AMS match may justify one typical
     // filament-change worth of extra flush when that keeps both model filaments on their loaded slots.
     JNIEXPORT jintArray JNICALL Java_ru_ytkab0bp_slicebeam_slic3r_Native_filament_1group_1flush_1candidate_1regression(JNIEnv* env, jclass) {

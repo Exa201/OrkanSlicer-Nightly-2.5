@@ -1812,6 +1812,13 @@ class NativeSliceDeviceTest {
     }
 
     @Test
+    fun autoForMatchPenalizesEveryFilamentAssignedToAnEmptyLoadedSlotGroup() {
+        // The second split leaves only one filament unmatched and exactly maps three colors
+        // to loaded slots. A constant per-group penalty incorrectly makes the first split win.
+        assertArrayEquals(intArrayOf(0, 1, 1, 1), Native.filament_group_empty_loaded_slot_penalty_regression())
+    }
+
+    @Test
     fun scarfRampRemainsStableAcrossLayerVertexShiftsAndCorners() {
         assertArrayEquals(
             doubleArrayOf(
