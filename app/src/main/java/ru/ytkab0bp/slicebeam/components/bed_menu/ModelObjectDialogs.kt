@@ -46,6 +46,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.runtime.withFrameNanos
 import ru.ytkab0bp.slicebeam.R
 import ru.ytkab0bp.slicebeam.slic3r.PrintConfigDef
+import ru.ytkab0bp.slicebeam.slic3r.Slic3rLocalization
+import java.util.Locale
 
 internal data class ModelObjectRow(
     val name: String,
@@ -55,7 +57,30 @@ internal data class ModelObjectRow(
     val selected: Boolean,
     val assignEnabled: Boolean,
     val parts: List<ModelObjectPartRow> = emptyList(),
+    val objectIndex: Int = 0,
+    val heightMm: Double = 0.0,
+    val sizeMm3: Double = 0.0,
 )
+
+internal enum class ModelObjectOrder(val label: String) {
+    ORIGINAL("Default"), NAME("Name"), FILAMENT("Filament"), HEIGHT("Height"), SIZE("Size"),
+}
+
+internal fun orderModelObjectRows(rows: List<ModelObjectRow>, order: ModelObjectOrder): List<ModelObjectRow> =
+    when (order) {
+        ModelObjectOrder.ORIGINAL -> rows.sortedBy { it.objectIndex }
+        ModelObjectOrder.NAME -> rows.sortedWith(compareBy<ModelObjectRow> { it.name.lowercase(Locale.ROOT) }.thenBy { it.objectIndex })
+        ModelObjectOrder.FILAMENT -> rows.sortedWith(
+            compareBy<ModelObjectRow> { it.tool }.thenBy { it.material.lowercase(Locale.ROOT) }
+                .thenBy { it.name.lowercase(Locale.ROOT) }.thenBy { it.objectIndex },
+        )
+        ModelObjectOrder.HEIGHT -> rows.sortedWith(
+            compareBy<ModelObjectRow> { it.heightMm }.thenBy { it.name.lowercase(Locale.ROOT) }.thenBy { it.objectIndex },
+        )
+        ModelObjectOrder.SIZE -> rows.sortedWith(
+            compareBy<ModelObjectRow> { it.sizeMm3 }.thenBy { it.name.lowercase(Locale.ROOT) }.thenBy { it.objectIndex },
+        )
+    }
 
 internal data class ModelObjectPartRow(
     val label: String,
@@ -432,11 +457,14 @@ internal fun ModelObjectsDialog(
     onApplySelection: (IntArray) -> Unit,
 ) {
     var groupSelectionMode by remember(rows) { mutableStateOf(false) }
+    var orderMenuExpanded by remember(rows) { mutableStateOf(false) }
+    var order by remember(rows) { mutableStateOf(ModelObjectOrder.ORIGINAL) }
     val stagedSelection = remember(rows) {
-        mutableStateListOf<Int>().apply { addAll(rows.indices.filter { rows[it].selected }) }
+        mutableStateListOf<Int>().apply { addAll(rows.filter { it.selected }.map { it.objectIndex }) }
     }
+    val orderedRows = remember(rows, order) { orderModelObjectRows(rows, order) }
     var expandedGroups by remember(rows) {
-        mutableStateOf(rows.indices.filter { rows[it].parts.size > 1 }.toSet())
+        mutableStateOf(rows.filter { it.parts.size > 1 }.map { it.objectIndex }.toSet())
     }
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -448,6 +476,23 @@ internal fun ModelObjectsDialog(
                     modifier = Modifier.heightIn(min = 48.dp).testTag("model-objects-group-selection-toggle"),
                 ) {
                     Text(stringResource(if (groupSelectionMode) R.string.ModelMenuCancelGroupSelection else R.string.ModelMenuSelectGroup))
+                }
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    TextButton(
+                        onClick = { orderMenuExpanded = true },
+                        modifier = Modifier.heightIn(min = 48.dp).testTag("model-objects-order-menu"),
+                    ) {
+                        Text("${Slic3rLocalization.getString("Order By")}: ${Slic3rLocalization.getString(order.label)}")
+                    }
+                    DropdownMenu(expanded = orderMenuExpanded, onDismissRequest = { orderMenuExpanded = false }) {
+                        ModelObjectOrder.entries.forEach { option ->
+                            DropdownMenuItem(
+                                text = { Text(Slic3rLocalization.getString(option.label)) },
+                                onClick = { order = option; orderMenuExpanded = false },
+                                modifier = Modifier.testTag("model-objects-order-${option.name.lowercase(Locale.ROOT)}"),
+                            )
+                        }
+                    }
                 }
                 if (rows.any { it.parts.size > 1 }) {
                     Text(
@@ -462,8 +507,8 @@ internal fun ModelObjectsDialog(
                     Modifier.fillMaxWidth().heightIn(max = 420.dp)
                         .testTag("model-objects-dialog-rows"),
                 ) {
-                    itemsIndexed(rows) { index, row ->
-                        val selected = index in stagedSelection
+                    itemsIndexed(orderedRows) { index, row ->
+                        val selected = row.objectIndex in stagedSelection
                         Row(
                             Modifier.fillMaxWidth().heightIn(min = 64.dp)
                                 .background(
@@ -471,8 +516,8 @@ internal fun ModelObjectsDialog(
                                     RoundedCornerShape(10.dp),
                                 ).clickable {
                                     if (groupSelectionMode) {
-                                        if (selected) stagedSelection.remove(index) else stagedSelection.add(index)
-                                    } else onSelect(index)
+                                        if (selected) stagedSelection.remove(row.objectIndex) else stagedSelection.add(row.objectIndex)
+                                    } else onSelect(row.objectIndex)
                                 }.testTag("model-object-row-$index")
                                 .padding(horizontal = 8.dp, vertical = 6.dp),
                             verticalAlignment = Alignment.CenterVertically,
@@ -484,19 +529,19 @@ internal fun ModelObjectsDialog(
                                 Text("T${row.tool}: ${row.material} · #${row.color.toUInt().toString(16).padStart(6, '0').takeLast(6).uppercase()}",
                                     maxLines = 1, overflow = TextOverflow.Ellipsis)
                             }
-                            TextButton(onClick = { onAssign(index) }, enabled = row.assignEnabled,
+                            TextButton(onClick = { onAssign(row.objectIndex) }, enabled = row.assignEnabled,
                                 modifier = Modifier.heightIn(min = 48.dp)) {
                                 Text(assignLabel)
                             }
                             if (row.parts.size > 1) TextButton(
                                 onClick = {
-                                    expandedGroups = if (index in expandedGroups) expandedGroups - index
-                                    else expandedGroups + index
+                                    expandedGroups = if (row.objectIndex in expandedGroups) expandedGroups - row.objectIndex
+                                    else expandedGroups + row.objectIndex
                                 },
                                 modifier = Modifier.heightIn(min = 48.dp)
                                     .testTag("model-object-group-toggle-$index"),
                             ) {
-                                val expanded = index in expandedGroups
+                                val expanded = row.objectIndex in expandedGroups
                                 Text(
                                     stringResource(
                                         if (expanded) R.string.ModelObjectCollapseParts else R.string.ModelObjectExpandParts,
@@ -505,7 +550,7 @@ internal fun ModelObjectsDialog(
                                 )
                             }
                         }
-                        if (index in expandedGroups) {
+                        if (row.objectIndex in expandedGroups) {
                             row.parts.forEachIndexed { partIndex, part ->
                                 Column(
                                     Modifier.fillMaxWidth().padding(start = 28.dp, end = 8.dp, bottom = 4.dp)
@@ -524,7 +569,7 @@ internal fun ModelObjectsDialog(
                                             Text("T${part.tool}: ${part.material}", maxLines = 1, overflow = TextOverflow.Ellipsis)
                                         }
                                         TextButton(
-                                            onClick = { onAssignPart(index, partIndex) },
+                                            onClick = { onAssignPart(row.objectIndex, partIndex) },
                                             enabled = row.assignEnabled,
                                             modifier = Modifier.heightIn(min = 48.dp)
                                                 .testTag("model-object-assign-part-$index-$partIndex"),
@@ -535,17 +580,17 @@ internal fun ModelObjectsDialog(
                                         horizontalArrangement = Arrangement.End,
                                     ) {
                                         TextButton(
-                                            onClick = { onEditPartProcessSettings(index, partIndex) },
+                                            onClick = { onEditPartProcessSettings(row.objectIndex, partIndex) },
                                             modifier = Modifier.heightIn(min = 48.dp)
                                                 .testTag("model-object-part-process-settings-$index-$partIndex"),
                                         ) { Text(stringResource(R.string.ModelObjectPartProcessSettings)) }
                                         TextButton(
-                                            onClick = { onTransformPart(index, partIndex) },
+                                            onClick = { onTransformPart(row.objectIndex, partIndex) },
                                             modifier = Modifier.heightIn(min = 48.dp)
                                                 .testTag("model-object-transform-part-$index-$partIndex"),
                                         ) { Text(stringResource(R.string.ModelObjectPartTransform)) }
                                         TextButton(
-                                            onClick = { onEditPart(index, partIndex) },
+                                            onClick = { onEditPart(row.objectIndex, partIndex) },
                                             modifier = Modifier.heightIn(min = 48.dp)
                                                 .testTag("model-object-edit-part-$index-$partIndex"),
                                         ) { Text(stringResource(R.string.ModelObjectEditPart)) }

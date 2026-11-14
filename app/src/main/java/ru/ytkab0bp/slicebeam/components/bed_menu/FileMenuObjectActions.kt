@@ -11,6 +11,7 @@ import ru.ytkab0bp.slicebeam.render.MODEL_EDIT_STALE_SELECTION
 import ru.ytkab0bp.slicebeam.render.ModelSelectionSnapshot
 import ru.ytkab0bp.slicebeam.utils.FilamentSlot
 import ru.ytkab0bp.slicebeam.utils.Prefs
+import ru.ytkab0bp.slicebeam.utils.Vec3d
 import ru.ytkab0bp.slicebeam.utils.ViewUtils
 import java.util.Locale
 
@@ -74,6 +75,12 @@ class FileMenuObjectActions(private val fragment: BedFragment) {
             val rows = (0 until snapshot.objectCount).map { index ->
                 val name = snapshot.model.getObjectName(index)
                     ?: context.getString(R.string.MenuFileObjectNumber, (index + 1).toString())
+                val min = Vec3d()
+                val max = Vec3d()
+                snapshot.model.getBoundingBoxApprox(index, min, max)
+                val dx = (max.x - min.x).coerceAtLeast(0.0)
+                val dy = (max.y - min.y).coerceAtLeast(0.0)
+                val dz = (max.z - min.z).coerceAtLeast(0.0)
                 val tool = (snapshot.model.getExtruder(index) - 1).coerceAtLeast(0)
                 val slot = filamentSlots.getOrNull(tool)
                 val parts = (0 until snapshot.model.getObjectPartCount(index)).map { partIndex ->
@@ -95,6 +102,9 @@ class FileMenuObjectActions(private val fragment: BedFragment) {
                     selected = index in snapshot.selectedIndices,
                     assignEnabled = filamentSlots.isNotEmpty(),
                     parts = parts,
+                    objectIndex = index,
+                    heightMm = dz,
+                    sizeMm3 = dx * dy * dz,
                 )
             }
             if (rows.isEmpty()) {

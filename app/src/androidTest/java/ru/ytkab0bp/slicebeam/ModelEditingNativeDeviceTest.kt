@@ -5,6 +5,7 @@ import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.assertTextContains
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performScrollTo
@@ -166,6 +167,28 @@ class ModelEditingNativeDeviceTest {
         }
         compose.onNodeWithTag("model-object-assign-part-0-0").assertIsDisplayed().performClick()
         assertEquals(0 to 0, assigned.get())
+    }
+
+    @Test fun objectListCanSortByHeightAndKeepsOriginalModelIndicesForSelection() {
+        val selected = AtomicReference<Int?>(null)
+        compose.setContent {
+            BeamComposeTheme {
+                ModelObjectsDialog(
+                    title = "Objects", cancelLabel = "Cancel", assignLabel = "Assign",
+                    rows = listOf(
+                        ModelObjectRow("Tall", 0, "PLA", 0xFF000000.toInt(), false, true, objectIndex = 7, heightMm = 20.0, sizeMm3 = 8000.0),
+                        ModelObjectRow("Short", 0, "PLA", 0xFFFFFFFF.toInt(), false, true, objectIndex = 3, heightMm = 5.0, sizeMm3 = 1000.0),
+                        ModelObjectRow("Middle", 1, "PETG", 0xFF00FF00.toInt(), false, true, objectIndex = 11, heightMm = 10.0, sizeMm3 = 3000.0),
+                    ),
+                    onDismiss = {}, onSelect = { selected.set(it) }, onAssign = {}, onAssignPart = { _, _ -> },
+                    onTransformPart = { _, _ -> }, onEditPart = { _, _ -> }, onApplySelection = {},
+                )
+            }
+        }
+        compose.onNodeWithTag("model-objects-order-menu").performClick()
+        compose.onNodeWithTag("model-objects-order-height").performClick()
+        compose.onNodeWithTag("model-object-row-0").assertTextContains("Short").performClick()
+        assertEquals("sorting changes display order, not the underlying object index", 3, selected.get())
     }
 
     @Test fun groupedPartTransformDialogAppliesMillimeterDeltasAndPercentScale() {
