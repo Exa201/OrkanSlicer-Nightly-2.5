@@ -4822,3 +4822,12 @@ Phase 4 — workspace overlay migration is continuing. The model context menu an
 - Batch 18 bleibt **5/10 vollständig abgenommen**. Kandidat 6 (ConfigOption nil-Randfälle) und Kandidat 7 (Tree-Support-Flächen derselben Schicht) sind implementiert/gebaut, ihre Xiaomi-Laufzeitbelege fehlen. Kein Batch-Release bis zehn Kandidaten tatsächlich abgenommen sind.
 - Nächste Aktion: Kandidat 8 aus Orca-Änderungen nach `87cf1429ca` gegen mobilen Kern und Android-Aufrufpfad prüfen; neue Tests weiter auf Xiaomi ausführen, sobald das Gerät seine vom Device Lock auferlegte Installationsbeschränkung freigibt.
 - Zusätzliche Kandidatenkontrolle nach Orca-Fetch: der Klipper-Wipe-Tower-`M400`-Fix (`cb80a0db84`) ist bereits als Nightly-Port `3f99334cc4` vorhanden; die Sliver-/Prime-Tower-Z-Höhenkorrektur ist ebenfalls im mobilen `GCode.cpp` aktiv. Beide daher nicht doppelt gezählt.
+
+## Orca-Batch 18 — Kandidat Support-Kontakt bei variablen Layerhöhen — 2026-11-14
+
+- Orca-Änderung `320f1bb7fc` geprüft: beim Trimmen von Top-Supportkontakten in synchronisierten variablen Layerhöhen muss die durchgehende Schnittmenge zur vorherigen Objektschicht erhalten werden, während die neu anwachsende Wand weiterhin mit dem XY-Abstand getrimmt wird. Der mobile `SupportMaterial.cpp` enthielt diesen Sonderpfad noch nicht.
+- Den Orca-Pfad in `trim_support_layers_by_object` portiert. Instrumentierungsregression mit Support-Kapital/STL-Fixture ergänzt; sie sliced mit adaptiven Layerhöhen und prüft den Topkontakt auf beiden Seiten des Überhangs.
+- `:app:assembleSliceTestAndroidTest` erfolgreich; ARM64-Nativecode und Android-Instrumentierung inklusive Test kompilieren.
+- Gezielter Lauf auf Xiaomi 2211133G erkannt, aber MIUI verweigerte Testinstallation mit `INSTALL_FAILED_USER_RESTRICTED`; **0 Tests gestartet**. Gerätetest daher offen, keine Sicherheitsrichtlinie geändert.
+- Batch 18 bleibt **5/10 abgenommen**. Tree-Support-Kandidat 7 und Support-Kandidat 8 sind Code-/Build-Kandidaten, bis Hardwarelauf weiterhin nicht als abgenommen gezählt. Kein APK/Release für den Zwischenstand.
+- Nächster konkreter Schritt: Laufzeittest für die Regressionen ausführen, sobald die MIUI-Installationsrichtlinie Installationen zulässt; parallel einen weiteren Orca-2.5-Fix suchen, der im mobilen Pfad fehlt und gezielt testbar ist.

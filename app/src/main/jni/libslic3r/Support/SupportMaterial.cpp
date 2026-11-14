@@ -3161,7 +3161,18 @@ void PrintObjectSupportMaterial::trim_support_layers_by_object(
                         break;
 
                     bool is_overlap = is_layers_overlap(support_layer, object_layer);
-                    for (const ExPolygon& expoly : object_layer.lslices) {
+                    // Preserve the top-contact interface across a synchronized variable-layer gap.
+                    // Only relax trimming against the portion continuous with the preceding object layer;
+                    // the newly expanding wall must still be trimmed to keep the requested clearance.
+                    const ExPolygons *trim_source = &object_layer.lslices;
+                    ExPolygons trim_continuous;
+                    if (support_layer.layer_type == SupporLayerType::TopContact && i > 0 &&
+                        i >= support_layer.idx_object_layer_above &&
+                        object_layer.bottom_z() > support_layer.print_z + EPSILON) {
+                        trim_continuous = intersection_ex(object_layer.lslices, object.layers()[i - 1]->lslices);
+                        trim_source = &trim_continuous;
+                    }
+                    for (const ExPolygon& expoly : *trim_source) {
                         // BBS
                         bool is_sharptail = !intersection_ex({ expoly }, object_layer.sharp_tails).empty();
                         coordf_t trimming_offset = is_sharptail ? scale_(sharp_tail_xy_gap) :

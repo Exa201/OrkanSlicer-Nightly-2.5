@@ -3350,6 +3350,76 @@ class NativeSliceDeviceTest {
     }
 
     @Test(timeout = 180_000)
+    fun variableLayerGapKeepsTopSupportInterfaceUnderBothSidesOfAnOverhang() = withKobraProfile {
+        val context = InstrumentationRegistry.getInstrumentation().targetContext
+        val process = requireNotNull(SliceBeam.CONFIG?.findPrint("0.16mm Standard"))
+        process.put("layer_height", "0.2")
+        process.put("initial_layer_print_height", "0.2")
+        process.put("enable_support", "1")
+        process.put("support_type", "normal(auto)")
+        process.put("support_on_build_plate_only", "0")
+        process.put("support_top_z_distance", "0.2")
+        process.put("support_bottom_z_distance", "0.2")
+        process.put("support_object_xy_distance", "0.35")
+        process.put("support_interface_spacing", "0")
+        process.put("support_interface_top_layers", "2")
+        process.put("support_interface_bottom_layers", "0")
+
+        val modelFile = createSupportCapitalFixture("orca25-support-variable-gap-capital.stl")
+        val output = File(context.cacheDir, "orca25-support-variable-gap-capital.gcode")
+        val model = Model(modelFile)
+        var result: GCodeProcessorResult? = null
+        try {
+            model.ensureOnBed(0)
+            SliceBeam.genCurrentConfig(model)
+            val configFile = SliceBeam.getCurrentConfigFile()
+            model.applyAdaptiveLayerHeight(0, configFile.absolutePath, 0.5f)
+            val boundsMin = model.boundingBoxExactMin
+            val boundsMax = model.boundingBoxExactMax
+            val centerX = (boundsMin.x + boundsMax.x) / 2.0
+            val centerY = (boundsMin.y + boundsMax.y) / 2.0
+            assertTrue(
+                "a finer variable layer-height schedule must be applied below the cap",
+                model.adjustLayerHeightAtWorldPoint(
+                    0, configFile.absolutePath, centerX, centerY, boundsMin.z + 10.0,
+                    24.0, 0.04, 1, 0.5f,
+                ),
+            )
+            SliceBeam.genCurrentConfig(model)
+            val generated = configFile.readText()
+            assertTrue("the variable profile must reach the native slice config", generated.contains("adaptive_layer_height = 1"))
+            result = model.slice(configFile.absolutePath, output.absolutePath, null)
+            val gcode = output.readText()
+            assertHasExtrusion(gcode)
+            val interfaceSegments = supportExtrusionSegments(gcode).filter {
+                it.type.contains("interface", ignoreCase = true) && it.z in 11.5..12.05
+            }
+            assertTrue("top-contact support interface must exist below the cap", interfaceSegments.isNotEmpty())
+            for (offsetX in listOf(-10.0, 10.0)) {
+                val left = centerX + offsetX - 2.0
+                val right = centerX + offsetX + 2.0
+                val bottom = centerY - 2.0
+                val top = centerY + 2.0
+                val overlapping = interfaceSegments.count { segment ->
+                    maxOf(segment.x0, segment.x1) >= left && minOf(segment.x0, segment.x1) <= right &&
+                        maxOf(segment.y0, segment.y1) >= bottom && minOf(segment.y0, segment.y1) <= top
+                }
+                assertTrue(
+                    "synchronized variable-layer gaps must preserve support contact on cap side x=$offsetX",
+                    overlapping > 0,
+                )
+            }
+            Log.i("NativeSliceDeviceTest", "PASS top-contact interface retained on both cap sides segments=${interfaceSegments.size}")
+        } finally {
+            result?.release()
+            model.release()
+            modelFile.delete()
+            output.delete()
+            SliceBeam.getCurrentConfigFile().delete()
+        }
+    }
+
+    @Test(timeout = 180_000)
     fun organicTreeSupportPathsAreStableAcrossRepeatedSlices() = withKobraProfile {
         val context = InstrumentationRegistry.getInstrumentation().targetContext
         val config = requireNotNull(SliceBeam.CONFIG)
@@ -9583,6 +9653,36 @@ class NativeSliceDeviceTest {
         box(8.0, -9.05, 5.2, 12.0, -2.95, 10.0)  // front wing
         box(8.0, 6.85, 5.2, 12.0, 12.95, 10.0)   // back wing
         stl.append("endsolid tree_cluster_same_layer\n")
+        target.writeText(stl.toString())
+        return target
+    }
+
+    /** Wide supported cap over a centered stem; mirrors Orca's synchronized-gap support regression. */
+    private fun createSupportCapitalFixture(name: String): File {
+        val target = File(InstrumentationRegistry.getInstrumentation().targetContext.cacheDir, name)
+        data class P(val x: Double, val y: Double, val z: Double)
+        val stl = StringBuilder("solid support_capital\n")
+        fun triangle(a: P, b: P, c: P) {
+            stl.append("facet normal 0 0 0\nouter loop\n")
+            listOf(a, b, c).forEach { stl.append("vertex ${it.x} ${it.y} ${it.z}\n") }
+            stl.append("endloop\nendfacet\n")
+        }
+        fun box(x0: Double, y0: Double, z0: Double, x1: Double, y1: Double, z1: Double) {
+            val p = listOf(
+                P(x0, y0, z0), P(x1, y0, z0), P(x1, y1, z0), P(x0, y1, z0),
+                P(x0, y0, z1), P(x1, y0, z1), P(x1, y1, z1), P(x0, y1, z1),
+            )
+            val faces = arrayOf(
+                intArrayOf(0, 2, 1), intArrayOf(0, 3, 2), intArrayOf(4, 5, 6), intArrayOf(4, 6, 7),
+                intArrayOf(0, 1, 5), intArrayOf(0, 5, 4), intArrayOf(1, 2, 6), intArrayOf(1, 6, 5),
+                intArrayOf(2, 3, 7), intArrayOf(2, 7, 6), intArrayOf(3, 0, 4), intArrayOf(3, 4, 7),
+            )
+            faces.forEach { face -> triangle(p[face[0]], p[face[1]], p[face[2]]) }
+        }
+        box(0.0, 0.0, 0.0, 40.0, 40.0, 2.0)   // base
+        box(16.0, 16.0, 1.0, 24.0, 24.0, 13.0) // stem
+        box(0.0, 0.0, 12.0, 40.0, 40.0, 14.0) // cap
+        stl.append("endsolid support_capital\n")
         target.writeText(stl.toString())
         return target
     }
