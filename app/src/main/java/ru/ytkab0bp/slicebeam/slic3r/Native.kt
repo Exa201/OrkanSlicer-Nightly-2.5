@@ -69,6 +69,8 @@ class Native {
     @JvmStatic
     external fun reused_print_prime_tower_regression(firstModel: Long, nextModel: Long, configPath: String): IntArray
     @JvmStatic
+    external fun short_wipe_tower_final_unload_regression(): IntArray
+    @JvmStatic
     external fun gcoderesult_get_spiral_vase_override_warning(ptr: Long): String?
     @JvmStatic
     external fun gcoderesult_get_seam_marker_count(ptr: Long): Int

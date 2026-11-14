@@ -4027,6 +4027,15 @@ class NativeSliceDeviceTest {
         }
     }
 
+    @Test(timeout = 120_000)
+    fun toolchangerSkipsFinalWipeTowerUnloadWhenTheTowerStopsBelowTheModel() {
+        assertArrayEquals(
+            "only SEMM or a tower reaching the final layer can emit a final purge",
+            intArrayOf(0, 1, 1, 1),
+            Native.short_wipe_tower_final_unload_regression(),
+        )
+    }
+
     @Test
     fun reusedPrintReenablesPrimeTowerWhenNextModelUsesAnotherFilament() = withKobraProfile {
         val context = InstrumentationRegistry.getInstrumentation().targetContext

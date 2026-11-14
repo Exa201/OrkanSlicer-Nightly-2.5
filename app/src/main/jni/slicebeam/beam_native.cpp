@@ -6204,6 +6204,22 @@ extern "C" {
         }
     }
 
+    // Regression for Orca's final wipe-tower purge gate: SEMM still unloads at the
+    // model top, while a short tower on a toolchanger must skip the final purge.
+    JNIEXPORT jintArray JNICALL Java_ru_ytkab0bp_slicebeam_slic3r_Native_short_1wipe_1tower_1final_1unload_1regression(
+        JNIEnv* env, jclass)
+    {
+        const jint values[] = {
+            Slic3r::should_generate_final_wipe_tower_purge(false, false) ? 1 : 0,
+            Slic3r::should_generate_final_wipe_tower_purge(false, true) ? 1 : 0,
+            Slic3r::should_generate_final_wipe_tower_purge(true, false) ? 1 : 0,
+            Slic3r::should_generate_final_wipe_tower_purge(true, true) ? 1 : 0,
+        };
+        jintArray result = env->NewIntArray(4);
+        if (result != nullptr) env->SetIntArrayRegion(result, 0, 4, values);
+        return result;
+    }
+
     // Exercises Orca's by-layer/as-object-list ordering with copies split into PrintObjects by
     // alternating rotations. The returned indices are the actual production G-code instance order.
     JNIEXPORT jintArray JNICALL Java_ru_ytkab0bp_slicebeam_slic3r_Native_by_1layer_1copy_1order_1regression(
