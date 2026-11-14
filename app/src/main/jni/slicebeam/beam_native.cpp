@@ -29,6 +29,7 @@
 #include "libslic3r/ParameterUtils.hpp"
 #include "libslic3r/CurledExtrusionUtils.hpp"
 #include "libslic3r/ClipperUtils.hpp"
+#include "libslic3r/Clipper2Utils.hpp"
 #include "libslic3r/PaintedSegmentationPolicy.hpp"
 #include "libslic3r/ExtrusionEntity.hpp"
 #include "libslic3r/Fill/FillBase.hpp"
@@ -7582,6 +7583,44 @@ extern "C" JNIEXPORT jintArray JNICALL Java_ru_ytkab0bp_slicebeam_slic3r_Native_
     jintArray result = env->NewIntArray(static_cast<jsize>(state.size()));
     if (result != nullptr) env->SetIntArrayRegion(result, 0, static_cast<jsize>(state.size()), state.data());
     return result;
+}
+
+extern "C" JNIEXPORT jdoubleArray JNICALL Java_ru_ytkab0bp_slicebeam_slic3r_Native_clipper2_1scanbeam_1sort_1regression(JNIEnv* env, jclass) {
+    using namespace Clipper2Lib;
+    Paths64 separated;
+    constexpr int rectangle_count = 128;
+    separated.reserve(rectangle_count);
+    for (int i = 0; i < rectangle_count; ++i) {
+        const int64_t x = static_cast<int64_t>(i) * 10;
+        separated.push_back(Path64{
+            Point64(x, int64_t{0}), Point64(x + 4, int64_t{0}),
+            Point64(x + 4, int64_t{4}), Point64(x, int64_t{4}),
+        });
+    }
+    const Paths64 separated_union = Union(separated, FillRule::NonZero);
+    double separated_area = 0.0;
+    for (const Path64& path : separated_union) separated_area += std::abs(Area(path));
+
+    const Paths64 subject{Path64{
+        Point64(int64_t{0}, int64_t{0}), Point64(int64_t{10}, int64_t{0}),
+        Point64(int64_t{10}, int64_t{10}), Point64(int64_t{0}, int64_t{10}),
+    }};
+    const Paths64 clip{Path64{
+        Point64(int64_t{5}, int64_t{-3}), Point64(int64_t{13}, int64_t{5}),
+        Point64(int64_t{5}, int64_t{13}), Point64(int64_t{-3}, int64_t{5}),
+    }};
+    const Paths64 intersection = Intersect(subject, clip, FillRule::NonZero);
+    double intersection_area = 0.0;
+    for (const Path64& path : intersection) intersection_area += std::abs(Area(path));
+
+    const std::array<jdouble, 4> values{
+        static_cast<jdouble>(separated_union.size()), separated_area,
+        static_cast<jdouble>(intersection.size()), intersection_area,
+    };
+    jdoubleArray output = env->NewDoubleArray(static_cast<jsize>(values.size()));
+    if (output != nullptr)
+        env->SetDoubleArrayRegion(output, 0, static_cast<jsize>(values.size()), values.data());
+    return output;
 }
 
 extern "C" JNIEXPORT jintArray JNICALL Java_ru_ytkab0bp_slicebeam_slic3r_Native_00024Companion_cut_1preserves_1part_1filaments_1regression(JNIEnv* env, jobject) {

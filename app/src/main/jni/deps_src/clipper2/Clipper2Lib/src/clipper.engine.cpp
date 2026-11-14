@@ -9,6 +9,7 @@
 
 #include "clipper2/clipper.engine.h"
 #include "clipper2/clipper.h"
+#include <limits>
 #include <stdexcept>
 
 // https://github.com/AngusJohnson/Clipper2/discussions/334
@@ -2103,10 +2104,12 @@ namespace Clipper2Lib {
   }
 
 
-  inline void ClipperBase::AdjustCurrXAndCopyToSEL(const int64_t top_y)
+  inline bool ClipperBase::AdjustCurrXAndCopyToSEL(const int64_t top_y)
   {
     Active* e = actives_;
     sel_ = e;
+    bool sorted = true;
+    int64_t prev_x = std::numeric_limits<int64_t>::min();
     while (e)
     {
       e->prev_in_sel = e->prev_in_ael;
@@ -2116,8 +2119,11 @@ namespace Clipper2Lib {
         e->curr_x = e->prev_in_ael->curr_x; // also avoids complications
       else
         e->curr_x = TopX(*e, top_y);
+      sorted = sorted && e->curr_x >= prev_x;
+      prev_x = e->curr_x;
       e = e->next_in_ael;
     }
+    return sorted;
   }
 
   bool ClipperBase::ExecuteInternal(ClipType ct, FillRule fillrule, bool use_polytrees)
@@ -2387,7 +2393,9 @@ namespace Clipper2Lib {
 
     //Calculate edge positions at the top of the current scanbeam, and from this
     //we will determine the intersections required to reach these new positions.
-    AdjustCurrXAndCopyToSEL(top_y);
+    // Most scanbeams keep the active edges in their existing order. In that case
+    // no intersections exist and the merge sort would only confirm the order.
+    if (AdjustCurrXAndCopyToSEL(top_y)) return false;
     //Find all edge intersections in the current scanbeam using a stable merge
     //sort that ensures only adjacent edges are intersecting. Intersect info is
     //stored in FIntersectList ready to be processed in ProcessIntersectList.

@@ -51,6 +51,15 @@ import java.util.zip.CRC32
 /** Runs an ARM64 native slice in an isolated app id, away from production app data. */
 @RunWith(AndroidJUnit4::class)
 class NativeSliceDeviceTest {
+    @Test(timeout = 30_000)
+    fun clipper2EarlyOutPreservesDisjointAndIntersectingPolygonResults() {
+        val result = Native.clipper2_scanbeam_sort_regression()
+        assertEquals("all separated polygons must survive the no-crossing path", 128.0, result[0], 0.0)
+        assertEquals("disjoint polygon area must remain exact", 2048.0, result[1], 0.0)
+        assertEquals("the crossing fixture must produce one intersection polygon", 1.0, result[2], 0.0)
+        assertEquals("crossing-edge sort must retain the exact intersection area", 92.0, result[3], 0.0)
+    }
+
     @Test(timeout = 180_000)
     fun paintedBridgeAnchorsOnNeighborFilament() {
         val result = Native.painted_bridge_anchor_regression()

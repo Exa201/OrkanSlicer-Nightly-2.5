@@ -27,6 +27,13 @@
 - Vollständige JVM-Suiten nach dem Fix: Debug **779/779**, SliceTest **779/779**, keine Fehler oder übersprungenen Tests. `git diff --check` sauber. Noch nicht committet; kein Batch-APK oder Release vor 10/10.
 - Batch 17 steht bei **7/10**. Nächster Schritt: einen weiteren Orca-2.5-Änderungspunkt mit aktivem Android-Aufrufpfad auswählen und auf bereits vorhandene Ports prüfen.
 
+## Orca Nightly Batch 17 — Punkt 8/10 verifiziert — 2026-11-14
+
+- Port von Orca `18ac48ed96`: Clipper2 erkennt beim Aktualisieren der Scanline-Kanten, ob ihre X-Positionen bereits sortiert sind. Für diese häufigen Scanlines wird der Merge-Sort der Kanten übersprungen; bei gekreuzten Kanten läuft der bestehende Sortierpfad weiter.
+- `NativeSliceDeviceTest#clipper2EarlyOutPreservesDisjointAndIntersectingPolygonResults` führt die produktive Clipper2-Union mit 128 getrennten Polygonen sowie eine sich kreuzende Schnittmenge aus. API-36-Emulator: **1/1 bestanden**; die getrennten Flächen ergeben 128 Polygone mit Gesamtfläche 2048, die Schnittmenge ein Polygon mit Fläche 92.
+- `:app:assembleSliceTest :app:assembleSliceTestAndroidTest` erfolgreich. Die vollständigen Debug- und SliceTest-JVM-Suiten bestanden jeweils **779/779**, ohne Fehler oder übersprungene Tests. `git diff --check` sauber.
+- Punkt 8 ist **verifiziert**. Batch 17: **8/10**. Noch kein Batch-APK oder Release vor dem 10/10-Gate. Nächster Schritt: weiteren Upstream-Kandidaten mit vorhandenem Android-Aufrufpfad sichten und Verhaltensregressionen ergänzen.
+
 ## Orca Nightly Batch 17 — Punkt 4/10 verifiziert — 2026-11-13
 
 - Punkt 4 ergänzt Orcas `adjust_layer_height_profile()` als direktes Ein-Finger-Pinselwerkzeug im vorhandenen Layerhöhenmodus. Die GL-Oberflächen-Treffpunkte werden in Objektkoordinaten zurücktransformiert; Zwei-Finger-Gesten bleiben für Kamera/Zoom frei. Der exakte Raycaster wird je Auswahl vorgewärmt und bei Touchsamples wiederverwendet; Samples sind auf höchstens etwa 18/s begrenzt.

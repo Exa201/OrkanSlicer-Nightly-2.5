@@ -149,6 +149,9 @@ class Native {
     /** Regression probe for CGAL conversion of meshes with isolated vertex indices. */
     @JvmStatic
     external fun mesh_boolean_isolated_vertices_probe(): DoubleArray
+    /** Exercises Clipper2 scanbeams with and without intersecting edges. */
+    @JvmStatic
+    external fun clipper2_scanbeam_sort_regression(): DoubleArray
     /** Verifies changing the filament count does not truncate per-nozzle variant values. */
     @JvmStatic
     external fun filament_variant_resize_regression_probe(): IntArray
