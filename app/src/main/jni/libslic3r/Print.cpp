@@ -3639,7 +3639,10 @@ void Print::_make_wipe_tower()
         coordf_t layer_height = m_objects.front()->config().layer_height.value;
         bool generate_final_purge = true;
         const bool tower_reaches_last_layer = m_wipe_tower_data.tool_ordering.back().wipe_tower_partitions > 0;
-        if (should_generate_final_wipe_tower_purge(tower_reaches_last_layer, m_config.single_extruder_multi_material)) {
+        const unsigned int current_extruder_id = m_wipe_tower_data.tool_ordering.all_extruders().back();
+        const bool final_filament_uses_ramming = m_config.filament_multitool_ramming.get_at(current_extruder_id);
+        if (should_generate_final_wipe_tower_purge(
+                tower_reaches_last_layer, m_config.single_extruder_multi_material, final_filament_uses_ramming)) {
             if (tower_reaches_last_layer) {
                 // The wipe tower goes up to the last layer of the print.
                 if (wipe_tower.layer_finished()) {
@@ -3651,9 +3654,10 @@ void Print::_make_wipe_tower()
                     // There is yet enough space at this layer of the wipe tower for the final purge.
                 }
             } else {
-                // A single-extruder MMU still must unload the last filament. Do it at
-                // the object's top so the nozzle never descends through the finished part.
-                assert(m_config.single_extruder_multi_material);
+                // A single-extruder MMU must unload its last filament, and a ramming
+                // toolchanger must ram it out. Do either at the object's top so the
+                // nozzle never descends through the finished part.
+                assert(m_config.single_extruder_multi_material || final_filament_uses_ramming);
                 wipe_tower.set_layer(float(m_wipe_tower_data.tool_ordering.back().print_z), float(layer_height), 0, false, true);
             }
         } else {
