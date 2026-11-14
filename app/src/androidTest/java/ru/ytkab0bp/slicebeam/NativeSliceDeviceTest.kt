@@ -41,6 +41,8 @@ import ru.ytkab0bp.slicebeam.components.bed_menu.SlicePreparationTools
 import ru.ytkab0bp.slicebeam.utils.Vec3d
 import java.io.File
 import java.io.FileOutputStream
+import java.nio.ByteBuffer
+import java.nio.ByteOrder
 import java.util.zip.ZipEntry
 import java.util.zip.ZipFile
 import java.util.zip.ZipOutputStream
@@ -184,6 +186,72 @@ class NativeSliceDeviceTest {
             source.delete()
             configFile.delete()
             gcodeFile.delete()
+        }
+    }
+
+    @Test(timeout = 180_000)
+    fun differentHeightObjectsWithAdaptiveProfilesSharePrimeTowerLayers() = withToolChangerProfile {
+        val context = InstrumentationRegistry.getInstrumentation().targetContext
+        val config = requireNotNull(SliceBeam.CONFIG)
+        val process = requireNotNull(config.findPrint("0.20mm Standard"))
+        process.put("layer_height", "0.2")
+        process.put("initial_layer_print_height", "0.2")
+        process.put("precise_z_height", "1")
+        process.put("enable_prime_tower", "1")
+
+        val source = copyCube(context, "adaptive-prime-tower-tall.stl")
+        val shortSource = copyCubeScaledZ(context, "adaptive-prime-tower-short.stl", 0.55f)
+        val output = File(context.cacheDir, "adaptive-prime-tower-different-heights.gcode")
+        val model = Model(source)
+        val shortModel = Model(shortSource)
+        var result: GCodeProcessorResult? = null
+        try {
+            model.addObject(shortModel, 0)
+            model.translate(1, 35.0, 0.0, 0.0)
+            model.setUniformFilament(0, 1)
+            model.setUniformFilament(1, 2)
+            SliceBeam.genCurrentConfig(model)
+            val configFile = SliceBeam.getCurrentConfigFile()
+            model.applyAdaptiveLayerHeight(0, configFile.absolutePath, 0.5f)
+            assertTrue("the tall adaptive profile must fit to the shorter object", model.fitAdaptiveLayerHeightProfileToObject(0, 1))
+            assertTrue("both separate objects must keep their own variable layer profile", model.hasAdaptiveLayerHeight(0) && model.hasAdaptiveLayerHeight(1))
+            val tallProfile = model.adaptiveLayerHeightProfile(0)
+            val shortProfile = model.adaptiveLayerHeightProfile(1)
+            assertTrue("the shorter profile must end at its own top", shortProfile[shortProfile.size - 2] < tallProfile[tallProfile.size - 2])
+            for (sample in 0 until shortProfile.size - 2)
+                assertEquals("shared adaptive profile sample $sample", tallProfile[sample], shortProfile[sample], 0.000001)
+            SliceBeam.genCurrentConfig(model)
+
+            result = model.slice(configFile.absolutePath, output.absolutePath, null)
+            val gcode = output.readText()
+            assertHasExtrusion(gcode)
+            assertTrue("both assigned tools must be emitted", Regex("(?m)^T0(?:\\s|$)").containsMatchIn(gcode) &&
+                Regex("(?m)^T1(?:\\s|$)").containsMatchIn(gcode))
+            assertTrue("variable layer heights on differently tall objects must slice with the prime tower", gcode.contains("; total layer number:") &&
+                gcode.contains("Prime tower", ignoreCase = true))
+            result?.release()
+            result = null
+
+            model.applyAdaptiveLayerHeight(1, configFile.absolutePath, 0.5f)
+            val independentlyAdaptiveShortProfile = model.adaptiveLayerHeightProfile(1)
+            assertTrue("independent profiles must differ in the common-height region",
+                independentlyAdaptiveShortProfile.contentEquals(shortProfile).not())
+            SliceBeam.genCurrentConfig(model)
+            val rejected = try {
+                model.slice(configFile.absolutePath, output.absolutePath, null).release()
+                false
+            } catch (error: Slic3rRuntimeError) {
+                error.message?.contains("same variable layer height") == true
+            }
+            assertTrue("different effective layers must remain rejected for a prime tower", rejected)
+        } finally {
+            result?.release()
+            model.release()
+            shortModel.release()
+            source.delete()
+            shortSource.delete()
+            output.delete()
+            SliceBeam.getCurrentConfigFile().delete()
         }
     }
 
@@ -8876,6 +8944,23 @@ class NativeSliceDeviceTest {
 
     private fun copyCube(context: Context, name: String): File = File(context.cacheDir, name).also { target ->
         context.assets.open("models/xyz_cube.stl").use { input -> target.outputStream().use(input::copyTo) }
+    }
+
+    private fun copyCubeScaledZ(context: Context, name: String, zScale: Float): File {
+        require(zScale.isFinite() && zScale > 0f)
+        val bytes = context.assets.open("models/xyz_cube.stl").use { it.readBytes() }
+        require(bytes.size >= 84) { "Expected a binary STL test cube" }
+        val data = ByteBuffer.wrap(bytes).order(ByteOrder.LITTLE_ENDIAN)
+        val triangles = data.getInt(80)
+        require(triangles >= 1 && bytes.size == 84 + triangles * 50) { "Expected a binary STL test cube" }
+        repeat(triangles) { triangle ->
+            val triangleOffset = 84 + triangle * 50
+            repeat(3) { vertex ->
+                val zOffset = triangleOffset + 12 + vertex * 12 + 8
+                data.putFloat(zOffset, data.getFloat(zOffset) * zScale)
+            }
+        }
+        return File(context.cacheDir, name).also { it.writeBytes(bytes) }
     }
 
     private fun copyAsset(context: Context, assetPath: String, name: String): File =

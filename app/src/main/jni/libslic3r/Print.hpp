@@ -419,6 +419,8 @@ public:
     // The slicing parameters are dependent on various configuration values
     // (layer height, first layer height, raft settings, print nozzle diameter etc).
     const SlicingParameters&    slicing_parameters() const { return m_slicing_params; }
+    // A prime tower with differently tall objects and custom layer profiles needs shared layer tops.
+    bool                        precise_z_height() const;
     // Orca: XYZ shrinkage compensation has introduced the const Vec3d &object_shrinkage_compensation parameter to the function below
     static SlicingParameters    slicing_parameters(const DynamicPrintConfig &full_config, const ModelObject &model_object, float object_max_z, const Vec3d &object_shrinkage_compensation);
 
@@ -1169,6 +1171,8 @@ private:
     // Estimated print time, filament consumed.
     PrintStatistics                         m_print_statistics;
     bool                                    m_support_used {false};
+    // Precise Z is disabled print-wide when variable profiles and a prime tower span different object heights.
+    bool                                    m_precise_z_height_overridden {false};
     StatisticsByExtruderCount               m_statistics_by_extruder_count;
 
     std::vector<unsigned int> m_slice_used_filaments;

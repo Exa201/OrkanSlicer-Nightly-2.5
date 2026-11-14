@@ -581,6 +581,14 @@ open class Model private constructor(@JvmField var pointer: Long) {
     internal fun adaptiveLayerHeightProfile(i: Int): DoubleArray =
         if (hasObject(i)) Native.model_get_layer_height_profile(pointer, i) else doubleArrayOf()
 
+    /** Copies another object's adaptive profile and fits only its ending to this object's height. */
+    internal fun fitAdaptiveLayerHeightProfileToObject(sourceIndex: Int, targetIndex: Int): Boolean {
+        if (!hasObject(sourceIndex) || !hasObject(targetIndex) || sourceIndex == targetIndex) return false
+        val fitted = Native.model_fit_layer_height_profile_to_object(pointer, sourceIndex, targetIndex)
+        if (fitted) markStateChanged()
+        return fitted
+    }
+
     open fun embossText(
         i: Int,
         fontPath: String,

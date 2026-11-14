@@ -415,6 +415,8 @@ class Native {
     @JvmStatic
     external fun model_get_layer_height_profile(ptr: Long, i: Int): DoubleArray
     @JvmStatic
+    external fun model_fit_layer_height_profile_to_object(ptr: Long, sourceIndex: Int, targetIndex: Int): Boolean
+    @JvmStatic
     external fun model_emboss_text(ptr: Long, i: Int, fontPath: String, text: String, size: Float, depth: Float, type: Int, px: Double, py: Double, pz: Double, nx: Double, ny: Double, nz: Double): Unit
     @JvmStatic
     external fun model_emboss_svg(ptr: Long, objectIndex: Int, svgPath: String, width: Float, depth: Float, operation: Int, px: Double, py: Double, pz: Double, nx: Double, ny: Double, nz: Double): Unit

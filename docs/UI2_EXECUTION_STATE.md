@@ -1,5 +1,18 @@
 # Nightly execution state — 2026-11-13
 
+## Release 452/453 Regression Audit — 2026-11-14
+
+- `v0.8.452-nightly.1` (`efbd829eea`) and `v0.8.453-nightly.1` (`614d44b4b0`) have identical `BedFragment.kt`, `ModelMenuItems.kt`, `Bed3D.kt` and `GLView.kt`; those tags did not revert the load-progress or arrange UI paths between releases. 453 adds `4360345802` and the release/version commits; its model change only avoids deserializing empty per-face annotations, and its other native changes concern fill/G-code behavior.
+- The later workspace hardening commits `82b950b674` (import placement) and `f21c98fa6c` (arrange concurrency/error routing) are in the current development history but are not ancestors of either release tag. Thus the checked-in history does **not** support the premise that those commits shipped in tagged 452 and were reverted in 453. The installed 452 APK likely came from a different commit/build artifact than `v0.8.452-nightly.1`; exact APK provenance is unavailable locally.
+- The current branch is based on the later development line and contains both newer workspace paths. No actual 3D printer was contacted.
+
+## Orca Nightly Batch 17 — Punkt 5/10 verifiziert — 2026-11-14
+
+- Port von Orca-Upstream `32dbacb423`: Bei einem Prime Tower und Objekten verschiedener Höhe vergleicht `Print::validate()` jetzt die tatsächlich erzeugten Schichtoberkanten bis zur gemeinsamen Höhe anstelle der rohen Profilarrays. Ein Print-weites Precise-Z-Override hält diese Schichten ausgerichtet und invalidiert betroffene Slices. Ein erklärender Validierungsfehler nennt nun zusätzlich die erste abweichende Schicht und beide Z-Werte.
+- `layer_height_profile_fit_to_height()` passt ein geteiltes Profil bis zum Ende eines niedrigeren Meshes an. Die Test-Fixture verwendet zwei echte STL-Meshes unterschiedlicher Höhe (kein transformskalierter Instanzklon), ordnet T0/T1 zu, slice-t mit Precise-Z und Prime Tower, prüft Layerprofil, Extrusion, beide Toolbefehle und Tower-G-Code und stellt anschließend sicher, dass unabhängig adaptive Profile mit unterschiedlichen effektiven gemeinsamen Layern zurückgewiesen werden.
+- Der erste Lauf mit skalierter Instanz scheiterte bei Layer 2 (`0,400000` vs. `0,446667` mm); diese Geometrie war kein Orca-Positivfall. Nach Umstellung auf zwei separate Meshes bestand `NativeSliceDeviceTest#differentHeightObjectsWithAdaptiveProfilesSharePrimeTowerLayers` auf Android 16/API 36, ARM64 über `libndk_translation`: **1/1**, einschließlich positivem Slice und Negativregression. SliceTest-App und Instrumentierungs-APK bauten erfolgreich.
+- Punkt 5 ist **verifiziert**. Batch 17: **5/10**. Vollständige Debug-/SliceTest-Unit-Suiten nach dem nativen Port stehen noch aus; kein APK/Release für Batch 17. Nächster Schritt: den nächsten geeigneten Orca-2.5-Änderungspunkt mit aktivem Android-Aufrufpfad auswählen und mit Verhaltenstest belegen.
+
 ## Orca Nightly Batch 17 — Punkt 4/10 verifiziert — 2026-11-13
 
 - Punkt 4 ergänzt Orcas `adjust_layer_height_profile()` als direktes Ein-Finger-Pinselwerkzeug im vorhandenen Layerhöhenmodus. Die GL-Oberflächen-Treffpunkte werden in Objektkoordinaten zurücktransformiert; Zwei-Finger-Gesten bleiben für Kamera/Zoom frei. Der exakte Raycaster wird je Auswahl vorgewärmt und bei Touchsamples wiederverwendet; Samples sind auf höchstens etwa 18/s begrenzt.

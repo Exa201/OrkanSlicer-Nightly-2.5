@@ -2688,6 +2688,25 @@ extern "C" {
         return result;
     }
 
+    JNIEXPORT jboolean JNICALL Java_ru_ytkab0bp_slicebeam_slic3r_Native_model_1fit_1layer_1height_1profile_1to_1object(
+        JNIEnv* env, jclass, jlong ptr, jint sourceIndex, jint targetIndex) {
+        ModelRef* model = reinterpret_cast<ModelRef*>(static_cast<intptr_t>(ptr));
+        if (model == nullptr || sourceIndex < 0 || targetIndex < 0 || sourceIndex == targetIndex ||
+            static_cast<size_t>(sourceIndex) >= model->model.objects.size() ||
+            static_cast<size_t>(targetIndex) >= model->model.objects.size()) return JNI_FALSE;
+
+        ModelObject* source = model->model.objects[static_cast<size_t>(sourceIndex)];
+        ModelObject* target = model->model.objects[static_cast<size_t>(targetIndex)];
+        if (source == nullptr || target == nullptr) return JNI_FALSE;
+        const std::vector<coordf_t> profile = source->layer_height_profile.get();
+        if (profile.size() < 2) return JNI_FALSE;
+        const double targetHeight = target->raw_mesh_bounding_box().size().z();
+        std::vector<coordf_t> fitted = layer_height_profile_fit_to_height(profile, targetHeight);
+        if (fitted.empty()) return JNI_FALSE;
+        target->layer_height_profile.set(std::move(fitted));
+        return JNI_TRUE;
+    }
+
     JNIEXPORT jint JNICALL Java_ru_ytkab0bp_slicebeam_slic3r_Native_model_1create_1text_1object(
         JNIEnv* env, jclass, jlong ptr, jstring fontPath, jstring textStr, jfloat size, jfloat depth,
         jdouble px, jdouble py, jdouble pz, jdouble nx, jdouble ny, jdouble nz, jint targetObjectIndex) {

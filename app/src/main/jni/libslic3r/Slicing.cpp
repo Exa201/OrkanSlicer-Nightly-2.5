@@ -305,6 +305,37 @@ std::vector<coordf_t> layer_height_profile_from_ranges(
    	return layer_height_profile;
 }
 
+std::vector<coordf_t> layer_height_profile_fit_to_height(
+    const std::vector<coordf_t> &layer_height_profile,
+    coordf_t                     object_height)
+{
+    if (layer_height_profile.size() < 2 || layer_height_profile.size() % 2 != 0 ||
+        !std::isfinite(object_height) || object_height <= EPSILON ||
+        !is_approx(layer_height_profile.front(), 0.))
+        return {};
+
+    std::vector<coordf_t> out;
+    out.reserve(layer_height_profile.size() + 2);
+    size_t i = 0;
+    for (; i < layer_height_profile.size() && layer_height_profile[i] < object_height - EPSILON; i += 2) {
+        out.push_back(layer_height_profile[i]);
+        out.push_back(layer_height_profile[i + 1]);
+    }
+
+    coordf_t height = layer_height_profile.back();
+    if (i < layer_height_profile.size() && i >= 2) {
+        const coordf_t z1 = layer_height_profile[i - 2];
+        const coordf_t z2 = layer_height_profile[i];
+        if (z2 - z1 <= EPSILON) return {};
+        height = lerp(layer_height_profile[i - 1], layer_height_profile[i + 1],
+            std::clamp((object_height - z1) / (z2 - z1), 0., 1.));
+    }
+    if (!std::isfinite(height) || height <= 0.) return {};
+    out.push_back(object_height);
+    out.push_back(height);
+    return out;
+}
+
 // Based on the work of @platsch
 // Fill layer_height_profile by heights ensuring a prescribed maximum cusp height.
 std::vector<double> layer_height_profile_adaptive(const SlicingParameters& slicing_params, const ModelObject& object, float quality_factor)

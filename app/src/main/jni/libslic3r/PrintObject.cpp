@@ -3827,6 +3827,11 @@ double PrintObject::print_z_max() const
     return scale_(m_slicing_params.object_print_z_max);
 }
 
+bool PrintObject::precise_z_height() const
+{
+    return m_config.precise_z_height.value && !m_print->m_precise_z_height_overridden;
+}
+
 void PrintObject::update_slicing_parameters()
 {
     // Orca: updated function call for XYZ shrinkage compensation
