@@ -65,6 +65,7 @@
 #include "libslic3r/calib.hpp"
 #include "libslic3r/Geometry/ConvexHull.hpp"
 #include "libslic3r/Format/3mf.hpp"
+#include "libslic3r/Format/bbs_3mf.hpp"
 #include "bbl/Orient.hpp"
 #include "Viewer.hpp"
 
@@ -6697,6 +6698,198 @@ extern "C" {
             };
             jintArray result = env->NewIntArray(static_cast<jsize>(values.size()));
             if (result != nullptr) env->SetIntArrayRegion(result, 0, static_cast<jsize>(values.size()), values.data());
+            return result;
+        } catch (const std::exception& error) {
+            jclass runtime_error = env->FindClass("ru/ytkab0bp/slicebeam/slic3r/Slic3rRuntimeError");
+            if (runtime_error != nullptr) env->ThrowNew(runtime_error, error.what());
+            return nullptr;
+        }
+    }
+
+    JNIEXPORT jdoubleArray JNICALL Java_ru_ytkab0bp_slicebeam_slic3r_Native_painted_1modifier_1slice_1regression(JNIEnv* env, jclass) {
+        try {
+            Model model;
+            ModelObject* object = model.add_object();
+            object->name = "painted_modifier_slice_fixture";
+            object->add_volume(make_cube(20.f, 20.f, 20.f));
+            ModelVolume* host = object->volumes.front();
+            ModelVolume* modifier = object->add_painted_modifier(*host);
+            modifier->config.set_key_value("wall_loops", new ConfigOptionInt(5));
+
+            TriangleSelector selector(modifier->mesh());
+            const indexed_triangle_set& mesh = modifier->mesh().its;
+            for (int facet = 0; facet < int(mesh.indices.size()); ++facet)
+                if (its_face_normal(mesh, facet).dot(Vec3f::UnitX()) > 0.99f)
+                    selector.set_facet(facet, EnforcerBlockerType::ENFORCER);
+            modifier->painted_modifier_facets.set(selector);
+
+            Model unchanged_model(model);
+            const bool unchanged_was_reported_changed = model_painted_modifier_data_changed(*object, *unchanged_model.objects.front());
+            Model depth_changed_model(model);
+            ModelVolume* changed_modifier = nullptr;
+            for (ModelVolume* volume : depth_changed_model.objects.front()->volumes)
+                if (volume->is_painted_modifier()) changed_modifier = volume;
+            if (changed_modifier == nullptr) throw std::runtime_error("Painted modifier clone lost its modifier volume");
+            changed_modifier->painted_modifier_depth = 1.f;
+            const bool depth_change_was_reported = model_painted_modifier_data_changed(*object, *depth_changed_model.objects.front());
+            object->add_instance();
+            object->ensure_on_bed();
+
+            DynamicPrintConfig config = DynamicPrintConfig::full_print_config();
+            config.set_deserialize_strict({
+                {"layer_height", "0.2"},
+                {"initial_layer_print_height", "0.2"},
+                {"wall_loops", "2"},
+                {"sparse_infill_density", "0%"},
+                {"top_shell_layers", "0"},
+                {"bottom_shell_layers", "0"},
+                {"skirt_loops", "0"},
+                {"brim_type", "no_brim"},
+            });
+            Print print;
+            print.apply(model, std::move(config));
+            print.set_status_silent();
+            print.process();
+
+            const Layer* target_layer = nullptr;
+            for (const Layer* layer : print.objects().front()->layers())
+                if (std::abs(layer->print_z - 10.0) < EPSILON) { target_layer = layer; break; }
+            if (target_layer == nullptr)
+                throw std::runtime_error("Painted modifier fixture did not generate the expected middle layer");
+
+            double painted_area = 0.0;
+            double default_area = 0.0;
+            BoundingBox painted_bbox;
+            for (const LayerRegion* region : target_layer->regions()) {
+                const int walls = region->region().config().wall_loops.value;
+                for (const Surface& surface : region->slices.surfaces) {
+                    if (walls == 5) {
+                        painted_area += surface.expolygon.area();
+                        painted_bbox.merge(get_extents(surface.expolygon));
+                    } else if (walls == 2) {
+                        default_area += surface.expolygon.area();
+                    }
+                }
+            }
+            const BoundingBox layer_bbox = get_extents(target_layer->lslices);
+            const std::array<jdouble, 7> values{
+                painted_area * SCALING_FACTOR * SCALING_FACTOR,
+                default_area * SCALING_FACTOR * SCALING_FACTOR,
+                unscale<double>(painted_bbox.min.x() - layer_bbox.center().x()),
+                unscale<double>(painted_bbox.max.x() - layer_bbox.max.x()),
+                double(target_layer->regions().size()),
+                unchanged_was_reported_changed ? 1.0 : 0.0,
+                depth_change_was_reported ? 1.0 : 0.0,
+            };
+            jdoubleArray result = env->NewDoubleArray(static_cast<jsize>(values.size()));
+            if (result != nullptr) env->SetDoubleArrayRegion(result, 0, static_cast<jsize>(values.size()), values.data());
+            return result;
+        } catch (const std::exception& error) {
+            jclass runtime_error = env->FindClass("ru/ytkab0bp/slicebeam/slic3r/Slic3rRuntimeError");
+            if (runtime_error != nullptr) env->ThrowNew(runtime_error, error.what());
+            return nullptr;
+        }
+    }
+
+    JNIEXPORT jintArray JNICALL Java_ru_ytkab0bp_slicebeam_slic3r_Native_painted_1modifier_1bbs_1roundtrip(JNIEnv* env, jclass, jstring path_value) {
+        const char* path_chars = path_value != nullptr ? env->GetStringUTFChars(path_value, nullptr) : nullptr;
+        if (path_chars == nullptr) return nullptr;
+        const std::string path(path_chars);
+        env->ReleaseStringUTFChars(path_value, path_chars);
+        try {
+            Model model;
+            ModelObject* object = model.add_object();
+            object->name = "painted_modifier_3mf_roundtrip_fixture";
+            ModelVolume* host = object->add_volume(make_cube(20.f, 20.f, 20.f));
+            ModelVolume* modifier = object->add_painted_modifier(*host);
+            modifier->painted_modifier_depth = 2.5f;
+            modifier->config.set_key_value("wall_loops", new ConfigOptionInt(5));
+            TriangleSelector selector(modifier->mesh());
+            const indexed_triangle_set& mesh = modifier->mesh().its;
+            for (int facet = 0; facet < int(mesh.indices.size()); ++facet)
+                if (its_face_normal(mesh, facet).dot(Vec3f::UnitX()) > 0.99f)
+                    selector.set_facet(facet, EnforcerBlockerType::ENFORCER);
+            modifier->painted_modifier_facets.set(selector);
+            object->add_instance();
+
+            DynamicPrintConfig config = DynamicPrintConfig::full_print_config();
+            std::set<std::pair<int, int>> object_instances{{0, 0}};
+            PlateData plate(0, object_instances, false);
+            PlateDataPtrs plates{&plate};
+            std::vector<Preset*> presets;
+            StoreParams store;
+            store.path = path.c_str();
+            store.model = &model;
+            store.plate_data_list = plates;
+            store.config = &config;
+            store.strategy = SaveStrategy::Zip64 | SaveStrategy::ProductionExt | SaveStrategy::Silence;
+            if (!store_bbs_3mf(store))
+                throw std::runtime_error("Painted modifier BBS 3MF fixture could not be written");
+
+            Model loaded;
+            DynamicPrintConfig loaded_config = DynamicPrintConfig::full_print_config();
+            ConfigSubstitutionContext substitutions{ForwardCompatibilitySubstitutionRule::Disable};
+            PlateDataPtrs loaded_plates;
+            std::vector<Preset*> loaded_presets;
+            bool is_bbl = false;
+            bool is_orca = false;
+            Semver file_version;
+            const bool loaded_ok = load_bbs_3mf(path.c_str(), &loaded_config, &substitutions, &loaded,
+                &loaded_plates, &loaded_presets, &is_bbl, &is_orca, &file_version, nullptr, LoadStrategy::LoadModel | LoadStrategy::Silence);
+            if (!loaded_ok) {
+                release_PlateData_list(loaded_plates);
+                throw std::runtime_error("Painted modifier BBS 3MF fixture could not be loaded");
+            }
+            if (loaded.objects.empty()) {
+                release_PlateData_list(loaded_plates);
+                throw std::runtime_error("Painted modifier BBS 3MF roundtrip lost the model object");
+            }
+            ModelObject* loaded_object = loaded.objects.front();
+            ModelVolume* loaded_modifier = nullptr;
+            for (ModelVolume* volume : loaded_object->volumes)
+                if (volume->is_painted_modifier()) { loaded_modifier = volume; break; }
+            if (loaded_modifier == nullptr) {
+                release_PlateData_list(loaded_plates);
+                throw std::runtime_error("Painted modifier BBS 3MF roundtrip lost the modifier type");
+            }
+            const ModelVolume* loaded_host = loaded_object->painted_modifier_host(*loaded_modifier);
+            const int facet_count = static_cast<int>(mesh.indices.size());
+            const int painted_facets = static_cast<int>(loaded_modifier->painted_modifier_facets
+                .get_facets(*loaded_modifier, EnforcerBlockerType::ENFORCER).indices.size());
+            const int paint_matches = loaded_modifier->painted_modifier_facets.equals(modifier->painted_modifier_facets) ? 1 : 0;
+            const int host_matches = loaded_host != nullptr && !loaded_host->is_painted_modifier() ? 1 : 0;
+            const int depth_matches = std::abs(loaded_modifier->painted_modifier_depth - 2.5f) < 0.001f ? 1 : 0;
+            const int config_matches = loaded_modifier->config.has("wall_loops") && loaded_modifier->config.opt_int("wall_loops") == 5 ? 1 : 0;
+            const std::string classic_path = path + ".classic.3mf";
+            if (!store_3mf(classic_path.c_str(), &model, &config, false))
+                throw std::runtime_error("Painted modifier classic 3MF fixture could not be written");
+            Model classic_loaded;
+            DynamicPrintConfig classic_config = DynamicPrintConfig::full_print_config();
+            ConfigSubstitutionContext classic_substitutions{ForwardCompatibilitySubstitutionRule::Disable};
+            if (!load_3mf(classic_path.c_str(), classic_config, classic_substitutions, &classic_loaded, false)
+                || classic_loaded.objects.empty())
+                throw std::runtime_error("Painted modifier classic 3MF fixture could not be loaded");
+            ModelObject* classic_object = classic_loaded.objects.front();
+            ModelVolume* classic_modifier = nullptr;
+            for (ModelVolume* volume : classic_object->volumes)
+                if (volume->is_painted_modifier()) { classic_modifier = volume; break; }
+            if (classic_modifier == nullptr)
+                throw std::runtime_error("Painted modifier classic 3MF roundtrip lost the modifier type");
+            const ModelVolume* classic_host = classic_object->painted_modifier_host(*classic_modifier);
+            const int classic_painted_facets = static_cast<int>(classic_modifier->painted_modifier_facets
+                .get_facets(*classic_modifier, EnforcerBlockerType::ENFORCER).indices.size());
+            const int classic_paint_matches = classic_modifier->painted_modifier_facets.equals(modifier->painted_modifier_facets) ? 1 : 0;
+            const int classic_host_matches = classic_host != nullptr && !classic_host->is_painted_modifier() ? 1 : 0;
+            const int classic_depth_matches = std::abs(classic_modifier->painted_modifier_depth - 2.5f) < 0.001f ? 1 : 0;
+            const int classic_config_matches = classic_modifier->config.has("wall_loops") && classic_modifier->config.opt_int("wall_loops") == 5 ? 1 : 0;
+            const jint values[] = {
+                painted_facets, facet_count, paint_matches, host_matches, depth_matches, config_matches,
+                classic_painted_facets, static_cast<int>(classic_modifier->mesh().its.indices.size()), classic_paint_matches,
+                classic_host_matches, classic_depth_matches, classic_config_matches,
+            };
+            release_PlateData_list(loaded_plates);
+            jintArray result = env->NewIntArray(static_cast<jsize>(std::size(values)));
+            if (result != nullptr) env->SetIntArrayRegion(result, 0, static_cast<jsize>(std::size(values)), values);
             return result;
         } catch (const std::exception& error) {
             jclass runtime_error = env->FindClass("ru/ytkab0bp/slicebeam/slic3r/Slic3rRuntimeError");

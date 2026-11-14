@@ -113,6 +113,7 @@ static constexpr const char* CUSTOM_SUPPORTS_ATTR = "slic3rpe:custom_supports";
 static constexpr const char* CUSTOM_SEAM_ATTR = "slic3rpe:custom_seam";
 static constexpr const char* MMU_SEGMENTATION_ATTR = "slic3rpe:mmu_segmentation";
 static constexpr const char* FUZZY_SKIN_ATTR = "slic3rpe:fuzzy_skin";
+static constexpr const char* PAINTED_MODIFIER_ATTR = "slic3rpe:paint_modifier";
 static constexpr const char* TEXTURE_DISPLACEMENT_ATTRS[] = {
     "paint_texture_0", "paint_texture_1", "paint_texture_2", "paint_texture_3",
     "paint_texture_4", "paint_texture_5", "paint_texture_6", "paint_texture_7"
@@ -131,6 +132,9 @@ static constexpr const char* VOLUME_TYPE = "volume";
 static constexpr const char* NAME_KEY = "name";
 static constexpr const char* MODIFIER_KEY = "modifier";
 static constexpr const char* VOLUME_TYPE_KEY = "volume_type";
+static constexpr const char* PAINTED_MODIFIER_DEPTH_KEY = "painted_modifier_depth";
+static constexpr const char* PAINTED_MODIFIER_HOST_KEY = "painted_modifier_host";
+static constexpr char PAINTED_MODIFIER_CONFIG_PREFIX[] = "painted_modifier_config:";
 static constexpr const char* MATRIX_KEY = "matrix";
 static constexpr const char* SOURCE_FILE_KEY = "source_file";
 static constexpr const char* SOURCE_OBJECT_ID_KEY = "source_object_id";
@@ -397,6 +401,7 @@ ModelVolumeType type_from_string(const std::string &s)
     if (s == "modifier_part") return ModelVolumeType::PARAMETER_MODIFIER;
     if (s == "support_enforcer") return ModelVolumeType::SUPPORT_ENFORCER;
     if (s == "support_blocker") return ModelVolumeType::SUPPORT_BLOCKER;
+    if (s == "painted_modifier") return ModelVolumeType::PAINTED_MODIFIER;
     if (s == "ModelPart") return ModelVolumeType::MODEL_PART;
     if (s == "NegativeVolume") return ModelVolumeType::NEGATIVE_VOLUME;
     if (s == "ParameterModifier") return ModelVolumeType::PARAMETER_MODIFIER;
@@ -453,6 +458,7 @@ ModelVolumeType type_from_string(const std::string &s)
             std::vector<std::string> custom_seam;
             std::vector<std::string> mmu_segmentation;
             std::vector<std::string> fuzzy_skin;
+            std::vector<std::string> painted_modifier;
             std::array<std::vector<std::string>, TEXTURE_DISPLACEMENT_MAX_LAYERS> texture_displacement;
 
             bool empty() { return vertices.empty() || triangles.empty(); }
@@ -472,6 +478,7 @@ ModelVolumeType type_from_string(const std::string &s)
                 custom_seam.clear();
                 mmu_segmentation.clear();
                 fuzzy_skin.clear();
+                painted_modifier.clear();
                 for (auto &paint : texture_displacement) paint.clear();
             }
         };
@@ -1840,6 +1847,7 @@ ModelVolumeType type_from_string(const std::string &s)
         m_curr_object.geometry.custom_seam.push_back(get_attribute_value_string(attributes, num_attributes, CUSTOM_SEAM_ATTR));
         m_curr_object.geometry.fuzzy_skin.push_back(get_attribute_value_string(attributes, num_attributes, FUZZY_SKIN_ATTR));
         m_curr_object.geometry.mmu_segmentation.push_back(get_attribute_value_string(attributes, num_attributes, MMU_SEGMENTATION_ATTR));
+        m_curr_object.geometry.painted_modifier.push_back(get_attribute_value_string(attributes, num_attributes, PAINTED_MODIFIER_ATTR));
         for (size_t slot = 0; slot < TEXTURE_DISPLACEMENT_MAX_LAYERS; ++slot)
             m_curr_object.geometry.push_texture_displacement(
                 slot, get_attribute_value_string(attributes, num_attributes, TEXTURE_DISPLACEMENT_ATTRS[slot]));
@@ -2190,6 +2198,7 @@ ModelVolumeType type_from_string(const std::string &s)
 
         unsigned int geo_tri_count = (unsigned int)geometry.triangles.size();
         unsigned int renamed_volumes_count = 0;
+        std::vector<std::pair<ModelVolume*, int>> painted_modifier_hosts;
 
         for (const ObjectMetadata::VolumeMetadata& volume_data : volumes) {
             if (geo_tri_count <= volume_data.first_triangle_id || geo_tri_count <= volume_data.last_triangle_id || volume_data.last_triangle_id < volume_data.first_triangle_id) {
@@ -2270,6 +2279,7 @@ ModelVolumeType type_from_string(const std::string &s)
             volume->seam_facets.reserve(triangles_count);
             volume->mmu_segmentation_facets.reserve(triangles_count);
             volume->fuzzy_skin_facets.reserve(triangles_count);
+            volume->painted_modifier_facets.reserve(triangles_count);
             for (int slot = 0; slot < int(TEXTURE_DISPLACEMENT_MAX_LAYERS); ++slot)
                 volume->texture_displacement_facet(slot).reserve(triangles_count);
             for (size_t i=0; i<triangles_count; ++i) {
@@ -2285,6 +2295,8 @@ ModelVolumeType type_from_string(const std::string &s)
                     volume->mmu_segmentation_facets.set_triangle_from_string(i, geometry.mmu_segmentation[index]);
                 if (! geometry.fuzzy_skin[index].empty())
                 	volume->fuzzy_skin_facets.set_triangle_from_string(i, geometry.fuzzy_skin[index]);
+                if (index < geometry.painted_modifier.size() && !geometry.painted_modifier[index].empty())
+                    volume->painted_modifier_facets.set_triangle_from_string(i, geometry.painted_modifier[index]);
                 for (size_t slot = 0; slot < TEXTURE_DISPLACEMENT_MAX_LAYERS; ++slot) {
                     const auto &paint = geometry.texture_displacement[slot];
                     if (index < paint.size() && !paint[index].empty())
@@ -2295,9 +2307,13 @@ ModelVolumeType type_from_string(const std::string &s)
             volume->seam_facets.shrink_to_fit();
             volume->mmu_segmentation_facets.shrink_to_fit();
             volume->fuzzy_skin_facets.shrink_to_fit();
+            volume->painted_modifier_facets.shrink_to_fit();
+            volume->painted_modifier_facets.touch();
             for (int slot = 0; slot < int(TEXTURE_DISPLACEMENT_MAX_LAYERS); ++slot)
                 volume->texture_displacement_facet(slot).shrink_to_fit();
 
+            std::optional<float> painted_modifier_depth;
+            int painted_modifier_host = -1;
             // apply the remaining volume's metadata
             for (const Metadata& metadata : volume_data.metadata) {
                 if (metadata.key == NAME_KEY)
@@ -2306,6 +2322,12 @@ ModelVolumeType type_from_string(const std::string &s)
 					volume->set_type(ModelVolumeType::PARAMETER_MODIFIER);
                 else if (metadata.key == VOLUME_TYPE_KEY)
                     volume->set_type(type_from_string(metadata.value));
+                else if (metadata.key == PAINTED_MODIFIER_DEPTH_KEY)
+                    painted_modifier_depth = std::max(0.f, float(::atof(metadata.value.c_str())));
+                else if (metadata.key == PAINTED_MODIFIER_HOST_KEY)
+                    painted_modifier_host = ::atoi(metadata.value.c_str());
+                else if (boost::starts_with(metadata.key, PAINTED_MODIFIER_CONFIG_PREFIX))
+                    continue;
                 else if (metadata.key == SOURCE_FILE_KEY)
                     volume->source.input_file = metadata.value;
                 else if (metadata.key == SOURCE_OBJECT_ID_KEY)
@@ -2328,6 +2350,18 @@ ModelVolumeType type_from_string(const std::string &s)
                     volume->config.set_deserialize(metadata.key, metadata.value, config_substitutions);
             }
 
+            if (volume->is_modifier() && painted_modifier_depth) {
+                volume->set_type(ModelVolumeType::PAINTED_MODIFIER);
+                volume->painted_modifier_depth = *painted_modifier_depth;
+                painted_modifier_hosts.emplace_back(volume, painted_modifier_host);
+                for (const Metadata& metadata : volume_data.metadata)
+                    if (boost::starts_with(metadata.key, PAINTED_MODIFIER_CONFIG_PREFIX)) {
+                        const std::string key = metadata.key.substr(sizeof(PAINTED_MODIFIER_CONFIG_PREFIX) - 1);
+                        if (!key.empty())
+                            volume->config.set_deserialize(key, metadata.value, config_substitutions);
+                    }
+            }
+
             // this may happen for 3mf saved by 3rd part softwares
             if (volume->name.empty()) {
                 volume->name = object.name;
@@ -2337,6 +2371,10 @@ ModelVolumeType type_from_string(const std::string &s)
             }
         }
 
+        for (const auto &[volume, host_index] : painted_modifier_hosts)
+            if (host_index >= 0 && host_index < int(object.volumes.size()) && object.volumes[host_index]->is_model_part())
+                volume->painted_modifier_host = object.volumes[host_index]->id();
+        object.sync_painted_modifiers();
         return true;
     }
 
@@ -2961,6 +2999,15 @@ ModelVolumeType type_from_string(const std::string &s)
                     output_buffer += "\"";
                 }
 
+                std::string painted_modifier_data_string = volume->painted_modifier_facets.get_triangle_as_string(i);
+                if (!painted_modifier_data_string.empty()) {
+                    output_buffer += " ";
+                    output_buffer += PAINTED_MODIFIER_ATTR;
+                    output_buffer += "=\"";
+                    output_buffer += painted_modifier_data_string;
+                    output_buffer += "\"";
+                }
+
                 for (size_t slot = 0; slot < TEXTURE_DISPLACEMENT_MAX_LAYERS; ++slot) {
                     const std::string paint = volume->texture_displacement_facet(int(slot)).get_triangle_as_string(i);
                     if (paint.empty()) continue;
@@ -3254,11 +3301,12 @@ ModelVolumeType type_from_string(const std::string &s)
                                 stream << "   <" << METADATA_TAG << " " << TYPE_ATTR << "=\"" << VOLUME_TYPE << "\" " << KEY_ATTR << "=\"" << NAME_KEY << "\" " << VALUE_ATTR << "=\"" << xml_escape(volume->name) << "\"/>\n";
 
                             // stores volume's modifier field (legacy, to support old slicers)
-                            if (volume->is_modifier())
+                            if (volume->is_modifier() || volume->is_painted_modifier())
                                 stream << "   <" << METADATA_TAG << " " << TYPE_ATTR << "=\"" << VOLUME_TYPE << "\" " << KEY_ATTR << "=\"" << MODIFIER_KEY << "\" " << VALUE_ATTR << "=\"1\"/>\n";
                             // stores volume's type (overrides the modifier field above)
+                            const bool store_as_modifier = volume->is_modifier() || volume->is_painted_modifier();
                             stream << "   <" << METADATA_TAG << " " << TYPE_ATTR << "=\"" << VOLUME_TYPE << "\" " << KEY_ATTR << "=\"" << VOLUME_TYPE_KEY << "\" " <<
-                                VALUE_ATTR << "=\"" << ModelVolume::type_to_string(volume->type()) << "\"/>\n";
+                                VALUE_ATTR << "=\"" << (store_as_modifier ? "ParameterModifier" : ModelVolume::type_to_string(volume->type())) << "\"/>\n";
 
                             // stores volume's local matrix
                             stream << "   <" << METADATA_TAG << " " << TYPE_ATTR << "=\"" << VOLUME_TYPE << "\" " << KEY_ATTR << "=\"" << MATRIX_KEY << "\" " << VALUE_ATTR << "=\"";
@@ -3271,6 +3319,17 @@ ModelVolumeType type_from_string(const std::string &s)
                                 }
                             }
                             stream << "\"/>\n";
+
+                            if (volume->is_painted_modifier()) {
+                                stream << "   <" << METADATA_TAG << " " << TYPE_ATTR << "=\"" << VOLUME_TYPE << "\" " << KEY_ATTR << "=\""
+                                       << PAINTED_MODIFIER_DEPTH_KEY << "\" " << VALUE_ATTR << "=\"" << volume->painted_modifier_depth << "\"/>\n";
+                                const ModelVolume *host = obj_metadata.second.object->painted_modifier_host(*volume);
+                                const auto host_it = std::find(obj_metadata.second.object->volumes.begin(), obj_metadata.second.object->volumes.end(), host);
+                                if (host_it != obj_metadata.second.object->volumes.end())
+                                    stream << "   <" << METADATA_TAG << " " << TYPE_ATTR << "=\"" << VOLUME_TYPE << "\" " << KEY_ATTR << "=\""
+                                           << PAINTED_MODIFIER_HOST_KEY << "\" " << VALUE_ATTR << "=\""
+                                           << std::distance(obj_metadata.second.object->volumes.begin(), host_it) << "\"/>\n";
+                            }
 
                             // stores volume's source data
                             {
@@ -3293,7 +3352,9 @@ ModelVolumeType type_from_string(const std::string &s)
 
                             // stores volume's config data
                             for (const std::string& key : volume->config.keys()) {
-                                stream << "   <" << METADATA_TAG << " " << TYPE_ATTR << "=\"" << VOLUME_TYPE << "\" " << KEY_ATTR << "=\"" << key << "\" " << VALUE_ATTR << "=\"" << volume->config.opt_serialize(key) << "\"/>\n";
+                                const std::string stored_key = volume->is_painted_modifier() ? PAINTED_MODIFIER_CONFIG_PREFIX + key : key;
+                                const std::string value = xml_escape_double_quotes_attribute_value(volume->config.opt_serialize(key));
+                                stream << "   <" << METADATA_TAG << " " << TYPE_ATTR << "=\"" << VOLUME_TYPE << "\" " << KEY_ATTR << "=\"" << stored_key << "\" " << VALUE_ATTR << "=\"" << value << "\"/>\n";
                             }
 
                             if (!volume->texture_displacement_layers.empty()) {

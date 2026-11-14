@@ -1191,8 +1191,16 @@ ModelObject& ModelObject::assign_copy(ModelObject &&rhs)
 void ModelObject::assign_new_unique_ids_recursive()
 {
     this->set_new_unique_id();
-    for (ModelVolume *model_volume : this->volumes)
+    std::vector<ObjectID> old_volume_ids;
+    old_volume_ids.reserve(this->volumes.size());
+    for (ModelVolume *model_volume : this->volumes) {
+        old_volume_ids.push_back(model_volume->id());
         model_volume->assign_new_unique_ids_recursive();
+    }
+    for (ModelVolume *model_volume : this->volumes)
+        if (model_volume->is_painted_modifier())
+            if (auto it = std::find(old_volume_ids.begin(), old_volume_ids.end(), model_volume->painted_modifier_host); it != old_volume_ids.end())
+                model_volume->painted_modifier_host = this->volumes[std::distance(old_volume_ids.begin(), it)]->id();
     for (ModelInstance *model_instance : this->instances)
         model_instance->assign_new_unique_ids_recursive();
     this->layer_height_profile.set_new_unique_id();
@@ -1306,8 +1314,71 @@ ModelVolume* ModelObject::add_volume_with_shared_mesh(const ModelVolume &other, 
     return v;
 }
 
+ModelVolume* ModelObject::add_painted_modifier(const ModelVolume &host)
+{
+    assert(host.is_model_part());
+    ModelVolume *volume = this->add_volume_with_shared_mesh(host, ModelVolumeType::PAINTED_MODIFIER);
+    volume->m_convex_hull = host.m_convex_hull;
+    volume->set_transformation(host.get_transformation());
+    volume->painted_modifier_host = host.id();
+    return volume;
+}
+
+const ModelVolume* ModelObject::painted_modifier_host(const ModelVolume &painted_modifier) const
+{
+    assert(painted_modifier.is_painted_modifier());
+    for (const ModelVolume *volume : this->volumes)
+        if (volume->is_model_part() && volume->id() == painted_modifier.painted_modifier_host)
+            return volume;
+    return nullptr;
+}
+
+bool ModelObject::sync_painted_modifiers()
+{
+    bool changed = false;
+    for (ModelVolume *volume : this->volumes) {
+        if (!volume->is_painted_modifier())
+            continue;
+        const ModelVolume *host = this->painted_modifier_host(*volume);
+        if (host == nullptr)
+            continue;
+        if (volume->mesh_ptr() != host->mesh_ptr()) {
+            const indexed_triangle_set &old_mesh = volume->mesh().its;
+            const indexed_triangle_set &new_mesh = host->mesh().its;
+            if (!volume->painted_modifier_facets.empty() &&
+                (old_mesh.vertices != new_mesh.vertices || old_mesh.indices != new_mesh.indices)) {
+                volume->painted_modifier_facets.set_data(TriangleSelector::remap_painting(
+                    old_mesh, volume->painted_modifier_facets.get_data(), new_mesh,
+                    volume->get_matrix().inverse() * host->get_matrix(), {}));
+            }
+            volume->m_mesh = host->m_mesh;
+            volume->m_convex_hull = host->m_convex_hull;
+            changed = true;
+        }
+        if (!host->get_matrix().isApprox(volume->get_matrix())) {
+            volume->set_transformation(host->get_transformation());
+            changed = true;
+        }
+    }
+    return changed;
+}
+
+bool ModelObject::has_painted_modifiers() const
+{
+    return std::any_of(this->volumes.cbegin(), this->volumes.cend(), [](const ModelVolume *volume) { return volume->is_painted_modifier(); });
+}
+
 void ModelObject::delete_volume(size_t idx)
 {
+    const ObjectID removed_volume_id = this->volumes[idx]->id();
+    for (size_t i = this->volumes.size(); i-- > 0;) {
+        if (i == idx || !this->volumes[i]->is_painted_modifier() || this->volumes[i]->painted_modifier_host != removed_volume_id)
+            continue;
+        delete this->volumes[i];
+        this->volumes.erase(this->volumes.begin() + i);
+        if (i < idx)
+            --idx;
+    }
     ModelVolumePtrs::iterator i = this->volumes.begin() + idx;
     delete *i;
     this->volumes.erase(i);
@@ -2075,6 +2146,7 @@ void ModelVolume::reset_extra_facets()
     this->seam_facets.reset();
     this->mmu_segmentation_facets.reset();
     this->fuzzy_skin_facets.reset();
+    this->painted_modifier_facets.reset();
     for (int i = 0; i < int(TEXTURE_DISPLACEMENT_MAX_LAYERS); ++i)
         this->texture_displacement_facet(i).reset();
     this->reset_texture_uv();
@@ -2082,13 +2154,14 @@ void ModelVolume::reset_extra_facets()
 
 std::optional<TriangleSelector::SavedPainting> ModelVolume::save_painting() const
 {
-    if (is_any_painted() && is_model_part() && !mesh().empty()) {
+    if (is_any_painted() && (is_model_part() || is_painted_modifier()) && !mesh().empty()) {
         TriangleSelector::SavedPainting sp;
         sp.mesh      = mesh();
         sp.supported = supported_facets.get_data();
         sp.seam      = seam_facets.get_data();
         sp.mmu       = mmu_segmentation_facets.get_data();
         sp.fuzzy     = fuzzy_skin_facets.get_data();
+        sp.painted_modifier = painted_modifier_facets.get_data();
         return sp;
     }
 
@@ -2121,6 +2194,7 @@ void ModelVolume::restore_painting(const std::optional<TriangleSelector::SavedPa
     remap_one(saved->seam,      seam_facets);
     remap_one(saved->mmu,       mmu_segmentation_facets);
     remap_one(saved->fuzzy,     fuzzy_skin_facets);
+    remap_one(saved->painted_modifier, painted_modifier_facets);
 }
 
 static void invalidate_translations(ModelObject* object, const ModelInstance* src_instance)
@@ -2824,6 +2898,8 @@ ModelVolumeType ModelVolume::type_from_string(const std::string &s)
 		return ModelVolumeType::SUPPORT_ENFORCER;
     if (s == "support_blocker")
 		return ModelVolumeType::SUPPORT_BLOCKER;
+    if (s == "painted_modifier")
+        return ModelVolumeType::PAINTED_MODIFIER;
     //assert(s == "0");
     // Default value if invalud type string received.
 	return ModelVolumeType::MODEL_PART;
@@ -2838,6 +2914,7 @@ std::string ModelVolume::type_to_string(const ModelVolumeType t)
 	case ModelVolumeType::PARAMETER_MODIFIER: return "modifier_part";
 	case ModelVolumeType::SUPPORT_ENFORCER:   return "support_enforcer";
 	case ModelVolumeType::SUPPORT_BLOCKER:    return "support_blocker";
+    case ModelVolumeType::PAINTED_MODIFIER:   return "painted_modifier";
     default:
         assert(false);
         return "normal_part";
@@ -2946,6 +3023,7 @@ void ModelVolume::assign_new_unique_ids_recursive()
     seam_facets.set_new_unique_id();
     mmu_segmentation_facets.set_new_unique_id();
     fuzzy_skin_facets.set_new_unique_id();
+    painted_modifier_facets.set_new_unique_id();
     for (int i = 0; i < int(TEXTURE_DISPLACEMENT_MAX_LAYERS); ++i)
         texture_displacement_facet(i).set_new_unique_id();
 }
@@ -3848,6 +3926,17 @@ bool model_fuzzy_skin_data_changed(const ModelObject &mo, const ModelObject &mo_
     return model_property_changed(mo, mo_new,
         [](const ModelVolumeType t) { return t == ModelVolumeType::MODEL_PART; },
         [](const ModelVolume &mv_old, const ModelVolume &mv_new){ return mv_old.fuzzy_skin_facets.timestamp_matches(mv_new.fuzzy_skin_facets); });
+}
+
+bool model_painted_modifier_data_changed(const ModelObject &mo, const ModelObject &mo_new)
+{
+    return model_property_changed(mo, mo_new,
+        [](const ModelVolumeType type) { return type == ModelVolumeType::PAINTED_MODIFIER; },
+        [](const ModelVolume &old_volume, const ModelVolume &new_volume) {
+            return old_volume.painted_modifier_facets.timestamp_matches(new_volume.painted_modifier_facets) &&
+                   old_volume.painted_modifier_depth == new_volume.painted_modifier_depth &&
+                   old_volume.painted_modifier_host == new_volume.painted_modifier_host;
+        });
 }
 
 bool model_brim_points_data_changed(const ModelObject& mo, const ModelObject& mo_new)

@@ -104,6 +104,10 @@ class Native {
     /** Runs the Orca painted-bridge fixture and reports neighbour anchors and bridge paths. */
     @JvmStatic
     external fun painted_bridge_anchor_regression(): IntArray
+    /** Slices an Orca Painted Modifier on a cube and reports painted/default region areas and bounds. */
+    @JvmStatic
+    external fun painted_modifier_slice_regression(): DoubleArray
+    external fun painted_modifier_bbs_roundtrip(path: String): IntArray
     /** Verifies printable-area masks retain the 64th extruder in the post-slice check. */
     @JvmStatic
     external fun gcode_extruder_64_area_mask_regression(): IntArray

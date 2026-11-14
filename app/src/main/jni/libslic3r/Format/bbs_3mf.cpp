@@ -224,6 +224,9 @@ const std::string PROJECT_EMBEDDED_FILAMENT_PRESETS_FILE = "Metadata/filament_se
 const std::string PROJECT_EMBEDDED_PRINTER_PRESETS_FILE = "Metadata/machine_settings_";
 const std::string CUT_INFORMATION_FILE = "Metadata/cut_information.xml";
 const std::string TEXTURE_DISPLACEMENT_KEY = "texture_displacement";
+const std::string PAINTED_MODIFIER_DEPTH_KEY = "painted_modifier_depth";
+const std::string PAINTED_MODIFIER_HOST_KEY = "painted_modifier_host";
+const std::string PAINTED_MODIFIER_CONFIG_PREFIX = "painted_modifier_config:";
 const std::string TEXTURE_DISPLACEMENT_DIR = "Metadata/texture_displacement/";
 
 static constexpr const char* TEXTURE_DISPLACEMENT_ATTRS[] = {
@@ -334,6 +337,7 @@ static constexpr const char* AUTO_DROP_ATTR = "auto_drop";
 static constexpr const char* INSTANCESCOUNT_ATTR = "instances_count";
 static constexpr const char* CUSTOM_SUPPORTS_ATTR = "paint_supports";
 static constexpr const char* CUSTOM_FUZZY_SKIN_ATTR  = "paint_fuzzy_skin";
+static constexpr const char* PAINTED_MODIFIER_ATTR = "paint_modifier";
 static constexpr const char* CUSTOM_SEAM_ATTR = "paint_seam";
 static constexpr const char* MMU_SEGMENTATION_ATTR = "paint_color";
 // BBS
@@ -778,6 +782,7 @@ void PlateData::parse_filament_info(GCodeProcessorResult *result)
             std::vector<std::string> custom_seam;
             std::vector<std::string> mmu_segmentation;
             std::vector<std::string> fuzzy_skin;
+            std::vector<std::string> painted_modifier;
             // BBS
             std::vector<std::string> face_properties;
 
@@ -807,6 +812,7 @@ void PlateData::parse_filament_info(GCodeProcessorResult *result)
                 custom_seam.clear();
                 mmu_segmentation.clear();
                 fuzzy_skin.clear();
+                painted_modifier.clear();
                 for (auto &paint : texture_displacement) paint.clear();
             }
         };
@@ -3899,6 +3905,7 @@ void PlateData::parse_filament_info(GCodeProcessorResult *result)
                 mmu_painting = bbs_get_attribute_value_string(attributes, num_attributes, "slic3rpe:mmu_segmentation");
             m_curr_object->geometry.mmu_segmentation.push_back(std::move(mmu_painting));
             m_curr_object->geometry.fuzzy_skin.push_back(bbs_get_attribute_value_string(attributes, num_attributes, CUSTOM_FUZZY_SKIN_ATTR));
+            m_curr_object->geometry.painted_modifier.push_back(bbs_get_attribute_value_string(attributes, num_attributes, PAINTED_MODIFIER_ATTR));
         for (size_t slot = 0; slot < TEXTURE_DISPLACEMENT_MAX_LAYERS; ++slot)
             m_curr_object->geometry.push_texture_displacement(
                 slot, bbs_get_attribute_value_string(attributes, num_attributes, TEXTURE_DISPLACEMENT_ATTRS[slot]));
@@ -4982,6 +4989,7 @@ void PlateData::parse_filament_info(GCodeProcessorResult *result)
 
         //unsigned int geo_tri_count = (unsigned int)geometry.triangles.size();
         unsigned int renamed_volumes_count = 0;
+        std::vector<std::pair<ModelVolume*, int>> painted_modifier_hosts;
 
         for (unsigned int index = 0; index < sub_objects.size(); index++)
         {
@@ -5138,6 +5146,7 @@ void PlateData::parse_filament_info(GCodeProcessorResult *result)
                 volume->seam_facets.reserve(triangles_count);
                 volume->mmu_segmentation_facets.reserve(triangles_count);
                 volume->fuzzy_skin_facets.reserve(triangles_count);
+                volume->painted_modifier_facets.reserve(triangles_count);
                 for (size_t i=0; i<triangles_count; ++i) {
                     assert(i < sub_object->geometry.custom_supports.size());
                     assert(i < sub_object->geometry.custom_seam.size());
@@ -5151,6 +5160,8 @@ void PlateData::parse_filament_info(GCodeProcessorResult *result)
                         volume->mmu_segmentation_facets.set_triangle_from_string(i, sub_object->geometry.mmu_segmentation[i]);
                     if (!sub_object->geometry.fuzzy_skin[i].empty())
                         volume->fuzzy_skin_facets.set_triangle_from_string(i, sub_object->geometry.fuzzy_skin[i]);
+                    if (i < sub_object->geometry.painted_modifier.size() && !sub_object->geometry.painted_modifier[i].empty())
+                        volume->painted_modifier_facets.set_triangle_from_string(i, sub_object->geometry.painted_modifier[i]);
                     for (size_t slot = 0; slot < TEXTURE_DISPLACEMENT_MAX_LAYERS; ++slot) {
                         const auto &paint = sub_object->geometry.texture_displacement[slot];
                         if (i < paint.size() && !paint[i].empty())
@@ -5163,6 +5174,8 @@ void PlateData::parse_filament_info(GCodeProcessorResult *result)
                 volume->mmu_segmentation_facets.touch();
                 volume->fuzzy_skin_facets.shrink_to_fit();
                 volume->fuzzy_skin_facets.touch();
+                volume->painted_modifier_facets.shrink_to_fit();
+                volume->painted_modifier_facets.touch();
             }
 
             volume->set_type(volume_data->part_type);
@@ -5172,6 +5185,8 @@ void PlateData::parse_filament_info(GCodeProcessorResult *result)
             if (auto &tc = volume_data->text_configuration; tc.has_value())
                 volume->text_configuration = std::move(tc);
 
+            std::optional<float> painted_modifier_depth;
+            int painted_modifier_host = -1;
             // apply the remaining volume's metadata
             for (const Metadata& metadata : volume_data->metadata) {
                 if (metadata.key == NAME_KEY)
@@ -5181,6 +5196,10 @@ void PlateData::parse_filament_info(GCodeProcessorResult *result)
 				//for old format
                 else if ((metadata.key == VOLUME_TYPE_KEY) || (metadata.key == PART_TYPE_KEY))
                     volume->set_type(ModelVolume::type_from_string(metadata.value));
+                else if (metadata.key == PAINTED_MODIFIER_DEPTH_KEY)
+                    painted_modifier_depth = std::max(0.f, float(::atof(metadata.value.c_str())));
+                else if (metadata.key == PAINTED_MODIFIER_HOST_KEY)
+                    painted_modifier_host = ::atoi(metadata.value.c_str());
                 else if (metadata.key == SOURCE_FILE_KEY)
                     volume->source.input_file = metadata.value;
                 else if (metadata.key == SOURCE_OBJECT_ID_KEY)
@@ -5199,10 +5218,24 @@ void PlateData::parse_filament_info(GCodeProcessorResult *result)
                     volume->source.is_converted_from_meters = metadata.value == "1";
                 else if (metadata.key == TEXTURE_DISPLACEMENT_KEY)
                     _apply_texture_displacement(*volume, metadata.value);
+                else if (boost::starts_with(metadata.key, PAINTED_MODIFIER_CONFIG_PREFIX))
+                    continue;
                 else if ((metadata.key == MATRIX_KEY) || (metadata.key == MESH_SHARED_KEY))
                     continue;
                 else
                     volume->config.set_deserialize(metadata.key, metadata.value, config_substitutions);
+            }
+
+            if (volume->is_modifier() && painted_modifier_depth) {
+                volume->set_type(ModelVolumeType::PAINTED_MODIFIER);
+                volume->painted_modifier_depth = *painted_modifier_depth;
+                painted_modifier_hosts.emplace_back(volume, painted_modifier_host);
+                for (const Metadata& metadata : volume_data->metadata)
+                    if (boost::starts_with(metadata.key, PAINTED_MODIFIER_CONFIG_PREFIX)) {
+                        const std::string key = metadata.key.substr(PAINTED_MODIFIER_CONFIG_PREFIX.size());
+                        if (!key.empty())
+                            volume->config.set_deserialize(key, metadata.value, config_substitutions);
+                    }
             }
 
             // Generic geometry imports can combine named 3MF bodies into one model object.
@@ -5218,6 +5251,10 @@ void PlateData::parse_filament_info(GCodeProcessorResult *result)
             }
         }
 
+        for (const auto &[volume, host_index] : painted_modifier_hosts)
+            if (host_index >= 0 && host_index < int(object.volumes.size()) && object.volumes[host_index]->is_model_part())
+                volume->painted_modifier_host = object.volumes[host_index]->id();
+        object.sync_painted_modifiers();
         return true;
     }
     /*
@@ -7037,7 +7074,8 @@ void PlateData::parse_filament_info(GCodeProcessorResult *result)
                                 if ((shared_volume->supported_facets.equals(volume->supported_facets))
                                     && (shared_volume->seam_facets.equals(volume->seam_facets))
                                     && (shared_volume->mmu_segmentation_facets.equals(volume->mmu_segmentation_facets))
-                                    && (shared_volume->fuzzy_skin_facets.equals(volume->fuzzy_skin_facets)))
+                                    && (shared_volume->fuzzy_skin_facets.equals(volume->fuzzy_skin_facets))
+                                    && (shared_volume->painted_modifier_facets.equals(volume->painted_modifier_facets)))
                                 {
                                     auto data = iter->second.first;
                                     const_cast<_BBS_3MF_Exporter *>(this)->m_volume_paths.insert({volume, {data->sub_path, data->volumes_objectID.find(iter->second.second)->second}});
@@ -7450,6 +7488,15 @@ void PlateData::parse_filament_info(GCodeProcessorResult *result)
                     output_buffer += CUSTOM_FUZZY_SKIN_ATTR;
                     output_buffer += "=\"";
                     output_buffer += fuzzy_skin_painting_data_string;
+                    output_buffer += "\"";
+                }
+
+                std::string painted_modifier_data_string = volume->painted_modifier_facets.get_triangle_as_string(i);
+                if (!painted_modifier_data_string.empty()) {
+                    output_buffer += " ";
+                    output_buffer += PAINTED_MODIFIER_ATTR;
+                    output_buffer += "=\"";
+                    output_buffer += painted_modifier_data_string;
                     output_buffer += "\"";
                 }
 
@@ -7945,7 +7992,8 @@ void PlateData::parse_filament_info(GCodeProcessorResult *result)
                                 volume_id = m_volume_paths.find(volume)->second.second;
                             stream << ID_ATTR << "=\"" << volume_id << "\" ";
 
-                            stream << SUBTYPE_ATTR << "=\"" << ModelVolume::type_to_string(volume->type()) << "\">\n";
+                            const ModelVolumeType stored_type = volume->is_painted_modifier() ? ModelVolumeType::PARAMETER_MODIFIER : volume->type();
+                            stream << SUBTYPE_ATTR << "=\"" << ModelVolume::type_to_string(stored_type) << "\">\n";
                             //stream << "    <" << PART_TAG << " " << ID_ATTR << "=\"" << it->second << "\" " << SUBTYPE_ATTR << "=\"" << ModelVolume::type_to_string(volume->type()) << "\">\n";
 
                             // stores volume's name
@@ -7972,6 +8020,16 @@ void PlateData::parse_filament_info(GCodeProcessorResult *result)
                             }
                             stream << "\"/>\n";
 
+                            if (volume->is_painted_modifier()) {
+                                stream << "      <" << METADATA_TAG << " " << KEY_ATTR << "=\"" << PAINTED_MODIFIER_DEPTH_KEY << "\" " << VALUE_ATTR << "=\""
+                                       << volume->painted_modifier_depth << "\"/>\n";
+                                const ModelVolume *host = obj->painted_modifier_host(*volume);
+                                const auto host_it = std::find(obj->volumes.begin(), obj->volumes.end(), host);
+                                if (host_it != obj->volumes.end())
+                                    stream << "      <" << METADATA_TAG << " " << KEY_ATTR << "=\"" << PAINTED_MODIFIER_HOST_KEY << "\" " << VALUE_ATTR << "=\""
+                                           << std::distance(obj->volumes.begin(), host_it) << "\"/>\n";
+                            }
+
                             // stores volume's source data
                             {
                                 auto file_path =get_dealed_platform_path(volume->source.input_file);
@@ -7995,7 +8053,8 @@ void PlateData::parse_filament_info(GCodeProcessorResult *result)
 
                             // stores volume's config data
                             for (const std::string& key : volume->config.keys()) {
-                                stream << "      <" << METADATA_TAG << " "<< KEY_ATTR << "=\"" << key << "\" " << VALUE_ATTR << "=\"" << volume->config.opt_serialize(key) << "\"/>\n";
+                                const std::string stored_key = volume->is_painted_modifier() ? PAINTED_MODIFIER_CONFIG_PREFIX + key : key;
+                                stream << "      <" << METADATA_TAG << " "<< KEY_ATTR << "=\"" << stored_key << "\" " << VALUE_ATTR << "=\"" << volume->config.opt_serialize(key) << "\"/>\n";
                             }
 
                             if (const std::optional<EmbossShape> &es = volume->emboss_shape; es.has_value()) {

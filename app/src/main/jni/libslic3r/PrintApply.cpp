@@ -551,7 +551,8 @@ private:
 static inline bool model_volume_solid_or_modifier(const ModelVolume &mv)
 {
     ModelVolumeType type = mv.type();
-    return type == ModelVolumeType::MODEL_PART || type == ModelVolumeType::NEGATIVE_VOLUME || type == ModelVolumeType::PARAMETER_MODIFIER;
+    return type == ModelVolumeType::MODEL_PART || type == ModelVolumeType::NEGATIVE_VOLUME || type == ModelVolumeType::PARAMETER_MODIFIER ||
+           type == ModelVolumeType::PAINTED_MODIFIER;
 }
 
 static inline Transform3f trafo_for_bbox(const Transform3d &object_trafo, const Transform3d &volume_trafo)
@@ -763,10 +764,10 @@ bool verify_update_print_object_regions(
         // Remember whether a given modifier ModelVolume was visited already.
         auto it_model_volume_modifier_last = model_volumes.end();
         for (PrintObjectRegions::VolumeRegion &region : layer_range.volume_regions)
-            if (region.model_volume->is_model_part() || region.model_volume->is_modifier()) {
+            if (region.model_volume->is_model_part() || region.model_volume->is_region_modifier()) {
                 auto it_model_volume = lower_bound_by_predicate(model_volumes.begin(), model_volumes.end(), [&region](const ModelVolume *l){ return l->id() < region.model_volume->id(); });
                 assert(it_model_volume != model_volumes.end() && (*it_model_volume)->id() == region.model_volume->id());
-                if (region.model_volume->is_modifier() && it_model_volume != it_model_volume_modifier_last) {
+                if (region.model_volume->is_region_modifier() && it_model_volume != it_model_volume_modifier_last) {
                     // A modifier ModelVolume is visited for the first time.
                     // A visited modifier may not have had parent volume_regions created overlapping with some model parts or modifiers,
                     // if the visited modifier did not modify their properties. Now the visited modifier's configuration may have changed,
@@ -778,7 +779,7 @@ bool verify_update_print_object_regions(
                     for (int parent_region_id = next_region_id - 1; parent_region_id >= 0; -- parent_region_id) {
                         const PrintObjectRegions::VolumeRegion &parent_region = layer_range.volume_regions[parent_region_id];
                         assert(parent_region.model_volume != region.model_volume);
-                        if (parent_region.model_volume->is_model_part() || parent_region.model_volume->is_modifier()) {
+                        if (parent_region.model_volume->is_model_part() || parent_region.model_volume->is_region_modifier()) {
                             // volume_regions are produced in decreasing order of parent volume_regions ids.
                             // Some regions may not have been generated the last time by generate_print_object_regions().
                             assert(next_region_id == int(layer_range.volume_regions.size()) ||
@@ -1049,14 +1050,14 @@ static PrintObjectRegions* generate_print_object_regions(
                         // Add a negative (subtractor) volume. Such volume has neither region nor parent volume assigned.
                         layer_range.volume_regions.push_back({ &volume, -1, nullptr, bbox });
                     } else {
-                        assert(volume.is_modifier());
+                        assert(volume.is_region_modifier());
                         // Modifiers may be chained one over the other. Check for overlap, merge DynamicPrintConfigs.
                         bool added = false;
                         int  parent_model_part_id = -1;
                         for (int parent_region_id = int(layer_range.volume_regions.size()) - 1; parent_region_id >= 0; -- parent_region_id) {
                             const PrintObjectRegions::VolumeRegion &parent_region = layer_range.volume_regions[parent_region_id];
                             const ModelVolume                      &parent_volume = *parent_region.model_volume;
-                            if (parent_volume.is_model_part() || parent_volume.is_modifier())
+                            if (parent_volume.is_model_part() || parent_volume.is_region_modifier())
                                 if (PrintObjectRegions::BoundingBox parent_bbox = find_modifier_volume_extents(layer_range, parent_region_id); parent_bbox.intersects(*bbox)) {
                                     // Only create new region for a modifier, which actually modifies config of it's parent.
                                     if (PrintRegionConfig config = region_config_from_model_volume(parent_region.region->config(), nullptr, volume, num_extruders);
@@ -1081,7 +1082,7 @@ static PrintObjectRegions* generate_print_object_regions(
         for (unsigned int painted_extruder_id : painting_extruders)
             for (int parent_region_id = 0; parent_region_id < int(layer_range.volume_regions.size()); ++ parent_region_id)
                 if (const PrintObjectRegions::VolumeRegion &parent_region = layer_range.volume_regions[parent_region_id];
-                    parent_region.model_volume->is_model_part() || parent_region.model_volume->is_modifier()) {
+                    parent_region.model_volume->is_model_part() || parent_region.model_volume->is_region_modifier()) {
                     PrintRegionConfig cfg = parent_region.region->config();
                     cfg.outer_wall_filament_id.value = painted_extruder_id;
                     cfg.inner_wall_filament_id.value = painted_extruder_id;
@@ -1105,7 +1106,7 @@ static PrintObjectRegions* generate_print_object_regions(
             // FuzzySkinPaintedRegion can override different parts of the Layer than PaintedRegions,
             // so FuzzySkinPaintedRegion has to point to both VolumeRegion and PaintedRegion.
             for (int parent_volume_region_id = 0; parent_volume_region_id < int(layer_range.volume_regions.size()); ++parent_volume_region_id) {
-                if (const PrintObjectRegions::VolumeRegion &parent_volume_region = layer_range.volume_regions[parent_volume_region_id]; parent_volume_region.model_volume->is_model_part() || parent_volume_region.model_volume->is_modifier()) {
+                if (const PrintObjectRegions::VolumeRegion &parent_volume_region = layer_range.volume_regions[parent_volume_region_id]; parent_volume_region.model_volume->is_model_part() || parent_volume_region.model_volume->is_region_modifier()) {
                     PrintRegionConfig cfg = parent_volume_region.region->config();
                     if (cfg.fuzzy_skin.value != FuzzySkinType::Disabled_fuzzy) cfg.fuzzy_skin.value = FuzzySkinType::All;
                     layer_range.fuzzy_skin_painted_regions.push_back({FuzzySkinParentType::VolumeRegion, parent_volume_region_id, get_create_region(std::move(cfg))});
@@ -1422,7 +1423,7 @@ Print::ApplyStatus Print::apply(const Model &model, DynamicPrintConfig new_full_
     PrintObjectStatusDB print_object_status_db(m_objects);
 
     // 3) Synchronize ModelObjects & PrintObjects.
-    const std::initializer_list<ModelVolumeType> solid_or_modifier_types { ModelVolumeType::MODEL_PART, ModelVolumeType::NEGATIVE_VOLUME, ModelVolumeType::PARAMETER_MODIFIER };
+    const std::initializer_list<ModelVolumeType> solid_or_modifier_types { ModelVolumeType::MODEL_PART, ModelVolumeType::NEGATIVE_VOLUME, ModelVolumeType::PARAMETER_MODIFIER, ModelVolumeType::PAINTED_MODIFIER };
     for (size_t idx_model_object = 0; idx_model_object < model.objects.size(); ++ idx_model_object) {
         ModelObject       &model_object        = *m_model.objects[idx_model_object];
         ModelObjectStatus &model_object_status = const_cast<ModelObjectStatus&>(model_object_status_db.reuse(model_object));
@@ -1437,7 +1438,8 @@ Print::ApplyStatus Print::apply(const Model &model, DynamicPrintConfig new_full_
         bool solid_or_modifier_differ   = model_volume_list_changed(model_object, model_object_new, solid_or_modifier_types) ||
                                           model_mmu_segmentation_data_changed(model_object, model_object_new) ||
                                           (model_object_new.is_mm_painted() && num_extruders_changed) ||
-                                          model_fuzzy_skin_data_changed(model_object, model_object_new);
+                                          model_fuzzy_skin_data_changed(model_object, model_object_new) ||
+                                          model_painted_modifier_data_changed(model_object, model_object_new);
         bool supports_differ            = model_volume_list_changed(model_object, model_object_new, ModelVolumeType::SUPPORT_BLOCKER) ||
                                           model_volume_list_changed(model_object, model_object_new, ModelVolumeType::SUPPORT_ENFORCER);
         bool layer_height_ranges_differ = ! layer_height_ranges_equal(model_object.layer_config_ranges, model_object_new.layer_config_ranges, model_object_new.layer_height_profile.empty());
@@ -1513,6 +1515,7 @@ Print::ApplyStatus Print::apply(const Model &model, DynamicPrintConfig new_full_
             //FIXME What to do with m_material_id?
 			model_volume_list_copy_configs(model_object /* dst */, model_object_new /* src */, ModelVolumeType::MODEL_PART);
 			model_volume_list_copy_configs(model_object /* dst */, model_object_new /* src */, ModelVolumeType::PARAMETER_MODIFIER);
+			model_volume_list_copy_configs(model_object /* dst */, model_object_new /* src */, ModelVolumeType::PAINTED_MODIFIER);
             layer_height_ranges_copy_configs(model_object.layer_config_ranges /* dst */, model_object_new.layer_config_ranges /* src */);
             // Copy the ModelObject name, input_file and instances. The instances will be compared against PrintObject instances in the next step.
             model_object.name       = model_object_new.name;

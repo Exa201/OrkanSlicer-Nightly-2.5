@@ -157,6 +157,47 @@ class NativeSliceDeviceTest {
         assertEquals("the fixture must retain separate filament identities", 1, result[2])
     }
 
+    @Test(timeout = 180_000)
+    fun paintedModifierSlicesOnlyThePaintedHostSide() {
+        val result = Native.painted_modifier_slice_regression()
+        assertEquals("painted modifier probe result shape", 7, result.size)
+        assertEquals("painted +X face applies its settings to about half the cube layer", 200.0, result[0], 4.0)
+        assertEquals("the unpainted host area keeps its original settings", 200.0, result[1], 4.0)
+        assertTrue("painted region stays on the +X half", result[2] >= -0.5)
+        assertTrue("painted region reaches the +X outer edge", result[3] <= 0.5)
+        assertTrue("the layer must retain separate print regions", result[4] >= 2.0)
+        assertEquals("unchanged painted modifier data must not invalidate the print", 0.0, result[5], 0.0)
+        assertEquals("a painted modifier depth edit must invalidate the print", 1.0, result[6], 0.0)
+    }
+
+    @Test(timeout = 60_000)
+    fun paintedModifierBbs3mfRoundtripPreservesTypePaintAndSettings() {
+        val context = InstrumentationRegistry.getInstrumentation().targetContext
+        val file = File(context.cacheDir, "painted-modifier-roundtrip-${System.nanoTime()}.3mf")
+        try {
+            val result = Native.painted_modifier_bbs_roundtrip(file.absolutePath)
+
+            assertEquals("BBS and classic roundtrip result shape", 12, result.size)
+            assertEquals("BBS retains all +X cube facets", 12, result[0])
+            assertEquals(12, result[1])
+            assertEquals("BBS painted facet mask is identical", 1, result[2])
+            assertEquals("BBS modifier host reference is restored", 1, result[3])
+            assertEquals("BBS modifier depth is restored", 1, result[4])
+            assertEquals("BBS modifier config is restored", 1, result[5])
+            assertEquals("classic 3MF retains all +X cube facets", 12, result[6])
+            assertEquals(12, result[7])
+            assertEquals("classic painted facet mask is identical", 1, result[8])
+            assertEquals("classic modifier host reference is restored", 1, result[9])
+            assertEquals("classic modifier depth is restored", 1, result[10])
+            assertEquals("classic modifier config is restored", 1, result[11])
+        } finally {
+            file.delete()
+            File(file.parentFile, file.name + ".classic.3mf").delete()
+            File(file.parentFile, file.name + ".tmp").delete()
+            File(file.parentFile, file.name + ".classic.3mf.tmp").delete()
+        }
+    }
+
     @Test
     fun postSlicePrintableAreaMaskSupportsExtruder64() {
         assertArrayEquals(

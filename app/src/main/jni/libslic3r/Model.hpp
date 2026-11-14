@@ -346,6 +346,8 @@ enum class ModelVolumeType : int {
     PARAMETER_MODIFIER,
     SUPPORT_BLOCKER,
     SUPPORT_ENFORCER,
+    // A settings modifier whose shape is painted on a model-part mesh.
+    PAINTED_MODIFIER,
 };
 
 // A printable object, possibly having multiple print volumes (each with its own set of parameters and materials),
@@ -417,6 +419,10 @@ public:
     ModelVolume*            add_volume(const ModelVolume &volume, ModelVolumeType type = ModelVolumeType::INVALID);
     ModelVolume*            add_volume(const ModelVolume &volume, TriangleMesh &&mesh);
     ModelVolume*            add_volume_with_shared_mesh(const ModelVolume &other, ModelVolumeType type = ModelVolumeType::MODEL_PART);
+    ModelVolume*            add_painted_modifier(const ModelVolume &host);
+    const ModelVolume*      painted_modifier_host(const ModelVolume &painted_modifier) const;
+    bool                    sync_painted_modifiers();
+    bool                    has_painted_modifiers() const;
     // Prepare a volume copy without attaching it, so callers can build a complete transaction
     // before mutating this object's volume list.
     std::unique_ptr<ModelVolume> prepare_volume_copy(const ModelVolume &other);
@@ -886,6 +892,11 @@ public:
     // List of mesh facets painted for fuzzy skin.
     FacetsAnnotation    fuzzy_skin_facets;
 
+    // Painted modifier mask and the model part whose mesh it references.
+    FacetsAnnotation    painted_modifier_facets;
+    float               painted_modifier_depth { 0.f };
+    ObjectID            painted_modifier_host;
+
     // Independent paint masks for texture-displacement layers. Keep these as named members:
     // FacetsAnnotation's copy/default constructors are private to ModelVolume, so std::array
     // cannot construct or copy an array of them.
@@ -963,6 +974,8 @@ public:
 	bool                is_modifier()           const { return m_type == ModelVolumeType::PARAMETER_MODIFIER; }
 	bool                is_support_enforcer()   const { return m_type == ModelVolumeType::SUPPORT_ENFORCER; }
 	bool                is_support_blocker()    const { return m_type == ModelVolumeType::SUPPORT_BLOCKER; }
+	bool                is_painted_modifier()   const { return m_type == ModelVolumeType::PAINTED_MODIFIER; }
+	bool                is_region_modifier()    const { return is_modifier() || is_painted_modifier(); }
 	bool                is_support_modifier()   const { return m_type == ModelVolumeType::SUPPORT_BLOCKER || m_type == ModelVolumeType::SUPPORT_ENFORCER; }
     bool                is_text()               const { return text_configuration.has_value(); }
     bool                is_svg() const { return emboss_shape.has_value()  && !text_configuration.has_value(); }
@@ -1056,12 +1069,18 @@ public:
     Transform3d get_matrix_no_offset() const { return m_transformation.get_matrix_no_offset(); }
 
 	void set_new_unique_id() {
+		const ObjectID old_id = this->id();
         ObjectBase::set_new_unique_id();
         this->config.set_new_unique_id();
         this->supported_facets.set_new_unique_id();
         this->seam_facets.set_new_unique_id();
         this->mmu_segmentation_facets.set_new_unique_id();
         this->fuzzy_skin_facets.set_new_unique_id();
+		this->painted_modifier_facets.set_new_unique_id();
+		if (this->object != nullptr && this->is_model_part())
+			for (ModelVolume *v : this->object->volumes)
+				if (v->painted_modifier_host == old_id)
+					v->painted_modifier_host = this->id();
         for (int i = 0; i < int(TEXTURE_DISPLACEMENT_MAX_LAYERS); ++i)
             this->texture_displacement_facet(i).set_new_unique_id();
     }
@@ -1071,7 +1090,7 @@ public:
     bool is_mm_painted() const { return !this->mmu_segmentation_facets.empty(); }
     bool is_fuzzy_skin_painted() const { return !this->fuzzy_skin_facets.empty(); }
     bool is_texture_displacement_painted() const { return !texture_displacement_facets_all_empty(); }
-    bool is_any_painted() const { return is_fdm_support_painted() || is_seam_painted() || is_mm_painted() || is_fuzzy_skin_painted() || is_texture_displacement_painted(); }
+    bool is_any_painted() const { return is_fdm_support_painted() || is_seam_painted() || is_mm_painted() || is_fuzzy_skin_painted() || is_texture_displacement_painted() || !painted_modifier_facets.empty(); }
     
     // Orca: Implement prusa's filament shrink compensation approach
     // Returns 0-based indices of extruders painted by multi-material painting gizmo.
@@ -1124,12 +1143,14 @@ private:
         assert(this->seam_facets.id().valid());
         assert(this->mmu_segmentation_facets.id().valid());
         assert(this->fuzzy_skin_facets.id().valid());
+        assert(this->painted_modifier_facets.id().valid());
         assert(this->texture_displacement_facets_ids_valid());
         assert(this->id() != this->config.id());
         assert(this->id() != this->supported_facets.id());
         assert(this->id() != this->seam_facets.id());
         assert(this->id() != this->mmu_segmentation_facets.id());
         assert(this->id() != this->fuzzy_skin_facets.id());
+        assert(this->id() != this->painted_modifier_facets.id());
         if (mesh.facets_count() > 1)
             calculate_convex_hull();
     }
@@ -1141,12 +1162,14 @@ private:
         assert(this->seam_facets.id().valid());
         assert(this->mmu_segmentation_facets.id().valid());
         assert(this->fuzzy_skin_facets.id().valid());
+        assert(this->painted_modifier_facets.id().valid());
         assert(this->texture_displacement_facets_ids_valid());
         assert(this->id() != this->config.id());
         assert(this->id() != this->supported_facets.id());
         assert(this->id() != this->seam_facets.id());
         assert(this->id() != this->mmu_segmentation_facets.id());
         assert(this->id() != this->fuzzy_skin_facets.id());
+        assert(this->id() != this->painted_modifier_facets.id());
     }
     ModelVolume(ModelObject *object, TriangleMesh &&mesh, TriangleMesh &&convex_hull, ModelVolumeType type = ModelVolumeType::MODEL_PART) :
 		m_mesh(new TriangleMesh(std::move(mesh))), m_convex_hull(new TriangleMesh(std::move(convex_hull))), m_type(type), object(object) {
@@ -1156,12 +1179,14 @@ private:
         assert(this->seam_facets.id().valid());
         assert(this->mmu_segmentation_facets.id().valid());
         assert(this->fuzzy_skin_facets.id().valid());
+        assert(this->painted_modifier_facets.id().valid());
         assert(this->texture_displacement_facets_ids_valid());
         assert(this->id() != this->config.id());
         assert(this->id() != this->supported_facets.id());
         assert(this->id() != this->seam_facets.id());
         assert(this->id() != this->mmu_segmentation_facets.id());
         assert(this->id() != this->fuzzy_skin_facets.id());
+        assert(this->id() != this->painted_modifier_facets.id());
 	}
 
     // Copying an existing volume, therefore this volume will get a copy of the ID assigned.
@@ -1170,7 +1195,8 @@ private:
         name(other.name), source(other.source), m_mesh(other.m_mesh), m_convex_hull(other.m_convex_hull),
         config(other.config), m_type(other.m_type), object(object), m_transformation(other.m_transformation),
         supported_facets(other.supported_facets), seam_facets(other.seam_facets), mmu_segmentation_facets(other.mmu_segmentation_facets),
-        fuzzy_skin_facets(other.fuzzy_skin_facets),
+        fuzzy_skin_facets(other.fuzzy_skin_facets), painted_modifier_facets(other.painted_modifier_facets),
+        painted_modifier_depth(other.painted_modifier_depth), painted_modifier_host(other.painted_modifier_host),
         texture_displacement_facets_0(other.texture_displacement_facets_0), texture_displacement_facets_1(other.texture_displacement_facets_1),
         texture_displacement_facets_2(other.texture_displacement_facets_2), texture_displacement_facets_3(other.texture_displacement_facets_3),
         texture_displacement_facets_4(other.texture_displacement_facets_4), texture_displacement_facets_5(other.texture_displacement_facets_5),
@@ -1195,6 +1221,7 @@ private:
         assert(this->seam_facets.id() == other.seam_facets.id());
         assert(this->mmu_segmentation_facets.id() == other.mmu_segmentation_facets.id());
         assert(this->fuzzy_skin_facets.id() == other.fuzzy_skin_facets.id());
+        assert(this->painted_modifier_facets.id() == other.painted_modifier_facets.id());
         this->set_material_id(other.material_id());
     }
     // Providing a new mesh, therefore this volume will get a new unique ID assigned.
@@ -1208,6 +1235,7 @@ private:
         assert(this->seam_facets.id().valid());
         assert(this->mmu_segmentation_facets.id().valid());
         assert(this->fuzzy_skin_facets.id().valid());
+        assert(this->painted_modifier_facets.id().valid());
         assert(this->id() != this->config.id());
         assert(this->id() != this->supported_facets.id());
         assert(this->id() != this->seam_facets.id());
@@ -1225,11 +1253,13 @@ private:
         assert(this->seam_facets.id() != other.seam_facets.id());
         assert(this->mmu_segmentation_facets.id() != other.mmu_segmentation_facets.id());
         assert(this->fuzzy_skin_facets.id() != other.fuzzy_skin_facets.id());
+        assert(this->painted_modifier_facets.id() != other.painted_modifier_facets.id());
         assert(this->id() != this->config.id());
         assert(this->supported_facets.empty());
         assert(this->seam_facets.empty());
         assert(this->mmu_segmentation_facets.empty());
         assert(this->fuzzy_skin_facets.empty());
+        assert(this->painted_modifier_facets.empty());
     }
 
     ModelVolume& operator=(ModelVolume &rhs) = delete;
@@ -1237,7 +1267,7 @@ private:
 	friend class cereal::access;
 	friend class UndoRedo::StackImpl;
 	// Used for deserialization, therefore no IDs are allocated.
-    ModelVolume() : ObjectBase(-1), config(-1), supported_facets(-1), seam_facets(-1), mmu_segmentation_facets(-1), fuzzy_skin_facets(-1),
+    ModelVolume() : ObjectBase(-1), config(-1), supported_facets(-1), seam_facets(-1), mmu_segmentation_facets(-1), fuzzy_skin_facets(-1), painted_modifier_facets(-1),
         texture_displacement_facets_0(-1), texture_displacement_facets_1(-1), texture_displacement_facets_2(-1), texture_displacement_facets_3(-1),
         texture_displacement_facets_4(-1), texture_displacement_facets_5(-1), texture_displacement_facets_6(-1), texture_displacement_facets_7(-1), object(nullptr) {
 		assert(this->id().invalid());
@@ -1246,6 +1276,7 @@ private:
         assert(this->seam_facets.id().invalid());
         assert(this->mmu_segmentation_facets.id().invalid());
         assert(this->fuzzy_skin_facets.id().invalid());
+        assert(this->painted_modifier_facets.id().invalid());
         assert(this->texture_displacement_facets_ids_invalid());
 	}
 	template<class Archive> void load(Archive &ar) {
@@ -1266,6 +1297,10 @@ private:
         mesh_changed |= t != mmu_segmentation_facets.timestamp();
         cereal::load_by_value(ar, fuzzy_skin_facets);
         mesh_changed |= t != fuzzy_skin_facets.timestamp();
+        t = painted_modifier_facets.timestamp();
+        cereal::load_by_value(ar, painted_modifier_facets);
+        mesh_changed |= t != painted_modifier_facets.timestamp();
+        ar(painted_modifier_depth, painted_modifier_host);
         for (int i = 0; i < int(TEXTURE_DISPLACEMENT_MAX_LAYERS); ++i)
             cereal::load_by_value(ar, texture_displacement_facet(i));
         ar(texture_displacement_layers, texture_displacement_options, texture_uv);
@@ -1290,6 +1325,8 @@ private:
         cereal::save_by_value(ar, seam_facets);
         cereal::save_by_value(ar, mmu_segmentation_facets);
         cereal::save_by_value(ar, fuzzy_skin_facets);
+        cereal::save_by_value(ar, painted_modifier_facets);
+        ar(painted_modifier_depth, painted_modifier_host);
         for (int i = 0; i < int(TEXTURE_DISPLACEMENT_MAX_LAYERS); ++i)
             cereal::save_by_value(ar, texture_displacement_facet(i));
         ar(texture_displacement_layers, texture_displacement_options, texture_uv);
@@ -1840,6 +1877,7 @@ extern bool model_mmu_segmentation_data_changed(const ModelObject& mo, const Mod
 // Test whether the now ModelObject has newer fuzzy skin data than the old one.
 // The function assumes that volumes list is synchronized.
 extern bool model_fuzzy_skin_data_changed(const ModelObject &mo, const ModelObject &mo_new);
+extern bool model_painted_modifier_data_changed(const ModelObject &mo, const ModelObject &mo_new);
 
 bool model_brim_points_data_changed(const ModelObject& mo, const ModelObject& mo_new);
 
