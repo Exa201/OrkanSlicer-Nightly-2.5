@@ -4831,3 +4831,7 @@ Phase 4 — workspace overlay migration is continuing. The model context menu an
 - Gezielter Lauf auf Xiaomi 2211133G erkannt, aber MIUI verweigerte Testinstallation mit `INSTALL_FAILED_USER_RESTRICTED`; **0 Tests gestartet**. Gerätetest daher offen, keine Sicherheitsrichtlinie geändert.
 - Batch 18 bleibt **5/10 abgenommen**. Tree-Support-Kandidat 7 und Support-Kandidat 8 sind Code-/Build-Kandidaten, bis Hardwarelauf weiterhin nicht als abgenommen gezählt. Kein APK/Release für den Zwischenstand.
 - Nächster konkreter Schritt: Laufzeittest für die Regressionen ausführen, sobald die MIUI-Installationsrichtlinie Installationen zulässt; parallel einen weiteren Orca-2.5-Fix suchen, der im mobilen Pfad fehlt und gezielt testbar ist.
+
+- Nachtrag zur aktuellen Abnahme: :app:testDebugUnitTest :app:testSliceTestUnitTest :app:verifyNightlyChangelog erneut erfolgreich; Debug **773/773**, SliceTest **773/773**, jeweils 0 Fehler/Skips.
+- Identitäts-/Isolations-Sanity-Check im aktiven Branch bestätigt: pplicationId=com.exa201.orkanslicer.nightly25, FileProvider-Autorität aus dieser ID abgeleitet und Slicer-Konfigurationen im privaten ilesDir. Adaptive Low-GPU-Vorschaupolitik bleibt in DevicePerformancePolicy/GLRenderer aktiv.
+- Xiaomi per ADB verbunden; MIUI blockierte die Test-APK-Installation mit INSTALL_FAILED_USER_RESTRICTED, daher **0 Instrumentierungstests gestartet**. git diff --check sauber; Release-Gate geschlossen.
