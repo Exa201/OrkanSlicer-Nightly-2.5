@@ -1,5 +1,13 @@
 # Nightly execution state — 2026-11-13
 
+## Orca Nightly Batch 17 — Punkt 9/10 verifiziert — 2026-11-14
+
+- Orca `fb0c9884c9` support für RepRapFirmware-G10-Temperaturwechsel wurde in den Android-G-Code-Preview-Parser übernommen. `G10 P<n> S<temp>` und Varianten ohne P aktualisieren die Temperatur des passenden Filaments; RRF-Heizbefehle werden nicht länger als künstliche Retracts angezeigt. Plain `G10` bleibt weiterhin der Retract-Pfad; Marlin-Verhalten bleibt unverändert.
+- `NativeSliceDeviceTest#reprapFirmwareG10TemperatureIsShownInGcodePreviewWithoutRetract` prüft über den produktiven nativen Parser: RRF setzt 220 °C für den folgenden Extrusionsmove und erzeugt keinen Retract, während Marlin-G10 weiterhin Retract-Moves erzeugt. Android-16/API-36-Emulator, ARM64: **1/1 bestanden**.
+- Die Orca-Sprachwahl ist bereits integriert: 23 auswählbare Sprachen, native Namen und je ein mitgelieferter `.po`-Katalog. `OrcaLanguageAssetDeviceTest#everySelectableOrcaLanguageCatalogIsPackagedAndReadable` bestand auf API 36 **1/1**. Zusätzlich gibt es generierte Android-UI-Übersetzungsressourcen für die 20 nicht standardmäßig vorhandenen Sprachen; diese umfassen einen Teil der app-eigenen Strings. Nicht abgedeckte Einträge fallen auf die Standardressource zurück.
+- `:app:assembleSliceTest :app:assembleSliceTestAndroidTest` erfolgreich. Die gezielten Instrumentierungstests bestanden; volle JVM-Suiten Debug und SliceTest jeweils **779/779**, ohne Fehler/Skips. `git diff --check` sauber.
+- Batch 17: **9/10**. Noch kein APK/Release vor dem 10/10-Gate. Nächster Schritt: einen weiteren nicht bereits portierten, Android-erreichbaren Orca-Änderungspunkt auswählen und gezielt verifizieren.
+
 ## Release 452/453 Regression Audit — 2026-11-14
 
 - `v0.8.452-nightly.1` (`efbd829eea`) and `v0.8.453-nightly.1` (`614d44b4b0`) have identical `BedFragment.kt`, `ModelMenuItems.kt`, `Bed3D.kt` and `GLView.kt`; those tags did not revert the load-progress or arrange UI paths between releases. 453 adds `4360345802` and the release/version commits; its model change only avoids deserializing empty per-face annotations, and its other native changes concern fill/G-code behavior.

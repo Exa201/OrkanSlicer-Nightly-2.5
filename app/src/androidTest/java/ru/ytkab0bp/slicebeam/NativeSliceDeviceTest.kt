@@ -52,6 +52,14 @@ import java.util.zip.CRC32
 @RunWith(AndroidJUnit4::class)
 class NativeSliceDeviceTest {
     @Test(timeout = 30_000)
+    fun reprapFirmwareG10TemperatureIsShownInGcodePreviewWithoutRetract() {
+        val result = Native.reprapfirmware_g10_preview_probe()
+        assertEquals("G10 P0 S220 must not create a fake retract in RepRapFirmware", 0, result[0])
+        assertEquals("the following extrusion must carry the G10 temperature", 220, result[1])
+        assertTrue("G10 must remain a retract for Marlin", result[2] > 0)
+    }
+
+    @Test(timeout = 30_000)
     fun clipper2EarlyOutPreservesDisjointAndIntersectingPolygonResults() {
         val result = Native.clipper2_scanbeam_sort_regression()
         assertEquals("all separated polygons must survive the no-crossing path", 128.0, result[0], 0.0)

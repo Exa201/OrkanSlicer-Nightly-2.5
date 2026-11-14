@@ -384,6 +384,37 @@ extern "C" {
         env->ReleaseStringUTFChars(path, chars);
     }
 
+    JNIEXPORT jintArray JNICALL Java_ru_ytkab0bp_slicebeam_slic3r_Native_reprapfirmware_1g10_1preview_1probe(
+            JNIEnv *env, jclass) {
+        using namespace Slic3r;
+        const auto inspect = [](GCodeFlavor flavor, const std::string &gcode) {
+            PrintConfig config;
+            config.gcode_flavor.value = flavor;
+            GCodeProcessor processor;
+            processor.apply_config(config);
+            processor.initialize_result_moves();
+            processor.process_buffer(gcode);
+
+            jint retract_moves = 0;
+            jint extrusion_temperature = -1;
+            for (const GCodeProcessorResult::MoveVertex &move : processor.get_result().moves) {
+                if (move.type == EMoveType::Retract)
+                    ++retract_moves;
+                if (move.type == EMoveType::Extrude)
+                    extrusion_temperature = static_cast<jint>(std::round(move.temperature));
+            }
+            return std::array<jint, 2>{ retract_moves, extrusion_temperature };
+        };
+
+        const auto reprap = inspect(gcfRepRapFirmware, "G10 P0 S220\nG1 X10 Y10 E1 F1200\n");
+        const auto marlin = inspect(gcfMarlinFirmware, "G10 S220\nG1 X10 Y10 E1 F1200\n");
+        const std::array<jint, 3> values{ reprap[0], reprap[1], marlin[0] };
+        jintArray result = env->NewIntArray(static_cast<jsize>(values.size()));
+        if (result != nullptr)
+            env->SetIntArrayRegion(result, 0, static_cast<jsize>(values.size()), values.data());
+        return result;
+    }
+
     JNIEXPORT jintArray JNICALL Java_ru_ytkab0bp_slicebeam_slic3r_Native_lightning_1distance_1field_1bounds_1probe(
             JNIEnv *env, jclass) {
         using namespace Slic3r;

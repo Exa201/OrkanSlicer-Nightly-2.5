@@ -143,6 +143,8 @@ class Native {
     @JvmStatic
     external fun lightning_distance_field_bounds_probe(): IntArray
     @JvmStatic
+    external fun reprapfirmware_g10_preview_probe(): IntArray
+    @JvmStatic
     external fun tpms_ring_endpoints_probe(): IntArray
     @JvmStatic
     external fun multiline_infill_ring_endpoints_probe(): IntArray

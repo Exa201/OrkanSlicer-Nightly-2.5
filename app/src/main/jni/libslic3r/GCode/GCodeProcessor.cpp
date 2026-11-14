@@ -4847,6 +4847,22 @@ void GCodeProcessor::process_G29(const GCodeReader::GCodeLine& line)
 
 void GCodeProcessor::process_G10(const GCodeReader::GCodeLine& line)
 {
+    // RepRapFirmware also uses G10 to set a tool's active/standby temperature.
+    // Treat those parameterized forms as heater commands so the G-code preview
+    // tracks the same temperature changes as the printer firmware.
+    if (m_flavor == gcfRepRapFirmware &&
+        (line.has('P') || line.has('R') || line.has('S') || line.has('L') ||
+         line.has_x() || line.has_y() || line.has_z())) {
+        float new_temp;
+        if (line.has_value('S', new_temp)) {
+            float tool;
+            const int filament_id = line.has_value('P', tool) ? static_cast<int>(tool) : get_filament_id();
+            if (filament_id >= 0 && filament_id < static_cast<int>(m_extruder_temps.size()))
+                m_extruder_temps[filament_id] = std::max(new_temp, 0.f);
+        }
+        return;
+    }
+
     // Emulate G1 retract, decrement G1 count as it's will be incremented in process_G1, but it's fake G1
     GCodeReader::GCodeLine g10;
     g10.set(Axis::E, -this->m_parser.config().retraction_length.get_at(m_extruder_id));
