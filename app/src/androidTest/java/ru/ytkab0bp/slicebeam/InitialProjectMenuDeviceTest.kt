@@ -1765,12 +1765,12 @@ class InitialProjectMenuDeviceTest {
             assertTrue("two selected-action test objects should be prepared on GL", prepared.await(10, TimeUnit.SECONDS))
             compose.runOnUiThread { bed.updateModel() }
 
-            compose.onNodeWithContentDescription(activity.getString(R.string.PlateNumber, "1"))
+            compose.onNodeWithContentDescription(activity.getString(R.string.PlatePickerCounterDescription, 1, bed.plateCount))
                 .assertIsDisplayed().performClick()
             compose.onNodeWithContentDescription(activity.getString(R.string.MenuAddPlate))
                 .assertIsDisplayed().performClick()
             compose.waitUntil(timeoutMillis = 10_000) { bed.plateCount == 2 && bed.currentPlateIndex == 1 }
-            compose.onNodeWithContentDescription(activity.getString(R.string.PlateNumber, "2"))
+            compose.onNodeWithContentDescription(activity.getString(R.string.PlatePickerCounterDescription, 2, bed.plateCount))
                 .assertIsDisplayed().performClick()
             compose.onNodeWithContentDescription(
                 activity.getString(R.string.PlatePickerSelectDescription, "1"),
@@ -1794,7 +1794,7 @@ class InitialProjectMenuDeviceTest {
             assertEquals("stale move must stay on the source plate", 0, bed.currentPlateIndex)
             assertEquals("stale move must preserve both source objects", 2, readObjectCountOnGl(glView))
 
-            compose.onNodeWithContentDescription(activity.getString(R.string.PlateNumber, "1"))
+            compose.onNodeWithContentDescription(activity.getString(R.string.PlatePickerCounterDescription, 1, bed.plateCount))
                 .assertIsDisplayed().performClick()
             compose.onNodeWithContentDescription(
                 activity.getString(R.string.PlatePickerSelectDescription, "2"),
@@ -6112,12 +6112,12 @@ class InitialProjectMenuDeviceTest {
             loadSingleTestModel(bed, modelFile)
             assertEquals(1, bed.plateCount)
 
-            compose.onNodeWithContentDescription(activity.getString(R.string.PlateNumber, "1"))
+            compose.onNodeWithContentDescription(activity.getString(R.string.PlatePickerCounterDescription, 1, bed.plateCount))
                 .assertIsDisplayed().performClick()
             compose.onNodeWithContentDescription(activity.getString(R.string.MenuAddPlate))
                 .assertIsDisplayed().performClick()
             compose.waitUntil(timeoutMillis = 10_000) { bed.plateCount == 2 && bed.currentPlateIndex == 1 }
-            compose.onNodeWithContentDescription(activity.getString(R.string.PlateNumber, "2"))
+            compose.onNodeWithContentDescription(activity.getString(R.string.PlatePickerCounterDescription, 2, bed.plateCount))
                 .assertIsDisplayed().performClick()
             compose.onNodeWithContentDescription(
                 activity.getString(R.string.PlatePickerSelectDescription, "1"),
@@ -6178,7 +6178,7 @@ class InitialProjectMenuDeviceTest {
             assertFalse("cancelling the document picker must not create an export file", output.exists())
             assertEquals("the confirmed export is limited to the selected plate", 2, bed.plateCount)
             assertEquals("the confirmed export must not switch the selected plate", 0, bed.currentPlateIndex)
-            compose.onNodeWithContentDescription(activity.getString(R.string.PlateNumber, "1"))
+            compose.onNodeWithContentDescription(activity.getString(R.string.PlatePickerCounterDescription, 1, bed.plateCount))
                 .assertIsDisplayed().performClick()
             compose.onNodeWithContentDescription(
                 activity.getString(R.string.PlateCloseDescription,
@@ -6189,7 +6189,7 @@ class InitialProjectMenuDeviceTest {
             }
             assertEquals("closing the empty second plate must retain the model on the first plate",
                 1, bed.currentModel?.objectsCount)
-            compose.onNodeWithContentDescription(activity.getString(R.string.PlateNumber, "1"))
+            compose.onNodeWithContentDescription(activity.getString(R.string.PlatePickerCounterDescription, 1, bed.plateCount))
                 .assertIsDisplayed()
         } finally {
             launchers[requestCode] = previousLauncher
@@ -7425,14 +7425,14 @@ class InitialProjectMenuDeviceTest {
             glView.selectModel(0, Runnable {})
             assertEquals(1, bed.plateCount)
 
-            compose.onNodeWithContentDescription(activity.getString(R.string.PlateNumber, "1"))
+            compose.onNodeWithContentDescription(activity.getString(R.string.PlatePickerCounterDescription, 1, bed.plateCount))
                 .assertIsDisplayed().performClick()
             compose.onNodeWithContentDescription(activity.getString(R.string.MenuAddPlate))
                 .assertIsDisplayed().performClick()
             compose.waitUntil(timeoutMillis = 10_000) {
                 bed.plateCount == 2 && bed.currentPlateIndex == 1
             }
-            compose.onNodeWithContentDescription(activity.getString(R.string.PlateNumber, "2"))
+            compose.onNodeWithContentDescription(activity.getString(R.string.PlatePickerCounterDescription, 2, bed.plateCount))
                 .assertIsDisplayed().performClick()
             compose.onNodeWithContentDescription(
                 activity.getString(R.string.PlatePickerSelectDescription, "1"),
@@ -7454,7 +7454,7 @@ class InitialProjectMenuDeviceTest {
             }
             assertEquals("moving the selected object should keep the workspace's two plates", 2, bed.plateCount)
 
-            compose.onNodeWithContentDescription(activity.getString(R.string.PlateNumber, "2"))
+            compose.onNodeWithContentDescription(activity.getString(R.string.PlatePickerCounterDescription, 2, bed.plateCount))
                 .assertIsDisplayed().performClick()
             compose.onNodeWithContentDescription(
                 activity.getString(R.string.PlatePickerSelectDescription, "1"),
@@ -7502,14 +7502,14 @@ class InitialProjectMenuDeviceTest {
             assertArrayEquals(intArrayOf(3), readUsedFilamentsOnGl(glView, 1))
             assertArrayEquals(intArrayOf(4), readUsedFilamentsOnGl(glView, 2))
 
-            compose.onNodeWithContentDescription(activity.getString(R.string.PlateNumber, "1"))
+            compose.onNodeWithContentDescription(activity.getString(R.string.PlatePickerCounterDescription, 1, bed.plateCount))
                 .assertIsDisplayed().performClick()
             compose.onNodeWithContentDescription(activity.getString(R.string.MenuAddPlate))
                 .assertIsDisplayed().performClick()
             compose.waitUntil(timeoutMillis = 10_000) {
                 bed.plateCount == 2 && bed.currentPlateIndex == 1
             }
-            compose.onNodeWithContentDescription(activity.getString(R.string.PlateNumber, "2"))
+            compose.onNodeWithContentDescription(activity.getString(R.string.PlatePickerCounterDescription, 2, bed.plateCount))
                 .assertIsDisplayed().performClick()
             compose.onNodeWithContentDescription(
                 activity.getString(R.string.PlatePickerSelectDescription, "1"),
@@ -7542,7 +7542,7 @@ class InitialProjectMenuDeviceTest {
             assertEquals("the transfer must preserve the objects' relative X placement",
                 sourceBounds[1][0] - sourceBounds[0][0], targetBounds[1][0] - targetBounds[0][0], 0.03)
 
-            compose.onNodeWithContentDescription(activity.getString(R.string.PlateNumber, "2"))
+            compose.onNodeWithContentDescription(activity.getString(R.string.PlatePickerCounterDescription, 2, bed.plateCount))
                 .assertIsDisplayed().performClick()
             compose.onNodeWithContentDescription(
                 activity.getString(R.string.PlatePickerSelectDescription, "1"),
@@ -7572,7 +7572,7 @@ class InitialProjectMenuDeviceTest {
                 readUsedFilamentsOnGl(glView, 2))
             assertArrayEquals("moving one selected object preserves its position", unselectedBounds,
                 readExactBoundsOnGl(glView, 2).single(), 0.03)
-            compose.onNodeWithContentDescription(activity.getString(R.string.PlateNumber, "2"))
+            compose.onNodeWithContentDescription(activity.getString(R.string.PlatePickerCounterDescription, 2, bed.plateCount))
                 .assertIsDisplayed().performClick()
             compose.onNodeWithContentDescription(
                 activity.getString(R.string.PlatePickerSelectDescription, "1"),
@@ -7580,7 +7580,7 @@ class InitialProjectMenuDeviceTest {
             compose.waitUntil(timeoutMillis = 10_000) {
                 bed.currentPlateIndex == 0 && readObjectCountOnGl(glView) == 0
             }
-            compose.onNodeWithContentDescription(activity.getString(R.string.PlateNumber, "1"))
+            compose.onNodeWithContentDescription(activity.getString(R.string.PlatePickerCounterDescription, 1, bed.plateCount))
                 .assertIsDisplayed().performClick()
             compose.onNodeWithContentDescription(
                 activity.getString(R.string.PlatePickerSelectDescription, "2"),
@@ -7613,7 +7613,7 @@ class InitialProjectMenuDeviceTest {
             val sourceBounds = readExactBoundsOnGl(glView, 0).single()
             val sourceFilaments = readUsedFilamentsOnGl(glView, 0)
 
-            compose.onNodeWithContentDescription(activity.getString(R.string.PlateNumber, "1"))
+            compose.onNodeWithContentDescription(activity.getString(R.string.PlatePickerCounterDescription, 1, bed.plateCount))
                 .assertIsDisplayed().performClick()
             compose.onNodeWithContentDescription(activity.getString(R.string.MenuAddPlate))
                 .assertIsDisplayed().performClick()
@@ -7666,7 +7666,7 @@ class InitialProjectMenuDeviceTest {
             compose.runOnUiThread { bed.redoModelEdit() }
             compose.waitUntil(timeoutMillis = 10_000) { readObjectCountOnGl(glView) == 1 }
 
-            compose.onNodeWithContentDescription(activity.getString(R.string.PlateNumber, "2"))
+            compose.onNodeWithContentDescription(activity.getString(R.string.PlatePickerCounterDescription, 2, bed.plateCount))
                 .assertIsDisplayed().performClick()
             compose.onNodeWithContentDescription(
                 activity.getString(R.string.PlatePickerSelectDescription, "1"),
@@ -7679,7 +7679,7 @@ class InitialProjectMenuDeviceTest {
             assertArrayEquals("the primary plate's original object bounds remain unchanged",
                 sourceBounds, readExactBoundsOnGl(glView, 0).single(), 0.03)
 
-            compose.onNodeWithContentDescription(activity.getString(R.string.PlateNumber, "1"))
+            compose.onNodeWithContentDescription(activity.getString(R.string.PlatePickerCounterDescription, 1, bed.plateCount))
                 .assertIsDisplayed().performClick()
             compose.onNodeWithContentDescription(
                 activity.getString(R.string.PlatePickerSelectDescription, "2"),
@@ -9927,7 +9927,7 @@ class InitialProjectMenuDeviceTest {
                 compose.onAllNodesWithTag("paint-filament-swatch-1").fetchSemanticsNodes().size)
             assertEquals("paint mode must expose one copy of each filament swatch", 1,
                 compose.onAllNodesWithTag("paint-filament-swatch-2").fetchSemanticsNodes().size)
-            compose.onNodeWithText(activity.getString(R.string.PaintBaseFilament)).assertIsDisplayed()
+            compose.onNodeWithText(activity.getString(R.string.PaintWith)).assertIsDisplayed()
             compose.onNodeWithTag("workspace-docked-tool-panel").assertIsDisplayed()
             val paintViewportBounds = compose.onNodeWithTag("workspace-renderer-area")
                 .fetchSemanticsNode().boundsInRoot
