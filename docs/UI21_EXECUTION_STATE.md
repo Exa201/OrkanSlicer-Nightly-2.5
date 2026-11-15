@@ -8,6 +8,12 @@
 - ADB meldet ChatGPT als aktuell im Vordergrund; nach den gespeicherten Aufnahmen wurden keine weiteren Eingaben am Honor vorgenommen. Kein physischer TalkBack-Fokuslauf oder echter Drucker-Upload wurde ausgeführt. Im geprüften Logcat-Puffer waren keine `FATAL EXCEPTION`-/ANR-Zeilen vorhanden.
 - **Nächster Schritt:** den Honor-Rundlauf fortsetzen, sobald OrkanSlicer wieder im Vordergrund ist: 3D-Startansicht, Objektliste und ein Dialog bei 150 % prüfen; danach TalkBack-Fokus und Touchziele manuell abnehmen. Kein Merge und kein Release.
 
+## Profil- und Navigationsergänzung (Android-16-Emulator, 15.11.2026)
+
+- SliceTest-App und Instrumentierungs-APK erfolgreich gebaut und gezielt auf `emulator-5554` installiert. `ProfileDropdownLayoutDeviceTest` und `AdaptiveWorkspaceNavigationDeviceTest`: zusammen 5/5 bestanden, einschließlich langer Profilnamen bei schmaler Breite/großer Schrift, stabiler einzeiliger globaler Navigation und Erreichbarkeit aller Ziele in kompakter Navigation.
+- `ProfileOptionHelpDialogDeviceTest` und `ProfileEnumOptionAccessibilityDeviceTest`: 2/2 bestanden; Favoriten-/Hilfedialog, Scrollen bis zur letzten Enum-Auswahl sowie Abbrechen ohne Übernahme geprüft.
+- Diese Emulatorergebnisse ersetzen keine Honor-TalkBack- oder Hardwareinteraktion. Der verbundene Honor-Bildschirm war währenddessen in ChatGPT.
+
 ## 0.8.432 — Schriftgrößenwechsel ohne Verschieben des Druckbetts
 
 - Ein Emulator-Rundlauf fand eine echte Layoutregression: App-interner Schriftzoom vergrößerte Profilkopf und Plattenzähler; der Renderer verschob sich vertikal. Beide kompakten Controls verwenden jetzt explizit die Android-Systemschriftgröße, während die App-eigene Skalierung weiterhin für die übrige Compose-Oberfläche gilt. Accessibility-Beschreibungen bleiben vollständig.
