@@ -1,5 +1,13 @@
 # UI 2.1 ColorFlow — Ausführungsstand (15.11.2026)
 
+## Honor-Hardware-Rundlauf 0.8.432 (15.11.2026)
+
+- Honor PTP-N49 (Android 16) ist per drahtlosem ADB verbunden; die Systemschriftgröße ist nachweislich 150 %. Paket `com.exa201.orkanslicer.nightly25` ist mit Version 0.8.432 / Code 467 installiert (Installation 12:25 Uhr).
+- Echte Geräteaufnahmen liegen unter `docs/screenshots/ui21/66-honor-3d-0.8.432.png` bis `70-honor-app-0.8.432.png`. Druck-, Filament-, Drucker- und App-Seite zeigen in diesen Aufnahmen keine abgeschnittenen Beschriftungen oder überlagerten Bedienelemente. Die langen Profilnamen umbrechen lesbar; Speichern und Zurücksetzen bleiben sichtbar.
+- Die 3D-Aufnahme zeigt den Bereich „Ändern“ mit dessen Aktionsraster geöffnet. Text ist vollständig lesbar und die Druckplatte bleibt sichtbar, aber der lange Drucker-/Profilkopf wird bei 150 % sehr hoch. Daher ist das keine Abnahme der leeren 3D-Startansicht und die verfügbare Rendererfläche muss noch gezielt verglichen werden.
+- ADB meldet ChatGPT als aktuell im Vordergrund; nach den gespeicherten Aufnahmen wurden keine weiteren Eingaben am Honor vorgenommen. Kein physischer TalkBack-Fokuslauf oder echter Drucker-Upload wurde ausgeführt. Im geprüften Logcat-Puffer waren keine `FATAL EXCEPTION`-/ANR-Zeilen vorhanden.
+- **Nächster Schritt:** den Honor-Rundlauf fortsetzen, sobald OrkanSlicer wieder im Vordergrund ist: 3D-Startansicht, Objektliste und ein Dialog bei 150 % prüfen; danach TalkBack-Fokus und Touchziele manuell abnehmen. Kein Merge und kein Release.
+
 ## 0.8.432 — Schriftgrößenwechsel ohne Verschieben des Druckbetts
 
 - Ein Emulator-Rundlauf fand eine echte Layoutregression: App-interner Schriftzoom vergrößerte Profilkopf und Plattenzähler; der Renderer verschob sich vertikal. Beide kompakten Controls verwenden jetzt explizit die Android-Systemschriftgröße, während die App-eigene Skalierung weiterhin für die übrige Compose-Oberfläche gilt. Accessibility-Beschreibungen bleiben vollständig.
