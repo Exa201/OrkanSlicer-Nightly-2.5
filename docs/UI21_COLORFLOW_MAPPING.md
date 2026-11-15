@@ -11,7 +11,7 @@ Dieses Mapping hält die sichtbare Oberfläche und den bestehenden Handler getre
 | Druckerprofil und Verbindungsfelder | Profilkopf, echter Verbindungsstatus, technische Profilinfos, Einstellungsgruppen | vorhandene Druckerprofile und Verbindungscontroller | Screenshot `43-printer-0.8.426.png`; tatsächlicher Verbindungs-/Speicher-Rundlauf noch offen |
 | Drucker-/Druckprofil-Auswahl | ColorFlow-Oberflächen und vollständig umbrechende Auswahltexte | bestehender `ProfileDropdownContent`-Handler und dieselben Profilmodelle | Android-16-Test bei 320 dp/150 % bestanden (1/1); Profil-Auswahlliste `61-profile-picker-0.8.430.png` zeigt scrollbare Optionen ohne abgeschnittene Namen |
 | Lange App-Einstellungsseite und verstreute Links | gruppierte Karten für Maker, Interface, Druckerprofile, Speicher, Kamera, Infos; Reset getrennt | vorhandene Einstellungsaktionen und Profilverwaltung | Screenshot `44-app-0.8.426.png`; Zurücksetzen und jeder Unterdialog noch abzunehmen |
-| „Geladene Objekte“-Dialog mit engen Aktionszeilen | adaptive ColorFlow-Objektliste mit Gruppierung, Suche/Auswahl und Materialindikatoren | dieselben Modell-/Objektaktionen, Teilzustände und Renderer-Selektion | `ModelObjectsDialogLayoutDeviceTest` bestanden (320 dp/150 %, lange deutsche Bezeichnungen, Touchziele); echte 3MF-/Großliste bei 150 % noch offen |
+| „Geladene Objekte“-Dialog mit engen Aktionszeilen | adaptive ColorFlow-Objektliste mit Gruppierung, Suche/Auswahl und Materialindikatoren | dieselben Modell-/Objektaktionen, Teilzustände und Renderer-Selektion | `ModelObjectsDialogLayoutDeviceTest` 2/2 auf API-36 bestanden: lange deutsche/französische/japanische Namen, 80 Einträge, gruppierte Teile, Suche mit stabilen Originalindizes und letzte Aktion bei 320 dp/150 %; reale 3MF-Großliste auf physischer Hardware bleibt offen |
 
 ## Verifikationsstand
 
@@ -25,5 +25,6 @@ Dieses Mapping hält die sichtbare Oberfläche und den bestehenden Handler getre
 - Profil-Dropdown bei 320 dp und 150 % Schrift geprüft: ausgewählter Titel und Listenoption umbrechen mehrzeilig ohne vertikalen Textüberlauf, 1/1. Debug-APK 0.8.430 auf Android 16 installiert/gestartet; Start-Changelog und Dropdown visuell geprüft.
 - Rotationstest auf Android 16: Workspace mit Modell/Renderer und alle Hauptziele einschließlich Maker/App-Einstellungen über Hoch-/Querformatwechsel erhalten, 1/1.
 - Werkzeugmenü bei 320/360/400 dp und 100/130/150 % Schrift: sichtbare Kacheln passen in den Bereich, Touchziele bleiben mindestens 48 dp, Paging/Scrollen erreicht spätere Einträge, 1/1.
+- Objektliste mit 80 mehrsprachigen Einträgen auf 320 dp/150 %: Suchfilter, Quellindex-Zuordnung nach Filterung, Scrollzugriff bis zum letzten Element und mindestens 48-dp-Aktionsfläche, `ModelObjectsDialogLayoutDeviceTest` 2/2 auf API-36.
 - Menüanpassung vollständig 4/4: Ausblenden, Drag-Reihenfolge und Persistenz sowie Kamera-Menü bei schmaler Breite, großer Schrift und Querformat.
 - Dieses Redesign bleibt in Arbeit; keine Release- oder Merge-Freigabe.

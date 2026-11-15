@@ -1,5 +1,12 @@
 # UI 2.1 ColorFlow — Ausführungsstand (15.11.2026)
 
+## Objektliste: große Mehrsprachenprojekte (15.11.2026)
+
+- `ModelObjectsDialogLayoutDeviceTest` erweitert: 80 lange Modellnamen mit französischen/Japanischen Zeichen, 8 aufgeklappten Mehrteilgruppen, 320 dp und 150 % Schrift. Suche reduziert die Liste eindeutig auf den Treffer; Auswahl liefert weiterhin den Originalindex 73; nach Löschen der Suche ist das letzte Objekt per Lazy-List-Scroll erreichbar und die Aktionsfläche bleibt mindestens 48 dp.
+- Erstlauf identifizierte eine ungeeignete Testaktion (`performScrollTo` auf ein nicht komponiertes Element). Der Test nutzt nun `performScrollToIndex`, danach `ModelObjectsDialogLayoutDeviceTest` 2/2 auf API-36-Emulator bestanden. Keine Produktänderung erforderlich.
+- Slice-Produkt- und Instrumentierungs-APK erfolgreich gebaut; exakt die Instrumentierung wurde auf `emulator-5554` installiert und ausgeführt. Honor/Xiaomi waren für diesen Lauf nicht beteiligt.
+- **Nächster Schritt:** Profil-Speichern/Zurücksetzen-Rundläufe auf Emulator wiederholen und die fünf Seiten des aktuellen UI-2.1-Builds mit frischen Screenshots gegen die Referenzen abgleichen. Honor-Hardware- und TalkBack-Abnahme bleibt nach Entsperrung offen.
+
 ## 0.8.431 — Werkzeugmenüs in Zeilenreihenfolge und vertikalem Scrollen
 
 - Portrait-Werkzeugmenüs zeigen Aktionen jetzt in Leserichtung zeilenweise: bis zu vier Einträge in einer Reihe, danach bis zu acht in zwei Reihen; bei schmaler Breite oder großer Schrift passt sich die Spaltenzahl an. Weitere Aktionen werden vertikal erreichbar; der seitliche Paging-Pfeil entfällt. Drag-Auto-Scroll folgt der aktiven Scrollachse.
