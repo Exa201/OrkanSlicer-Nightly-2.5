@@ -383,8 +383,8 @@ internal object WorkspaceShellLayoutPolicy {
         if (preferred <= maxOverlay) return preferred
         val twoRowMinimum = if (fontScale >= 1.3f) 152 else 112
         if (maxOverlay >= twoRowMinimum) return maxOverlay
-        // If two rows no longer fit, retain one touch-friendly row. Its actions
-        // remain horizontally scrollable and the full GL view continues behind it.
+        // If two rows no longer fit, retain a touch-friendly compact menu panel;
+        // further actions remain vertically scrollable over the full GL viewport.
         val compactRow = if (fontScale >= 1.3f) 88 else 64
         return minOf(maxOverlay, compactRow)
     }

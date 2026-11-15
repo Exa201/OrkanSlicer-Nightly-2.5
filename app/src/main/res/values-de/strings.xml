@@ -216,6 +216,7 @@
     <string name="ModelMenuPlaceFailed">Die Platzierung ist fehlgeschlagen. Prüfe die Objektpositionen, bevor du fortfährst.</string>
     <string name="ModelMenuPlaceRollbackFailed">Die Platzierung ist fehlgeschlagen und mindestens ein Objekt konnte nicht zurückgesetzt werden. Prüfe das Modell, bevor du fortfährst.</string>
     <string name="ModelMenuPlaceOnSurface">Auf ausgewählte Fläche setzen</string>
+    <string name="ModelMenuPlaceOnSurfaceShort">Auf Fläche</string>
     <string name="ModelSurfacePlacementInstruction">Tippe auf eine sichtbare Seiten- oder Oberseite des Ziels. Zurück bricht ab.</string>
     <string name="ModelSurfacePlacementNeedsUpwardFace">Wähle eine sichtbare Seiten- oder Oberseite. Unterseiten werden nicht unterstützt.</string>
     <string name="ModelSurfacePlacementTargetUnavailable">Das Ziel ist nicht mehr verfügbar. Wähle die Objekte erneut aus.</string>
@@ -319,7 +320,7 @@
     <string name="ModelMenuDeleteSelected">Ausgewähltes Modell löschen</string>
     <string name="ModelMenuSelectAll">Alle Modelle auswählen</string>
     <string name="ModelMenuDeleteAll">Alle Modelle löschen</string>
-    <string name="ModelMenuDuplicateShort">Kopien erstellen</string>
+    <string name="ModelMenuDuplicateShort">Duplizieren</string>
     <string name="ModelMenuMoveToPlateShort">Andere Platte</string>
     <string name="ModelMenuCenterOnBedShort">Zentrieren</string>
     <string name="ModelMenuFillBedShort">Mit Kopien füllen</string>

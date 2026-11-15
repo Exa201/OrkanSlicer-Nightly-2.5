@@ -76,6 +76,7 @@
     <string name="ModelMenuSelectAll">Выбрать все модели</string>
     <string name="ModelMenuDeleteAll">Удалить все модели</string>
     <string name="ModelMenuDuplicateShort">Дублировать</string>
+    <string name="ModelMenuPlaceOnSurfaceShort">На поверхность</string>
     <string name="ModelMenuMoveToPlateShort">Другая пластина</string>
     <string name="ModelMenuCenterOnBedShort">Центр</string>
     <string name="ModelMenuFillBedShort">Заполнить копиями</string>

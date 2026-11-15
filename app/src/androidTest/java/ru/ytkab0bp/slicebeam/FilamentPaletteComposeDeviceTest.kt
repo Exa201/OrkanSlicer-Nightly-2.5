@@ -23,6 +23,8 @@ import androidx.compose.ui.test.onAllNodesWithContentDescription
 import androidx.compose.ui.test.onFirst
 import androidx.compose.ui.test.onLast
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performTouchInput
+import androidx.compose.ui.test.swipeUp
 import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.performTextInput
 import androidx.compose.ui.test.performSemanticsAction
@@ -791,7 +793,7 @@ class FilamentPaletteComposeDeviceTest {
     }
 
     @Test
-    fun twoRowToolMenuVisibleTilesStayInsideResponsiveViewport() {
+    fun toolMenuUsesRowMajorGridAndVerticalSwipeWithoutPagingArrow() {
         val actionTitles = listOf(
             R.string.WorkspaceObjects,
             R.string.ModelMenuDuplicate,
@@ -818,7 +820,7 @@ class FilamentPaletteComposeDeviceTest {
                 LocalConfiguration provides configuration,
             ) {
                 BeamComposeTheme {
-                    Box(Modifier.width(widthDp.dp).height(160.dp).testTag("model-action-viewport")) {
+                    Box(Modifier.width(widthDp.dp).height(200.dp).testTag("model-action-viewport")) {
                         key(widthDp, fontScale) {
                             BedMenuActionsContent(
                                 actions = actionTitles.map { title ->
@@ -842,43 +844,42 @@ class FilamentPaletteComposeDeviceTest {
             val viewport = compose.onNodeWithTag("model-action-viewport").fetchSemanticsNode().boundsInRoot
             val visibleColumns = ru.ytkab0bp.slicebeam.components.bed_menu.BedMenuActionTileWidthPolicy
                 .columnsForLayout(scale, width)
-            val visibleActions = actionTitles.mapIndexedNotNull { index, title ->
-                compose.onAllNodesWithContentDescription(
-                    InstrumentationRegistry.getInstrumentation().targetContext.getString(title),
-                ).fetchSemanticsNodes().firstOrNull()?.let { index to it.boundsInRoot }
-            }
-            for (index in 0 until visibleColumns * 2) {
+            val firstTwoRowsCount = minOf(actionTitles.size, visibleColumns * 2)
+            for (index in 0 until firstTwoRowsCount) {
                 val actionNodes = compose.onAllNodesWithContentDescription(
                     InstrumentationRegistry.getInstrumentation().targetContext.getString(actionTitles[index]),
                 ).fetchSemanticsNodes()
-                assertTrue("Action $index not visible at $width dp / ${scale}x; viewport=$viewport, visible=$visibleActions",
+                assertTrue("Action $index not visible at $width dp / ${scale}x; viewport=$viewport",
                     actionNodes.isNotEmpty())
                 compose.onNodeWithContentDescription(
                     InstrumentationRegistry.getInstrumentation().targetContext.getString(actionTitles[index]),
                 ).assertWidthIsAtLeast(48.dp).assertHeightIsAtLeast(48.dp)
                 val action = actionNodes.first().boundsInRoot
                 assertTrue("Action $index starts outside $width dp viewport at ${scale}x", action.left >= viewport.left)
-                assertTrue("Action $index overlaps the scroll hint at $width dp / ${scale}x",
-                    action.right <= viewport.right - 52f)
+                assertTrue("Action $index overflows the viewport at $width dp / ${scale}x",
+                    action.right <= viewport.right)
             }
             val context = InstrumentationRegistry.getInstrumentation().targetContext
-            val firstPageMaxIndex = visibleActions.maxOf { it.first }
             compose.onNodeWithContentDescription(context.getString(R.string.WorkspaceMoreTitle))
-                .assertIsDisplayed().assertWidthIsAtLeast(48.dp).assertHeightIsAtLeast(48.dp).performClick()
-            compose.waitForIdle()
-            val afterPaging = actionTitles.mapIndexedNotNull { index, title ->
-                compose.onAllNodesWithContentDescription(context.getString(title))
-                    .fetchSemanticsNodes().firstOrNull()?.let { index to it.boundsInRoot }
+                .assertDoesNotExist()
+            // Exercise real touch scrolling, rather than relying only on Compose's
+            // performScrollToIndex helper, so the grid responds to an ordinary swipe.
+            repeat(12) {
+                val lastActionVisible = compose.onAllNodesWithContentDescription(
+                    context.getString(actionTitles.last()),
+                ).fetchSemanticsNodes().isNotEmpty()
+                if (!lastActionVisible) {
+                    compose.onNodeWithTag("workspace-menu-actions-grid").performTouchInput { swipeUp() }
+                    compose.waitForIdle()
+                }
             }
-            assertTrue("more-tools button did not reveal another action at $width dp / ${scale}x; " +
-                "before=$visibleActions after=$afterPaging", afterPaging.any { it.first > firstPageMaxIndex })
-            compose.onNode(hasScrollToIndexAction()).performScrollToIndex(actionTitles.lastIndex)
             compose.waitForIdle()
             val finalActionDescription = context.getString(actionTitles.last())
             val finalAction = compose.onNodeWithContentDescription(finalActionDescription)
                 .assertIsDisplayed().fetchSemanticsNode().boundsInRoot
-            assertTrue("paging control must reveal complete actions at $width dp / ${scale}x",
-                finalAction.right <= viewport.right - 52f)
+            assertTrue("vertical swiping must reveal complete actions at $width dp / ${scale}x",
+                finalAction.right <= viewport.right)
+            compose.onNode(hasScrollToIndexAction()).performScrollToIndex(0)
         }
     }
 
@@ -940,13 +941,12 @@ class FilamentPaletteComposeDeviceTest {
         }
 
         // At 320 dp and 150% text, the toolbar deliberately uses one wide column.
-        // Short menus can therefore still page when they have more than two actions.
+        // Remaining actions are reached with a regular vertical swipe.
         for (title in actionTitles.take(2)) {
             val action = compose.onNodeWithContentDescription(context.getString(title)).assertIsDisplayed()
             action.assertWidthIsAtLeast(120.dp).assertHeightIsAtLeast(48.dp)
         }
-        compose.onNodeWithContentDescription(context.getString(R.string.WorkspaceMoreTitle))
-            .assertIsDisplayed().performClick()
+        compose.onNodeWithTag("workspace-menu-actions-grid").performTouchInput { swipeUp() }
         compose.waitForIdle()
         compose.onNodeWithContentDescription(context.getString(actionTitles.last()))
             .assertIsDisplayed().assertWidthIsAtLeast(120.dp).assertHeightIsAtLeast(48.dp)

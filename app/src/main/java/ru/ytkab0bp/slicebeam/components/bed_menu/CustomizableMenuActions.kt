@@ -167,7 +167,7 @@ internal fun CustomizableBedMenuActionsContent(
                 draggedActionTranslation = dragState.dragTranslation,
                 draggedActionPointerInRoot = dragState.pointerInRoot,
                 onDragAutoScroll = { amount ->
-                    dragState.dragTranslation += Offset(amount, 0f)
+                    dragState.dragTranslation += amount
                     updateDropTarget(dragState.pointerInRoot)
                 },
             )
@@ -203,7 +203,7 @@ internal fun CustomizableBedMenuActionsContent(
                 draggedActionTranslation = dragState.dragTranslation,
                 draggedActionPointerInRoot = dragState.pointerInRoot,
                 onDragAutoScroll = { amount ->
-                    dragState.dragTranslation += Offset(amount, 0f)
+                    dragState.dragTranslation += amount
                     updateDropTarget(dragState.pointerInRoot)
                 },
             )

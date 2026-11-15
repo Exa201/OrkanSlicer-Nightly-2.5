@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.8.431
+
+- Arrange compact portrait workspace actions in row-major order: up to four actions in the first row and up to eight in two rows, adapting column count for large text and narrow screens.
+- Replace horizontal paging and its arrow with vertical swipe scrolling for additional actions; keep menu customization drag auto-scroll aligned to the active axis.
+- Shorten duplicate and surface-placement labels in English, German, and Russian to prevent awkward line breaks.
+- Verify real vertical swipes and action reachability at 320, 360, and 400 dp with 100%, 130%, and 150% text on Android 16.
+
 ## 0.8.430
 
 - Keep Material 3 dropdown surfaces in the shared ColorFlow palette so profile menus match the rest of the redesigned app.

@@ -1,5 +1,5 @@
 {
-  "de": "OrkanSlicer 0.8.430\n\n• Profil-Auswahllisten verwenden jetzt die ColorFlow-Farben.\n• Lange Drucker- und Druckprofilnamen werden vollständig umgebrochen statt abgeschnitten.\n• Geprüft bei 320 dp und 150 % Schriftgröße.",
-  "en": "OrkanSlicer 0.8.430\n\n• Profile menus now use the shared ColorFlow surface colors.\n• Long printer and print-profile names wrap in full instead of being truncated.\n• Verified at 320 dp and 150% text size.",
-  "ru": "OrkanSlicer 0.8.430\n\n• В меню профилей теперь используются цвета ColorFlow.\n• Длинные названия принтеров и профилей печати переносятся полностью.\n• Проверено при ширине 320 dp и масштабе текста 150%."
+  "de": "OrkanSlicer 0.8.431\n\n• Modell-, Ansichts- und Änderungsaktionen folgen jetzt einer gut lesbaren Leserichtung in höchstens zwei Reihen.\n• Weitere Aktionen erreichst du mit einem vertikalen Wisch; der separate Pfeil zum Blättern entfällt.\n• Beschriftungen für Duplizieren und Flächenplatzierung sind kompakter. Geprüft mit 320–400 dp und bis zu 150 % Schriftgröße.",
+  "en": "OrkanSlicer 0.8.431\n\n• Model, view, and edit actions now follow a readable order in up to two rows.\n• Reach additional actions with a vertical swipe; the separate paging arrow is removed.\n• Duplicate and surface-placement labels are more concise. Verified at 320–400 dp and up to 150% text size.",
+  "ru": "OrkanSlicer 0.8.431\n\n• Действия модели, вида и редактирования расположены в понятном порядке не более чем в два ряда.\n• Дополнительные действия открываются вертикальным свайпом; отдельная стрелка перелистывания удалена.\n• Подписи дублирования и размещения на поверхности стали короче. Проверено при 320–400 dp и масштабе текста до 150%."
 }

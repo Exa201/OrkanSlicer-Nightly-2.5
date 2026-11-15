@@ -60,19 +60,18 @@ class BedMenuActionTileWidthPolicyTest {
     }
 
     @Test
-    fun largeTextGridReservesTheScrollAffordanceInsteadOfClippingTheNextColumn() {
+    fun largeTextGridUsesTheFullPanelWidthWithoutPagingAffordance() {
         val width = 320
         val columns = 2
-        val scrollHintAndGap = 52
         val tile = BedMenuActionTileWidthPolicy.gridTileWidthDp(
             screenWidthDp = width,
             columns = columns,
             horizontalPaddingDp = 4,
             spacingDp = 2,
-            reservedEndDp = scrollHintAndGap,
+            reservedEndDp = 4,
         )
-        val used = tile * columns + 4 + scrollHintAndGap + 2 * (columns - 1)
-        assertEquals("two full columns should end exactly before the scroll hint", width, used)
+        val used = tile * columns + 8 + 2 * (columns - 1)
+        assertTrue("grid should use nearly the full panel width", used <= width && width - used <= columns + 4)
         assertTrue("large text should not shrink targets below 48 dp", tile >= 48)
     }
 

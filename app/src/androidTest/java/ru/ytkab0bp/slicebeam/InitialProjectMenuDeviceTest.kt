@@ -11096,15 +11096,14 @@ class InitialProjectMenuDeviceTest {
             .get(bed).let { it as List<Model?> }.filterNotNull()
 
     private fun scrollMenuToIndex(index: Int) {
-        // Compact portrait menus use a two-row LazyHorizontalGrid. Wide and landscape
-        // layouts use a vertically scrollable action column, where individual actions
-        // are brought into view with performScrollTo() at the call site.
+        // Compact portrait menus use a vertically scrollable grid. Wide and landscape
+        // layouts use a vertically scrollable action column.
         if (usesCompactPortraitLayout(compose.activity)) {
             compose.onNode(hasScrollToIndexAction()).performScrollToIndex(index)
         }
     }
 
-    /** Uses the visible horizontal action paging, matching how users reach off-screen menu tiles. */
+    /** Uses the same vertical swipe that reveals off-screen actions to users. */
     private fun revealMenuAction(activity: MainActivity, titleRes: Int) {
         val title = activity.getString(titleRes)
         if (!usesCompactPortraitLayout(activity)) {
@@ -11118,12 +11117,6 @@ class InitialProjectMenuDeviceTest {
             val tile = compose.onAllNodesWithTag(tileTag).fetchSemanticsNodes().firstOrNull()
             val panel = compose.onAllNodesWithTag("workspace-menu-panel")
                 .fetchSemanticsNodes().firstOrNull()
-            val pagingAffordanceVisible = compose.onAllNodesWithContentDescription(
-                activity.getString(R.string.WorkspaceMoreTitle),
-            ).fetchSemanticsNodes().isNotEmpty()
-            val visiblePanelRight = panel?.boundsInWindow?.right?.minus(
-                if (pagingAffordanceVisible) 52f * activity.resources.displayMetrics.density else 0f,
-            ) ?: Float.NEGATIVE_INFINITY
             val geometryLooksVisible = action != null && tile != null && panel != null &&
                 tile.boundsInWindow.left >= panel.boundsInWindow.left &&
                 tile.boundsInWindow.top >= panel.boundsInWindow.top &&
@@ -11131,26 +11124,19 @@ class InitialProjectMenuDeviceTest {
                 tile.boundsInWindow.height >= 48f * activity.resources.displayMetrics.density &&
                 // Reserve space only while the paging affordance is actually present. When a
                 // menu fits on one page, the final action may use the panel's right-hand area.
-                tile.boundsInWindow.right <= visiblePanelRight &&
+                tile.boundsInWindow.right <= panel.boundsInWindow.right &&
                 tile.boundsInWindow.bottom <= panel.boundsInWindow.bottom
             if (geometryLooksVisible && runCatching {
                     compose.onNodeWithContentDescription(title).assertIsDisplayed()
                 }.isSuccess
             ) return
             val grid = compose.onNodeWithTag("workspace-menu-actions-grid")
-            val pageDescription = activity.getString(R.string.WorkspaceMoreTitle)
-            if (compose.onAllNodesWithContentDescription(pageDescription)
-                    .fetchSemanticsNodes().isNotEmpty()
-            ) {
-                // Use the same page-sized accessible control exposed to users. Small synthetic
-                // swipes can stop inside a large-font tile and leave the target clipped behind
-                // the fixed paging affordance.
-                compose.onNodeWithContentDescription(pageDescription).performClick()
-            } else {
-                val gridWidth = grid.fetchSemanticsNode().size.width.toFloat()
-                grid.performTouchInput {
-                    swipeLeft(startX = gridWidth * 0.65f, endX = gridWidth * 0.35f)
-                }
+            val gridSize = grid.fetchSemanticsNode().size
+            grid.performTouchInput {
+                swipeUp(
+                    startY = gridSize.height * 0.72f,
+                    endY = gridSize.height * 0.28f,
+                )
             }
             compose.waitForIdle()
         }
