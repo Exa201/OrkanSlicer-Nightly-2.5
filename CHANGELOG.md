@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.8.432
+
+- Keep the compact printer-profile status and build-plate counter in a stable workspace layout when changing the app's text-size setting.
+- Continue respecting Android's system accessibility font scale for both controls.
+- Verify the fixed bed viewport after a live text-size change; recheck settings reset, profile drafts, and large multilingual object lists on Android 16.
+
 ## 0.8.431
 
 - Arrange compact portrait workspace actions in row-major order: up to four actions in the first row and up to eight in two rows, adapting column count for large text and narrow screens.

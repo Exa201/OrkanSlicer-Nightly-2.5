@@ -23,6 +23,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.MutableState
 import androidx.compose.runtime.setValue
@@ -40,6 +41,7 @@ import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.Density
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import ru.ytkab0bp.slicebeam.R
@@ -100,6 +102,8 @@ internal fun PlateTabs(
     }
     val configuration = LocalConfiguration.current
     val layoutFontScale = ru.ytkab0bp.slicebeam.ui.LocalBeamLayoutFontScale.current
+    val currentDensity = LocalDensity.current
+    val systemTextDensity = Density(currentDensity.density, layoutFontScale.coerceAtLeast(0.1f))
     val screenHeightDp = configuration.screenHeightDp
     val estimatedGridColumns = ((configuration.screenWidthDp - 88) / 104).coerceIn(1, 4)
     val pickerLayout = PlatePickerLayoutPolicy.choose(plateCount, configuration.screenWidthDp,
@@ -121,12 +125,14 @@ internal fun PlateTabs(
         color = MaterialTheme.colorScheme.surfaceVariant,
     ) {
         Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
-            if (layoutFontScale < 1.3f) {
-                Text(stringResource(R.string.PlatePickerCounterLabel), style = MaterialTheme.typography.labelSmall,
-                    maxLines = 1)
+            CompositionLocalProvider(LocalDensity provides systemTextDensity) {
+                if (layoutFontScale < 1.3f) {
+                    Text(stringResource(R.string.PlatePickerCounterLabel), style = MaterialTheme.typography.labelSmall,
+                        maxLines = 1)
+                }
+                Text("${selectedIndex + 1}/$plateCount", fontWeight = FontWeight.Bold,
+                    style = MaterialTheme.typography.labelMedium, maxLines = 1)
             }
-            Text("${selectedIndex + 1}/$plateCount", fontWeight = FontWeight.Bold,
-                style = MaterialTheme.typography.labelMedium, maxLines = 1)
         }
     }
     if (open) {

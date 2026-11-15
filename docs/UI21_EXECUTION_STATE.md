@@ -1,5 +1,14 @@
 # UI 2.1 ColorFlow — Ausführungsstand (15.11.2026)
 
+## 0.8.432 — Schriftgrößenwechsel ohne Verschieben des Druckbetts
+
+- Ein Emulator-Rundlauf fand eine echte Layoutregression: App-interner Schriftzoom vergrößerte Profilkopf und Plattenzähler; der Renderer verschob sich vertikal. Beide kompakten Controls verwenden jetzt explizit die Android-Systemschriftgröße, während die App-eigene Skalierung weiterhin für die übrige Compose-Oberfläche gilt. Accessibility-Beschreibungen bleiben vollständig.
+- `SettingsMenuActionDeviceTest`: 8/8 auf Android 16, einschließlich Live-Schriftzoom, gleichbleibender Workspace-/Renderer-Geometrie und Wiederherstellen. `SettingsChoiceDialogDeviceTest`: 6/6, einschließlich Reset-Abbruch/Zurück. `TemporaryProjectSettingsDeviceTest`: 3/3, Profilentwürfe und Speichern ohne unbeabsichtigte Profilauswahlpersistenz. `ModelObjectsDialogLayoutDeviceTest`: 2/2 mit 80 mehrsprachigen Einträgen bei 320 dp/150 %.
+- `:app:testDebugUnitTest`: 705/705; `:app:testSliceTestUnitTest`: 705/705. `:app:assembleDebug` erfolgreich, Version 0.8.432 / Code 467; der aktuelle Debug-Build liegt nach dem finalen Commit unter `artifacts/` und ist nicht im Repository eingecheckt.
+- Start-Changelog `update.json` und `CHANGELOG.md` wurden für 0.8.432 aktualisiert.
+- **Offen:** die vollständige UI-2.1-Abnahme aller Unterseiten und Dialoge, Screenshots der nun aktuellen APK, physische Honor-Prüfung bei 150 % sowie TalkBack-Fokusfolge. Kein Merge und kein Release.
+- **Nächster Schritt:** aktuelle 0.8.432-APK auf dem Android-16-Emulator starten, fünf Hauptbereiche frisch erfassen und anschließend noch nicht nachgewiesene Dialog-/Profilabläufe fortsetzen.
+
 ## Objektliste: große Mehrsprachenprojekte (15.11.2026)
 
 - `ModelObjectsDialogLayoutDeviceTest` erweitert: 80 lange Modellnamen mit französischen/Japanischen Zeichen, 8 aufgeklappten Mehrteilgruppen, 320 dp und 150 % Schrift. Suche reduziert die Liste eindeutig auf den Treffer; Auswahl liefert weiterhin den Originalindex 73; nach Löschen der Suche ist das letzte Objekt per Lazy-List-Scroll erreichbar und die Aktionsfläche bleibt mindestens 48 dp.
