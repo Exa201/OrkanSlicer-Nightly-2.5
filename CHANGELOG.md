@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.8.487 — Workspace-Menüs und Dashboard — 2026-11-16
+
+- Aktionskacheln verwenden wieder die vollständigen, kurzen OrcaSlicer-Bezeichnungen statt gekürzter oder beschreibender Ersatztexte.
+- Das Querformatmenü liegt als schmale, einklappbare 4-Spalten-Leiste unter der Druckplatte; bis zu acht Aktionen bleiben direkt sichtbar, weitere sind scrollbar.
+- Filamentzuordnung, Druckersynchronisierung, Reinigungsturm und Spülvolumen bleiben im Dashboard erreichbar, auch auf 480-dp-Bildschirmen.
+- Verifiziert: fokussierte Workspace-Tests, Release-Build, Signatur und Paketmetadaten werden für diesen Build dokumentiert.
+
 ## 0.8.486 — Workspace-Menüs im Querformat und Dateiaktionen — 2026-11-16
 
 - Querformat: Menüaktionen liegen jetzt als kompaktes 4-Spalten-Raster unter der Druckplatte; die Platte nutzt die volle mittlere Breite.

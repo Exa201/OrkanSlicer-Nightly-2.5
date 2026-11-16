@@ -27,8 +27,8 @@ class WorkspaceShellLayoutPolicyTest {
 
     @Test
     fun landscapeActionMenuReservesTwoReadableRowsBelowTheRenderer() {
-        assertEquals(208, WorkspaceShellLayoutPolicy.landscapeMenuPanelMaxHeightDp(1f))
-        assertEquals(244, WorkspaceShellLayoutPolicy.landscapeMenuPanelMaxHeightDp(1.5f))
+        assertEquals(152, WorkspaceShellLayoutPolicy.landscapeMenuPanelMaxHeightDp(1f))
+        assertEquals(168, WorkspaceShellLayoutPolicy.landscapeMenuPanelMaxHeightDp(1.5f))
     }
 
     @Test

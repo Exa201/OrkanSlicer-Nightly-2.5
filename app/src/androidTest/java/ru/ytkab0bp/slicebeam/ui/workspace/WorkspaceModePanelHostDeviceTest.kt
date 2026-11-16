@@ -44,6 +44,9 @@ import org.junit.runner.RunWith
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import org.junit.Assert.assertTrue
 import ru.ytkab0bp.slicebeam.R
+import ru.ytkab0bp.slicebeam.components.bed_menu.BedComposeMenuAction
+import ru.ytkab0bp.slicebeam.components.bed_menu.BedMenuActionsContent
+import ru.ytkab0bp.slicebeam.fragment.WorkspacePrintToolActions
 import ru.ytkab0bp.slicebeam.ui.BeamComposeTheme
 import ru.ytkab0bp.slicebeam.ui.navigation.WorkspaceDestination
 import ru.ytkab0bp.slicebeam.view.SnackbarsLayout
@@ -80,6 +83,9 @@ class WorkspaceModePanelHostDeviceTest {
                             projectSettingsContent = {},
                             profileStatusContent = { Text("Printer profile") },
                             filamentButtonContent = { Text("Filament") },
+                            dashboardPrintToolsContent = {
+                                WorkspacePrintToolActions(onPrimeTower = {}, onFlushVolumes = {})
+                            },
                             platePickerContent = { Text("Plate") },
                             printerWebButtonContent = { Text("Connection") },
                             modePanelContent = { Text("Other tool panel") },
@@ -98,12 +104,14 @@ class WorkspaceModePanelHostDeviceTest {
         val actionArea = compose.onNodeWithTag("workspace-header-actions")
             .assertIsDisplayed().fetchSemanticsNode().boundsInRoot
         compose.onNodeWithTag("workspace-header-filament-action").assertIsDisplayed()
+        compose.onNodeWithTag("workspace-header-prime-tower").assertIsDisplayed()
+        compose.onNodeWithTag("workspace-header-flush-volumes").assertIsDisplayed()
         val plate = compose.onNodeWithTag("workspace-header-plate-action")
             .assertIsDisplayed().fetchSemanticsNode().boundsInRoot
         val connection = compose.onNodeWithTag("workspace-header-printer-action")
             .assertIsDisplayed().fetchSemanticsNode().boundsInRoot
         assertTrue("connection control should reach the right side of the dashboard header", connection.right >= actionArea.right - 1f)
-        assertTrue("the space between plate and connection controls should be visible", connection.left > plate.right)
+        assertTrue("connection and plate controls must not overlap", connection.left >= plate.right - 1f)
     }
 
     @Test
@@ -157,6 +165,49 @@ class WorkspaceModePanelHostDeviceTest {
             .assertIsDisplayed().fetchSemanticsNode().boundsInRoot
         assertTrue("the landscape action panel should be below the renderer", panel.top >= renderer.bottom - 1f)
         assertTrue("the action panel should use the workspace width", panel.width >= renderer.width - 1f)
+    }
+
+    @Test
+    fun landscapeMenuActionsUseFourColumnsAndKeepTheFullOrcaLabel() {
+        val actionIds = listOf(
+            R.string.WorkspaceAddModelAction,
+            R.string.ModelMenuDuplicate,
+            R.string.ModelMenuMoveToPlate,
+            R.string.ModelMenuSplit,
+            R.string.ModelMenuCenterOnBed,
+        )
+        compose.setContent {
+            CompositionLocalProvider(
+                LocalConfiguration provides Configuration().apply {
+                    screenWidthDp = 900
+                    screenHeightDp = 600
+                },
+            ) {
+                BeamComposeTheme {
+                    // Use the device's real available width. A fixed 900 dp width
+                    // clipped the first grid cell on compact physical devices.
+                    Box(Modifier.fillMaxWidth().heightIn(min = 208.dp, max = 208.dp)) {
+                        BedMenuActionsContent(
+                            actions = actionIds.map { id -> BedComposeMenuAction(id, R.drawable.vk_cube_box_outline_24, {}) },
+                            portrait = false,
+                            modifier = Modifier.fillMaxWidth(),
+                        )
+                    }
+                }
+            }
+        }
+
+        val firstRow = actionIds.take(4).map {
+            compose.onNodeWithTag("workspace-menu-action-$it").assertIsDisplayed()
+                .fetchSemanticsNode().boundsInRoot
+        }
+        val secondRow = compose.onNodeWithTag("workspace-menu-action-${actionIds[4]}")
+            .assertIsDisplayed().fetchSemanticsNode().boundsInRoot
+        assertTrue("the four first actions should share one row", firstRow.all { kotlin.math.abs(it.center.y - firstRow.first().center.y) < 2f })
+        assertTrue("the fifth action should start the second row", secondRow.top > firstRow.first().bottom - 1f)
+        val fullLabel = InstrumentationRegistry.getInstrumentation().targetContext
+            .getString(R.string.WorkspaceAddModelAction)
+        compose.onNodeWithText(fullLabel).assertIsDisplayed()
     }
 
     @Test

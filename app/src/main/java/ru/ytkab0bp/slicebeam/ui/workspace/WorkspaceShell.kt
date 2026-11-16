@@ -103,14 +103,15 @@ internal fun WorkspaceShell(
         LocalBeamLayoutFontScale.current,
         portrait,
     )
-    val headerWidthDp = LocalConfiguration.current.screenWidthDp
-    // Keep the important assignment/sync entry visible at every width. Duplicated
-    // dashboard print shortcuts give way on compact screens; they remain in Print.
+    // Keep the important assignment/sync entry visible at every width and tool mode.
+    // It remains useful while color painting is active because it opens the filament
+    // assignment/synchronization sheet, not the paint-color picker.
     val showHeaderFilamentShortcut = true
-    val showHeaderPrintTools = headerWidthDp >= 560
+    // The tower and purge-volume controls are primary print setup actions. Keep
+    // them in the dashboard on compact phones as well as wide layouts.
     val headerActionWeight = when {
-        headerWidthDp < 360 -> 1.85f
-        headerWidthDp < 480 -> 1.4f
+        LocalConfiguration.current.screenWidthDp < 400 -> 2.2f
+        LocalConfiguration.current.screenWidthDp < 480 -> 2.2f
         else -> 1.15f
     }
     val navigationItems = WorkspaceDestination.visibleNavigationDestinations.map { destination ->
@@ -164,15 +165,12 @@ internal fun WorkspaceShell(
                     .testTag("workspace-header-actions"),
                 horizontalArrangement = Arrangement.SpaceBetween,
             ) {
-                // Keep filament assignment/sync available from the workspace header
-                // while other tool panels are open. Color paint owns its palette and
-                // its content lambda intentionally renders no duplicate shortcut.
+                // Keep filament assignment/sync available from the workspace header,
+                // including while a GL paint tool is active.
                 if (showHeaderFilamentShortcut) {
                     WorkspaceActionControl(filamentButtonContent, testTag = "workspace-header-filament-action")
                 }
-                if (showHeaderPrintTools && modePanelContent == null && transientPanelContent == null) {
-                    dashboardPrintToolsContent()
-                }
+                dashboardPrintToolsContent()
                 WorkspaceActionControl(
                     platePickerContent,
                     targetWidth = OrkanUiTokens.plateCounterWidth,
@@ -316,18 +314,20 @@ internal fun WorkspaceShell(
                 // In landscape the action menu belongs below the build plate. Keeping
                 // it in a full-width bottom strip leaves the renderer centered instead
                 // of squeezing it beside a tall, narrow action column.
-                WorkspaceMenuHost(
-                    slot = activeMenuSlot,
-                    composeContentForSlot = menuComposeContentForSlot,
-                    modifier = Modifier.fillMaxWidth()
-                        .heightIn(max = WorkspaceShellLayoutPolicy.landscapeMenuPanelMaxHeightDp(
-                            LocalBeamLayoutFontScale.current,
-                        ).dp)
-                        .wrapContentHeight(align = Alignment.Bottom)
-                        .clip(RoundedCornerShape(topStart = 14.dp, topEnd = 14.dp))
-                        .background(MaterialTheme.colorScheme.surface.copy(alpha = 0.97f))
-                        .testTag("workspace-menu-panel"),
-                )
+                if (toolPanelExpanded) {
+                    WorkspaceMenuHost(
+                        slot = activeMenuSlot,
+                        composeContentForSlot = menuComposeContentForSlot,
+                        modifier = Modifier.fillMaxWidth()
+                            .heightIn(max = WorkspaceShellLayoutPolicy.landscapeMenuPanelMaxHeightDp(
+                                LocalBeamLayoutFontScale.current,
+                            ).dp)
+                            .wrapContentHeight(align = Alignment.Bottom)
+                            .clip(RoundedCornerShape(topStart = 14.dp, topEnd = 14.dp))
+                            .background(MaterialTheme.colorScheme.surface.copy(alpha = 0.97f))
+                            .testTag("workspace-menu-panel"),
+                    )
+                }
             }
         }
       }
@@ -489,7 +489,7 @@ internal object WorkspaceShellLayoutPolicy {
     /** Two action rows fit below the landscape renderer while preserving touch targets. */
     @JvmStatic
     fun landscapeMenuPanelMaxHeightDp(fontScale: Float): Int =
-        if (fontScale >= 1.3f) 244 else 208
+        if (fontScale >= 1.3f) 168 else 152
 
     /** availableHeightDp is the content height after the activity's system-bar insets. */
     @JvmStatic

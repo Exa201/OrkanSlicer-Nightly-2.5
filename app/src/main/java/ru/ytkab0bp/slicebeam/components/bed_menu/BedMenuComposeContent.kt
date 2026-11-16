@@ -240,34 +240,50 @@ internal fun BedMenuActionsContent(
         }
         return
     } else {
-        Column(
-            // A horizontal Android parent can temporarily measure MATCH_PARENT children
-            // with an unbounded height while the navigation layout is being rebuilt.
-            // Give the scroll container a finite outer cap before applying verticalScroll.
-            modifier = modifier
-                .heightIn(max = LocalConfiguration.current.screenHeightDp.dp)
-                .fillMaxSize()
-                .verticalScroll(rememberScrollState())
-                .padding(horizontal = 4.dp, vertical = 4.dp)
-                .testTag("workspace-menu-actions-grid"),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy(2.dp),
-        ) {
-            actions.forEach { action ->
-                if (action.sectionBreakBefore) Spacer(Modifier.heightIn(min = 6.dp))
-                BedMenuActionTile(
-                    action, portrait = false, menuView = menuView, modifier = Modifier.fillMaxWidth(),
-                    onActionPositioned = onActionPositioned,
-                    onActionDragStart = onActionDragStart,
-                    onActionDrag = onActionDrag,
-                    onActionDragEnd = onActionDragEnd,
-                    onMoveAction = onMoveAction,
-                    draggedActionTitleRes = draggedActionTitleRes,
-                    dropTargetTitleRes = dropTargetTitleRes,
-                    draggedActionTranslation = draggedActionTranslation,
-                    draggedActionPointerInRoot = draggedActionPointerInRoot,
-                    onDragAutoScroll = onDragAutoScroll,
-                )
+        // Landscape has enough horizontal room for the same 4-column action layout.
+        // Keep the actions in a short strip below the renderer so the bed remains the
+        // visual center instead of reserving a tall column beside it.
+        BoxWithConstraints(modifier.fillMaxWidth()) {
+            val columns = 4
+            val gridState = rememberLazyGridState()
+            val tileHeight = 70.dp
+            val visibleRows = BedMenuActionTileWidthPolicy.visibleRowsForActionCount(actions.size)
+            val targetHeight = tileHeight * visibleRows + 2.dp * (visibleRows - 1)
+            val gridHeight = minOf(maxHeight, targetHeight)
+            val actionIds = remember(actions) { actions.map { it.titleRes } }
+            var previousActionIds by remember { mutableStateOf<List<Int>?>(null) }
+            LaunchedEffect(actionIds) {
+                if (previousActionIds != null && previousActionIds != actionIds) gridState.scrollToItem(0)
+                previousActionIds = actionIds
+            }
+            LazyVerticalGrid(
+                columns = GridCells.Fixed(columns),
+                state = gridState,
+                modifier = Modifier.fillMaxWidth().height(gridHeight)
+                    .testTag("workspace-menu-actions-grid"),
+                contentPadding = PaddingValues(horizontal = 6.dp, vertical = 3.dp),
+                horizontalArrangement = Arrangement.spacedBy(4.dp),
+                verticalArrangement = Arrangement.spacedBy(2.dp),
+            ) {
+                items(actions, key = { action -> action.titleRes }) { action ->
+                    BedMenuActionTile(
+                        action,
+                        portrait = true,
+                        menuView = menuView,
+                        compactPortraitGrid = false,
+                        modifier = Modifier.fillMaxWidth().height(tileHeight),
+                        onActionPositioned = onActionPositioned,
+                        onActionDragStart = onActionDragStart,
+                        onActionDrag = onActionDrag,
+                        onActionDragEnd = onActionDragEnd,
+                        onMoveAction = onMoveAction,
+                        draggedActionTitleRes = draggedActionTitleRes,
+                        dropTargetTitleRes = dropTargetTitleRes,
+                        draggedActionTranslation = draggedActionTranslation,
+                        draggedActionPointerInRoot = draggedActionPointerInRoot,
+                        onDragAutoScroll = onDragAutoScroll,
+                    )
+                }
             }
         }
     }
@@ -323,66 +339,9 @@ private fun BedMenuActionTile(
     onDragAutoScroll: ((Float) -> Unit)?,
 ) {
     val fullTitle = stringResource(action.titleRes)
-    val fontScale = ru.ytkab0bp.slicebeam.ui.LocalBeamLayoutFontScale.current
-    val compactLabel = when (action.titleRes) {
-        R.string.QuickSliceTitle -> R.string.MenuActionQuickSliceShort
-        R.string.SmartSliceTitle -> R.string.MenuActionSmartSliceShort
-        R.string.MenuSliceCurrentSettings -> R.string.MenuActionManualSliceShort
-        R.string.MenuFileCalibrations -> R.string.MenuActionCalibrateShort
-        R.string.MenuToolbarMove -> R.string.MenuActionMoveShort
-        R.string.MenuToolbarRotate -> R.string.MenuActionRotateShort
-        R.string.MenuTransformScale -> R.string.MenuActionScaleShort
-        R.string.MenuTransformCut -> R.string.MenuActionCutShort
-        R.string.MenuToolbarEmboss -> R.string.MenuActionTextShort
-        R.string.MenuToolbarVariableLayerHeight -> R.string.MenuActionLayerShort
-        R.string.MenuCameraIsometric -> if (fontScale >= 1.3f) R.string.MenuCameraIsometricCompact else action.titleRes
-        R.string.MenuFileImportProfiles -> R.string.MenuFileImportProfilesCompact
-        R.string.MenuFileExportProfiles -> R.string.MenuFileExportProfilesCompact
-        R.string.ModelUndo -> R.string.EditUndoShort
-        R.string.ModelRedo -> R.string.EditRedoShort
-        R.string.MenuArrangeAllObjects -> R.string.EditArrangeAllShort
-        R.string.MenuOrientAllObjects -> R.string.EditOrientShort
-        R.string.MenuOrientationArrange -> R.string.EditPackPlateShort
-        R.string.MenuFileMoveToPlate -> R.string.EditMovePlateShort
-        R.string.ModelContextFillBed -> R.string.EditFillBedShort
-        R.string.ModelContextCenterOnBed -> R.string.EditCenterBedShort
-        R.string.ModelMenuDuplicate -> R.string.ModelMenuDuplicateShort
-        R.string.ModelMenuSplit -> R.string.ModelMenuSplitShort
-        R.string.ModelMenuMoveToPlate -> R.string.ModelMenuMoveToPlateShort
-        R.string.ModelMenuCenterOnBed -> R.string.ModelMenuCenterOnBedShort
-        R.string.ModelMenuPlaceGroupOnBed -> R.string.ModelMenuPlaceGroupOnBedShort
-        R.string.ModelMenuFillBed -> R.string.ModelMenuFillBedShort
-        R.string.ModelScaleToBuildVolume -> R.string.ModelScaleToBuildVolumeShort
-        R.string.ModelMenuArrange -> R.string.ModelMenuArrangeShort
-        R.string.ModelMenuOrientAll -> R.string.ModelMenuOrientAllShort
-        R.string.ModelMenuAutoOrientSelected -> R.string.ModelMenuAutoOrientSelectedShort
-        R.string.ModelMenuFlatten -> R.string.ModelMenuFlattenShort
-        R.string.ModelMenuPlaceOnObject -> R.string.ModelMenuPlaceOnObjectShort
-        R.string.ModelMenuCombineSelected -> R.string.ModelMenuCombineSelectedShort
-        R.string.ModelMenuDeleteSelected -> R.string.ModelMenuDeleteSelectedShort
-        R.string.ModelMenuSelectAll -> R.string.ModelMenuSelectAllShort
-        R.string.ModelMenuDeleteAll -> R.string.ModelMenuDeleteAllShort
-        R.string.WorkspaceObjects -> R.string.ModelMenuObjectsShort
-        R.string.ModelContextResetRotation -> R.string.EditResetRotationShort
-        R.string.ModelContextResetScale -> R.string.EditResetScaleShort
-        R.string.ModelContextSetOnFace -> R.string.EditLayFaceShort
-        R.string.ModelContextSelectAll -> R.string.EditSelectAllShort
-        R.string.ModelContextDeleteAll -> R.string.EditDeleteAllShort
-        R.string.ModelColorSlotsAction -> R.string.ModelColorSlotsShort
-        R.string.MenuSlicePerformance -> R.string.GCodePerformanceShort
-        R.string.MenuSliceExportToFile -> R.string.GCodeExportShort
-        R.string.MenuCameraOrtho -> R.string.MenuCameraOrthoShort
-        R.string.MenuOrientationAutoOrient -> R.string.MenuActionAutoOrientShort
-        R.string.ModelSimplify -> R.string.MenuActionSimplifyShort
-        R.string.ModelSmoothMesh -> R.string.ModelSmoothMeshShort
-        R.string.MenuOrientationFlatten -> R.string.MenuActionLayFlatShort
-        R.string.MenuToolbarSupportPaint -> R.string.MenuActionSupportShort
-        R.string.MenuToolbarSeamPaint -> R.string.MenuActionSeamShort
-        R.string.MenuToolbarFuzzyPaint -> R.string.MenuActionTextureShort
-        R.string.MenuToolbarColorPaint -> R.string.MenuActionColorShort
-        R.string.MenuToolbarMeasure -> R.string.MenuActionMeasureShort
-        else -> action.titleRes
-    }
+    // Show OrcaSlicer's actual action name. Locally invented abbreviations hid or
+    // changed the meaning of several actions, especially in the compact grids.
+    val actionLabel = action.titleRes
     val background = (if (action.selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.primaryContainer)
         .copy(alpha = if (action.enabled) 1f else 0.38f)
     val foreground = (if (action.selected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurface)
@@ -503,7 +462,7 @@ private fun BedMenuActionTile(
                     )
                 }
                 Text(
-                    text = stringResource(compactLabel),
+                    text = stringResource(actionLabel),
                     color = foreground,
                     fontSize = OrkanUiTokens.menuLabelSize,
                     lineHeight = 16.sp,
@@ -532,7 +491,7 @@ private fun BedMenuActionTile(
                     modifier = Modifier.size(iconSize),
                 )
                 Text(
-                    text = stringResource(compactLabel),
+                    text = stringResource(actionLabel),
                     color = foreground,
                     fontSize = OrkanUiTokens.menuLabelSize,
                     lineHeight = 16.sp,

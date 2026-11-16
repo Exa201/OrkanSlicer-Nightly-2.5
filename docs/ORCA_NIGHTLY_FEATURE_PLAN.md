@@ -1521,3 +1521,8 @@ Der weitere Vergleich am 2026-11-04 prüfte Orca `5fd0edf5cc` (Z-Schrumpfung von
 - ARM64-NDK-Build erfolgreich. API-36-Emulator `NativeSliceDeviceTest#printerFilamentAliasesSelectTheMatchingGenericPresetDuringSync`: **1/1 bestanden**. Die verbundene Xiaomi-Installation wurde durch Android mit `INSTALL_FAILED_USER_RESTRICTED` abgewiesen; deshalb meldet der Multi-Device-Gradle-Lauf insgesamt Fehler, obwohl der Emulator-Test bestanden hat. Honor wurde nicht verwendet.
 - Debug-Unit **806/806**, SliceTest-Unit **806/806**, `verifyNightlyChangelog` bestanden; `git diff --check` ohne Whitespacefehler. Keine APK/Prerelease erstellt.
 - Nächster konkreter Schritt: ACE-Sync-IDs bis zur umgeschriebenen Anycubic-G-Code-Datei verfolgen und Mehrfach-/Aliasfälle samt tatsächlichem `Tn`-Routing regressionsprüfen; danach die noch offene Flächenrotation bei multipart-Modellen untersuchen. APK-Gate bleibt **100/100**.
+
+### Ausnahme — explizit angeforderter UI-Wartungsbuild 0.8.487 (2026-11-17)
+
+- Der Nutzer hat ausdrücklich um eine installierbare APK für die aktuelle UI-Korrektur gebeten. Deshalb wurde Nightly 0.8.487 als UI-Wartungsbuild bereitgestellt, obwohl das separate Orca-Upstream-Gate noch offen ist.
+- Diese Veröffentlichung zählt nicht als Orca-Engine-Upgrade und erhöht den 100-Schritte-Zähler nicht. Die nächste Kernänderung folgt weiterhin dem Verifikations- und Testprozess dieses Plans.

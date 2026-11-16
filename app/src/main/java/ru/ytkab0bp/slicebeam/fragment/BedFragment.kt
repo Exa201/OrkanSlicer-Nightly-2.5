@@ -2078,7 +2078,9 @@ rebuildAdaptiveLayout(ctx, portrait)
 private fun onMenuNavigationSelected(bottomNavigation: Boolean, slot: Int) {
     if (slot !in WorkspaceDestination.values().indices || workspaceController.isNavigationTransitionInProgress) return
     if (slot == currentMenuSlot) {
-        if (bottomNavigation) setPortraitToolPanelExpanded(!menuToolsExpanded)
+        // Tapping the currently selected destination toggles the compact action
+        // panel in both the bottom bar and the landscape navigation rail.
+        setWorkspaceActionPanelExpanded(!menuToolsExpanded)
         return
     }
     val routeChanged = slot != workspaceController.selectedDestinationSlot
@@ -2086,7 +2088,7 @@ private fun onMenuNavigationSelected(bottomNavigation: Boolean, slot: Int) {
     // Keep route, selected tool and transient workspace surfaces in one state
     // transition before the Compose route transition starts.
     if (!workspaceController.navigateToDestination(slot)) return
-    if (bottomNavigation && !menuToolsExpanded) setPortraitToolPanelExpanded(true)
+    if (!menuToolsExpanded) setWorkspaceActionPanelExpanded(true)
     if (slot != WorkspaceDestination.SLICE.ordinal) {
         val previousResult = gCodeResult
         gCodeResult = null
@@ -2100,7 +2102,7 @@ private fun onMenuNavigationSelected(bottomNavigation: Boolean, slot: Int) {
     selectMenu(slot, routeChanged)
 }
 
-private fun setPortraitToolPanelExpanded(expanded: Boolean) {
+private fun setWorkspaceActionPanelExpanded(expanded: Boolean) {
     menuToolsExpanded = expanded
 }
 /** Keep the model viewport clear; object actions are available from the Edit menu. */
@@ -2137,9 +2139,9 @@ private fun createWorkspaceContent(ctx: Context, portrait: Boolean): View {
                         check(menu is WorkspaceComposeBedMenu) {
                             "Workspace destination ${WorkspaceDestination.values()[slot]} must use Compose"
                         }
-                        // Workspace action menus use the same compact grid in
-                        // landscape; the shell keeps the renderer above this strip.
-                        WorkspaceComposeBedMenuHost(menu, true)
+                        // Preserve the active orientation: landscape uses the wide
+                        // bottom action grid below the renderer, not portrait behavior.
+                        WorkspaceComposeBedMenuHost(menu, portrait)
                     },
                     onMenuTransitionSettled = { workspaceController.updateNavigationTransitionInProgress(false) },
                     projectSettingsContent = { BeamComposeTheme { TemporaryProjectSettingsBar() } },
@@ -2156,19 +2158,13 @@ private fun createWorkspaceContent(ctx: Context, portrait: Boolean): View {
                         }
                     },
                     filamentButtonContent = {
-                        // Color painting already presents its own full filament
-                        // swatches. Hiding the compact header palette during that
-                        // mode avoids two competing filament rows and preserves the
-                        // selected paint color as the single visible source.
-                        if (workspaceController.activeToolId != "paint-mode" && !paintModeStarting) {
-                            key(filamentPaletteRevision) {
-                                BeamComposeTheme {
-                                    WorkspaceFilamentButton(
-                                        slots = Prefs.getFilamentSlots(),
-                                        enabled = true,
-                                        onClick = ::showWorkspaceFilamentPalette,
-                                    )
-                                }
+                        key(filamentPaletteRevision) {
+                            BeamComposeTheme {
+                                WorkspaceFilamentButton(
+                                    slots = Prefs.getFilamentSlots(),
+                                    enabled = true,
+                                    onClick = ::showWorkspaceFilamentPalette,
+                                )
                             }
                         }
                     },
