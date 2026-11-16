@@ -1,6 +1,14 @@
 # Nightly 0.8.484 — Release- und Teststand — 2026-11-16
 
-## Aktuelle Fortsetzung — Orca-Upgrade-Zyklus 39/100
+## Aktuelle Fortsetzung — Orca-Upgrade-Zyklus 40/100
+
+### Schritt 40 — Anycubic-Uploaddatei gegen die Preflight-Werkzeuge prüfen
+
+- Das G-Code-Umschreiben vergleicht nun die tatsächlich geschriebenen physischen `Tn`-Befehle mit den Werkzeugen aus dem Preflight-Routing. Bei Abweichung wird die temporäre Datei gelöscht und der Upload abgebrochen. Einzelspulenmodus bleibt ausgenommen, weil er ACE-Befehle absichtlich entfernt.
+- Neue Regression für veralteten Preflight: Debug/SliceTest `SparseAceRoutingOutputTest` jeweils **9/9**; vollständige Debug-Unit und SliceTest-Unit jeweils **812/812**, 0 Fehler/Errors/Skips.
+- Vollständige native `NativeSliceDeviceTest`-Instrumentierung am API-36-Emulator: **214/214 bestanden**, Laufzeit 774,7 s. Der zuvor historisch auffällige Spiral-Inset-Test bestand einzeln **1/1** und im Gesamtlauf.
+- `verifyNightlyChangelog` und `git diff --check` erfolgreich. Commit `fc1be4ff7a` auf Nightly `codex/ui-2.1-redesign` gepusht. Kein neuer APK-/Release-Build; Version 0.8.484 / Code 519.
+- Offen bleibt die Verifikation der echten Anycubic-Uploaddatei und live `ttg_map`; kein Hardwaredruck ausgeführt. Nächster Schritt: nächsten Android-erreichbaren Orca-/Mehrfarbenfehler gegen aktuellen Upstream und produktiven Aufrufpfad auswählen.
 
 ### Schritt 39 — Kurzer Werkzeugwechselturm bleibt frei von Luft-Extrusionen
 
