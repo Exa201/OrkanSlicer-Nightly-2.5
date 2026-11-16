@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.8.486 — Workspace-Menüs im Querformat und Dateiaktionen — 2026-11-16
+
+- Querformat: Menüaktionen liegen jetzt als kompaktes 4-Spalten-Raster unter der Druckplatte; die Platte nutzt die volle mittlere Breite.
+- Filamentzuordnung und Druckersynchronisierung bleiben im oberen Workspace-Bereich erreichbar. Auf schmalen Displays weichen die dort doppelten Schnellaktionen ins Druckmenü aus.
+- Dateiaktionen verwenden Orca-nahe Bezeichnungen: „Datei“, „Modell öffnen“, „Zuletzt verwendete Modelle“ und „3MF exportieren“.
+- Regressionstest für die Landscape-Menühöhe ergänzt; vollständige Geräteabnahme und APK-Veröffentlichung folgen nach erfolgreichem Build.
+
 ## 0.8.485 — Anycubic-Upload gegen falsches ACE-Routing abgesichert — 2026-11-16
 
 - Vor dem Upload wird geprüft, ob die tatsächlich geschriebene G-Code-Werkzeugroute mit dem Preflight übereinstimmt. Veraltete oder widersprüchliche Werkzeugdaten verwerfen die temporäre Datei und verhindern das Senden.

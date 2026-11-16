@@ -10,7 +10,7 @@ internal enum class WorkspaceDestination(
     @DrawableRes val iconRes: Int,
     @StringRes val navigationTitleRes: Int = titleRes,
 ) {
-    PROJECT(R.string.MenuProject, R.drawable.menu3d_file_import),
+    PROJECT(R.string.MenuFile, R.drawable.menu3d_file_import),
     MODEL(R.string.MenuModel, R.drawable.menu3d_objects),
     CAMERA(R.string.MenuCamera, R.drawable.menu3d_layers),
     EDIT(R.string.MenuToolbar, R.drawable.menu3d_tune, R.string.MenuToolbarNavigation),

@@ -5,6 +5,8 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.requiredSize
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
@@ -52,7 +54,7 @@ class WorkspaceModePanelHostDeviceTest {
     val compose = createComposeRule()
 
     @Test
-    fun dashboardHeaderDistributesStatusActionsAcrossAvailableWidth() {
+    fun dashboardHeaderKeepsFilamentAssignmentVisibleWhileToolPanelIsOpen() {
         compose.setContent {
             CompositionLocalProvider(
                 LocalConfiguration provides Configuration().apply {
@@ -80,6 +82,62 @@ class WorkspaceModePanelHostDeviceTest {
                             filamentButtonContent = { Text("Filament") },
                             platePickerContent = { Text("Plate") },
                             printerWebButtonContent = { Text("Connection") },
+                            modePanelContent = { Text("Other tool panel") },
+                            modePanelSize = null,
+                            modePanelDocked = true,
+                            modePanelAllowsBackgroundInteraction = false,
+                            onModePanelDismiss = {},
+                            transientPanelContent = null,
+                            snackbarController = WorkspaceSnackbarController(),
+                        )
+                    }
+                }
+            }
+        }
+
+        val actionArea = compose.onNodeWithTag("workspace-header-actions")
+            .assertIsDisplayed().fetchSemanticsNode().boundsInRoot
+        compose.onNodeWithTag("workspace-header-filament-action").assertIsDisplayed()
+        val plate = compose.onNodeWithTag("workspace-header-plate-action")
+            .assertIsDisplayed().fetchSemanticsNode().boundsInRoot
+        val connection = compose.onNodeWithTag("workspace-header-printer-action")
+            .assertIsDisplayed().fetchSemanticsNode().boundsInRoot
+        assertTrue("connection control should reach the right side of the dashboard header", connection.right >= actionArea.right - 1f)
+        assertTrue("the space between plate and connection controls should be visible", connection.left > plate.right)
+    }
+
+    @Test
+    fun landscapeMenuUsesFullWidthStripBelowTheRenderer() {
+        compose.setContent {
+            CompositionLocalProvider(
+                LocalConfiguration provides Configuration().apply {
+                    screenWidthDp = 900
+                    screenHeightDp = 600
+                },
+            ) {
+                BeamComposeTheme {
+                    Box(Modifier.requiredSize(900.dp, 600.dp)) {
+                        WorkspaceShell(
+                            portrait = false,
+                            toolPanelExpanded = true,
+                            toolPanelNeedsTwoRows = false,
+                            navigationItemCount = WorkspaceDestination.visibleNavigationDestinations.size,
+                            menuWidthDp = 240,
+                            rendererView = android.view.View(LocalContext.current),
+                            selectedNavigationSlot = WorkspaceDestination.PROJECT.ordinal,
+                            toolsExpanded = true,
+                            onNavigationSelected = {},
+                            activeMenuSlot = WorkspaceDestination.PROJECT.ordinal,
+                            menuComposeContentForSlot = {
+                                Box(Modifier.fillMaxWidth().heightIn(min = 96.dp)
+                                    .testTag("landscape-menu-test-content"))
+                            },
+                            onMenuTransitionSettled = {},
+                            projectSettingsContent = {},
+                            profileStatusContent = { Text("Printer profile") },
+                            filamentButtonContent = { Text("Filament") },
+                            platePickerContent = { Text("Plate") },
+                            printerWebButtonContent = { Text("Connection") },
                             modePanelContent = null,
                             modePanelSize = null,
                             modePanelDocked = false,
@@ -93,14 +151,12 @@ class WorkspaceModePanelHostDeviceTest {
             }
         }
 
-        val actionArea = compose.onNodeWithTag("workspace-header-actions")
+        val renderer = compose.onNodeWithTag("workspace-renderer-area")
             .assertIsDisplayed().fetchSemanticsNode().boundsInRoot
-        val plate = compose.onNodeWithTag("workspace-header-plate-action")
+        val panel = compose.onNodeWithTag("workspace-menu-panel")
             .assertIsDisplayed().fetchSemanticsNode().boundsInRoot
-        val connection = compose.onNodeWithTag("workspace-header-printer-action")
-            .assertIsDisplayed().fetchSemanticsNode().boundsInRoot
-        assertTrue("connection control should reach the right side of the dashboard header", connection.right >= actionArea.right - 1f)
-        assertTrue("the space between plate and connection controls should be visible", connection.left > plate.right)
+        assertTrue("the landscape action panel should be below the renderer", panel.top >= renderer.bottom - 1f)
+        assertTrue("the action panel should use the workspace width", panel.width >= renderer.width - 1f)
     }
 
     @Test
@@ -160,7 +216,7 @@ class WorkspaceModePanelHostDeviceTest {
     }
 
     @Test
-    fun dockedPaintPanelHidesGlobalFilamentShortcutToPreventDuplicateRows() {
+    fun dockedPaintPanelKeepsGlobalFilamentShortcutAvailable() {
         val controller = WorkspaceController()
         controller.selectToolWithPanel(
             toolId = "paint-mode",
@@ -208,7 +264,7 @@ class WorkspaceModePanelHostDeviceTest {
         }
 
         compose.onNodeWithTag("paint-filament-row").assertIsDisplayed()
-        compose.onAllNodesWithTag("global-filament-shortcut").assertCountEquals(0)
+        compose.onAllNodesWithTag("global-filament-shortcut").assertCountEquals(1)
         compose.onNodeWithTag("workspace-renderer-area").assertIsDisplayed()
 
         // Color paint can also be hosted modally on compact layouts. Its palette must
@@ -220,7 +276,7 @@ class WorkspaceModePanelHostDeviceTest {
             panelContent = { Text("Modal paint filament row", Modifier.testTag("modal-paint-filament-row")) },
         )
         compose.onNodeWithTag("modal-paint-filament-row").assertIsDisplayed()
-        compose.onAllNodesWithTag("global-filament-shortcut").assertCountEquals(0)
+        compose.onAllNodesWithTag("global-filament-shortcut").assertCountEquals(1)
     }
 
     @Test
@@ -473,7 +529,7 @@ class WorkspaceModePanelHostDeviceTest {
             }
         }
 
-        compose.onNodeWithContentDescription(context.getString(R.string.PlateNumber, "1"))
+        compose.onNodeWithContentDescription(context.getString(R.string.PlatePickerCounterDescription, 1, 1))
             .assertHeightIsAtLeast(52.dp)
         compose.onNodeWithTag("fixed-header-action").assertHeightIsEqualTo(48.dp)
     }

@@ -181,9 +181,9 @@
     <string name="FastenerBuilding">Calculating printable part …</string>
     <string name="FastenerChecking">Checking the STL file …</string>
     <string name="MakerToggleSection">Tap to expand or collapse</string>
-    <string name="MenuFile">Project</string>
+    <string name="MenuFile">File</string>
     <string name="MenuProject">Project</string>
-    <string name="MenuFileCompact">Project</string>
+    <string name="MenuFileCompact">File</string>
     <string name="MenuModel">Model</string>
     <string name="ModelMenuSelectedObjectGroup">Selection</string>
     <string name="ModelMenuSelectGroup">Select a group</string>
@@ -895,7 +895,7 @@
     <string name="MenuFileExportProfilesPrinters">Printers</string>
     <string name="MenuFileExportProfilesNoProfiles">No profiles selected.</string>
     <string name="MenuFileExportProfilesSuccess">Exported profiles successfully.</string>
-    <string name="MenuFileExport3mf">Export 3mf</string>
+    <string name="MenuFileExport3mf">Export 3MF</string>
     <string name="MenuFileExport3mfSuccess">Successfully exported project.</string>
     <string name="Project3mfExportActivePlateTitle">Export only the active plate?</string>
     <string name="Project3mfExportActivePlateMessage">The current export includes plate %1$d of %2$d only. Other plates will not be included. Full multi-plate project export is not available yet.</string>

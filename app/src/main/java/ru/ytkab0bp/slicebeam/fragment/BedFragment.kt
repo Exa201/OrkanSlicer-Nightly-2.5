@@ -2137,7 +2137,9 @@ private fun createWorkspaceContent(ctx: Context, portrait: Boolean): View {
                         check(menu is WorkspaceComposeBedMenu) {
                             "Workspace destination ${WorkspaceDestination.values()[slot]} must use Compose"
                         }
-                        WorkspaceComposeBedMenuHost(menu, portrait)
+                        // Workspace action menus use the same compact grid in
+                        // landscape; the shell keeps the renderer above this strip.
+                        WorkspaceComposeBedMenuHost(menu, true)
                     },
                     onMenuTransitionSettled = { workspaceController.updateNavigationTransitionInProgress(false) },
                     projectSettingsContent = { BeamComposeTheme { TemporaryProjectSettingsBar() } },

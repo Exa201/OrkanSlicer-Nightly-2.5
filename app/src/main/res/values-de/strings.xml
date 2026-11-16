@@ -176,9 +176,9 @@
     <string name="FastenerBuilding">Druckteil wird berechnet …</string>
     <string name="FastenerChecking">STL-Datei wird geprüft …</string>
     <string name="MakerToggleSection">Zum Auf- oder Zuklappen antippen</string>
-    <string name="MenuFile">Projekt</string>
+    <string name="MenuFile">Datei</string>
     <string name="MenuProject">Projekt</string>
-    <string name="MenuFileCompact">Projekt</string>
+    <string name="MenuFileCompact">Datei</string>
     <string name="MenuModel">Modell</string>
     <string name="ModelMenuSelectedObjectGroup">Auswahl</string>
     <string name="ModelMenuSelectGroup">Gruppe auswählen</string>
@@ -876,7 +876,7 @@
     <string name="MenuFileExportProfilesPrinters">Drucker</string>
     <string name="MenuFileExportProfilesNoProfiles">Keine Profile ausgewählt.</string>
     <string name="MenuFileExportProfilesSuccess">Profile erfolgreich exportiert.</string>
-    <string name="MenuFileExport3mf">3MF sichern</string>
+    <string name="MenuFileExport3mf">3MF exportieren</string>
     <string name="MenuFileExport3mfSuccess">Projekt erfolgreich exportiert.</string>
     <string name="Project3mfExportActivePlateTitle">Nur aktive Druckplatte exportieren?</string>
     <string name="Project3mfExportActivePlateMessage">Der aktuelle Export enthält nur Druckplatte %1$d von %2$d. Andere Druckplatten werden nicht gespeichert. Ein vollständiger Mehrplatten-Projektexport ist noch nicht verfügbar.</string>
@@ -1763,7 +1763,7 @@
     <string name="AdaptivePAModelNoMeasurements">Für Filament %1$d fehlen Adaptive-Pressure-Advance-Messwerte. Gib vor dem Drucken Kalibrierungsdaten ein.</string>
     <string name="AdaptivePAModelNoMeasurementsShort">Keine Kalibrierungsmesswerte eingegeben.</string>
     <string name="AdaptivePAModelSliceWarningContinue">Fortfahren</string>
-    <string name="RecentModelsTitle">Zuletzt verwendet</string>
+    <string name="RecentModelsTitle">Zuletzt verwendete Modelle</string>
     <string name="RecentModelsEmpty">Es sind keine zuletzt geöffneten Modelldateien vorhanden.</string>
     <string name="RecentModelsOpen">Öffnen</string>
     <string name="ModelObjectDimensionsAndPlate">%1$s × %2$s × %3$s mm · Platte %4$d/%5$d</string>

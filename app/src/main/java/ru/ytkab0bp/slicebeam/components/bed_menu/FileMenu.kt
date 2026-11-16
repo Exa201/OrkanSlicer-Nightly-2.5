@@ -279,7 +279,7 @@ class FileMenu : ListBedMenu() {
         val bed = fragment ?: return emptyList()
         wasPortrait = portrait
         return listOf(
-            BedMenuItem(R.string.WorkspaceAddModelAction, R.drawable.folder_simple_plus_outline_28)
+            BedMenuItem(R.string.MenuFileOpen, R.drawable.folder_simple_plus_outline_28)
                 .onClick(::openModel),
             BedMenuItem(R.string.RecentModelsTitle, R.drawable.clock_outline_28)
                 .onClick(::showRecentModels),

@@ -104,9 +104,10 @@ internal fun WorkspaceShell(
         portrait,
     )
     val headerWidthDp = LocalConfiguration.current.screenWidthDp
-    // Two extra 48-dp print actions must never overlap the printer/profile status.
-    // On narrow phones the filament shortcut remains available from the top Filament tab.
-    val showHeaderFilamentShortcut = headerWidthDp >= 480
+    // Keep the important assignment/sync entry visible at every width. Duplicated
+    // dashboard print shortcuts give way on compact screens; they remain in Print.
+    val showHeaderFilamentShortcut = true
+    val showHeaderPrintTools = headerWidthDp >= 560
     val headerActionWeight = when {
         headerWidthDp < 360 -> 1.85f
         headerWidthDp < 480 -> 1.4f
@@ -163,14 +164,13 @@ internal fun WorkspaceShell(
                     .testTag("workspace-header-actions"),
                 horizontalArrangement = Arrangement.SpaceBetween,
             ) {
-                // Active tools own their relevant controls and may render their own
-                // filament selector (color paint does). Suppress the global shortcut
-                // for docked and modal hosts, so both presentations cannot expose two
-                // competing filament rows during tool activation or dismissal.
-                if (modePanelContent == null && showHeaderFilamentShortcut) {
+                // Keep filament assignment/sync available from the workspace header
+                // while other tool panels are open. Color paint owns its palette and
+                // its content lambda intentionally renders no duplicate shortcut.
+                if (showHeaderFilamentShortcut) {
                     WorkspaceActionControl(filamentButtonContent, testTag = "workspace-header-filament-action")
                 }
-                if (modePanelContent == null && transientPanelContent == null) {
+                if (showHeaderPrintTools && modePanelContent == null && transientPanelContent == null) {
                     dashboardPrintToolsContent()
                 }
                 WorkspaceActionControl(
@@ -267,12 +267,6 @@ internal fun WorkspaceShell(
                 onSelected = onNavigationSelected,
             )
             Spacer(Modifier.width(1.dp).fillMaxHeight().background(background.copy(alpha = 0.35f)))
-            WorkspaceMenuHost(
-                slot = activeMenuSlot,
-                composeContentForSlot = menuComposeContentForSlot,
-                modifier = Modifier.width(menuWidthDp.dp).fillMaxHeight()
-                    .testTag("workspace-menu-panel"),
-            )
             Column(Modifier.weight(1f).fillMaxHeight()) {
                 Box(Modifier.fillMaxWidth().heightIn(min = 0.dp)) { projectSettingsContent() }
                 header(Modifier)
@@ -319,6 +313,21 @@ internal fun WorkspaceShell(
                         }
                     }
                 }
+                // In landscape the action menu belongs below the build plate. Keeping
+                // it in a full-width bottom strip leaves the renderer centered instead
+                // of squeezing it beside a tall, narrow action column.
+                WorkspaceMenuHost(
+                    slot = activeMenuSlot,
+                    composeContentForSlot = menuComposeContentForSlot,
+                    modifier = Modifier.fillMaxWidth()
+                        .heightIn(max = WorkspaceShellLayoutPolicy.landscapeMenuPanelMaxHeightDp(
+                            LocalBeamLayoutFontScale.current,
+                        ).dp)
+                        .wrapContentHeight(align = Alignment.Bottom)
+                        .clip(RoundedCornerShape(topStart = 14.dp, topEnd = 14.dp))
+                        .background(MaterialTheme.colorScheme.surface.copy(alpha = 0.97f))
+                        .testTag("workspace-menu-panel"),
+                )
             }
         }
       }
@@ -344,7 +353,7 @@ internal fun WorkspaceShell(
           toolPanelHeightDp = visibleMenuHeightDp.takeIf { it > 0 } ?: toolPanelHeightDp,
           navigationHeightDp = navigationHeightDp,
           startInsetDp = if (portrait) 8 else
-              AdaptiveNavigationPolicy.navigationRailWidthDp(LocalBeamLayoutFontScale.current) + menuWidthDp + 8,
+              AdaptiveNavigationPolicy.navigationRailWidthDp(LocalBeamLayoutFontScale.current) + 8,
       )
     }
 }
@@ -476,6 +485,11 @@ internal object WorkspaceShellLayoutPolicy {
             AdaptiveNavigationPolicy.navigationRailWidthDp(fontScale) - rendererMinimum
         return minOf(preferred, widthLimited.coerceAtLeast(minimum))
     }
+
+    /** Two action rows fit below the landscape renderer while preserving touch targets. */
+    @JvmStatic
+    fun landscapeMenuPanelMaxHeightDp(fontScale: Float): Int =
+        if (fontScale >= 1.3f) 244 else 208
 
     /** availableHeightDp is the content height after the activity's system-bar insets. */
     @JvmStatic
