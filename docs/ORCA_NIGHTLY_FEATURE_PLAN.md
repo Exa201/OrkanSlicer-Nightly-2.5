@@ -1,4 +1,4 @@
-# Aktueller Stand — Nightly 0.8.484; Upgrade-Zyklus: 40/100 geprüft — 2026-11-16
+# Aktueller Stand — Nightly 0.8.485; Upgrade-Zyklus: 41/100 geprüft — 2026-11-16
 
 ## Upstream-Abgleich — 2026-11-16
 
@@ -22,9 +22,16 @@
 9. Ergebnisse, bekannte Geräteblockaden und Commit im Ausführungsstand festhalten; nur verifizierte Android-relevante Änderungen erhöhen den 100er-Zähler.
 10. Erst bei 100/100 die vollständige Abschlussverifikation, APK-Erstellung, SHA-256, GitHub-Prerelease und aktualisierte Release-Dokumentation durchführen.
 
-Der bestätigte Orca-Upgrade-Zähler beträgt **40/100**.
+Der bestätigte Orca-Upgrade-Zähler beträgt **41/100**.
 
 ## Laufender 100-Schritte-Upgrade-Zyklus
+
+### Schritt 41/100 — Retract-after-outer-wall in PA-Kalibrierungen deaktivieren
+
+- Beim Abgleich mit Orca `82135af6ff` zeigte sich, dass Nightly den Retract-Override nur für automatische PA-Linie und Retraktions-Tower setzte. Orca deaktiviert ihn zusätzlich für PA-Pattern und PA-Tower, damit die Qualitätsoption das Kalibrierungsmodell nicht verändert.
+- Nightly setzt den Kalibrierungs-Override jetzt für PA-Pattern, PA-Tower, automatische PA-Linie und Retraktions-Tower.
+- Verifikation: ARM64 `externalNativeBuildDebug`, `verifyNightlyChangelog` und Debug-Unit-Suite erfolgreich; `NativeSliceDeviceTest#pressureAdvanceLineCalibrationUsesAssignedFilamentFlowAndVolumetricLimit` auf API-36-Emulator **1/1 bestanden**. Die vollständige Instrumentierungsabdeckung der vier Override-Modi steht noch aus.
+- Orca-Upstream wurde bis `c49e32c1e76e312838ef6c5b07bd5ec9f9d63bac` geprüft. Die Volumetric-Speed-Funktion bleibt ein späterer Kandidat: sie ändert gleichzeitig PrintConfig, Filament-/Werkzeugspalten, G-Code-Flussauflösung, Kühlung und Wipe-Tower-Pfade und lässt sich nicht direkt auf den abweichenden Android/Bambu-Fork anwenden.
 
 ### Schritt 40/100 — ACE-Werkzeugroute der tatsächlich geschriebenen Uploaddatei absichern
 
