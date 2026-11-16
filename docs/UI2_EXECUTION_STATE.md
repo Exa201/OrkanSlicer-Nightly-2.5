@@ -1,4 +1,15 @@
-# Nightly 0.8.484 — Release- und Teststand — 2026-11-16
+# Nightly 0.8.485 — Release- und Teststand — 2026-11-16
+
+## Nightly-Paket 0.8.485 — 2026-11-16
+
+- Version **0.8.485 / Code 520**, Nightly-Commit `5e177d6316`; Release-Lint und `verifyNightlyChangelog` erfolgreich: **0 Lint-Fehler, 555 Warnungen**.
+- Filamentpalette: Compose liest die External-Spool-Erfolgsmeldung und die barrierefreie Slot-Löschbeschriftung nun über lokalisierte `stringResource`-Werte. Der Formatstring für die Slotnummer erhält einen Integer. Regressionstest mit TalkBack-Beschriftungsassertion: **1/1** auf API-36-Emulator bestanden.
+- Release-APK installiert und gestartet auf API-36-Emulator; Paket meldet Code 520 / Version 0.8.485. Im erfassten Emulator-Logcat keine Fatal-Exception, ANR, Fatal-Signal oder OOM-Meldung.
+- Xiaomi-Installationsversuch wurde vom Gerät mit `INSTALL_FAILED_USER_RESTRICTED` abgebrochen; daher **kein** bestandener Xiaomi-Hardwaretest.
+- Release-APK: [OrkanSlicerNightly25_0.8.485_signed.apk](https://github.com/Exa201/OrkanSlicer-Nightly-2.5/releases/download/v0.8.485-nightly.1/OrkanSlicerNightly25_0.8.485_signed.apk), 239,850,426 Bytes, SHA-256 `0E37CB96D0D59970F43C8A8DDCCDF5CF50E964660A8C79761519CDE693BA5B73`. Signatur-Fingerprint: `6254b703f8440e375448b8ec213ef2dc63ebd6c4094ae83eb25f39c2cf426d12`.
+- Als Nightly-Prerelease veröffentlicht: [v0.8.485-nightly.1](https://github.com/Exa201/OrkanSlicer-Nightly-2.5/releases/tag/v0.8.485-nightly.1). Release-Historie nach dem Hochladen auf die fünf jüngsten Nightly-Pakete begrenzt; v0.8.461 entfernt.
+- Die vollständigen Debug-/SliceTest-Unit-Suiten (**812/812** je Suite) und native Slice-Instrumentierung (**214/214**) stammen aus der vorherigen 0.8.484-Prüfung; sie wurden für 0.8.485 nicht erneut vollständig ausgeführt.
+- Nächster Schritt: Orca-Upstream nach einer weiteren relevanten, noch fehlenden Android-Funktion durchsuchen und den 100-Punkte-Portierzyklus bei Schritt 41 fortsetzen.
 
 ## Aktuelle Fortsetzung — Orca-Upgrade-Zyklus 40/100
 
