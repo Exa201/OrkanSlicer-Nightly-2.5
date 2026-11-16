@@ -1,4 +1,6 @@
 <resources>
+    <string name="ProfileToolColumnLabel">Per-nozzle process settings</string>
+    <string name="ProfileToolColumnShared">Shared across nozzles</string>
     <string name="LargeModelPreciseSurfaceUnavailable">This tool needs an exact surface point. Simplify the model first; selecting it still works.</string>
     <string name="LargeModelSurfaceTitle">Simplify for surface tools?</string>
     <string name="LargeModelSurfaceMessage">This model has %1$d triangles. Painting and embossing need at most %2$d. Simplifying changes the model on the build plate and may remove detail; the source file stays unchanged. Open the tool again after simplification.</string>

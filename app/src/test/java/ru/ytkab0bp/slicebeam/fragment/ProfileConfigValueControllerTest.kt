@@ -65,6 +65,30 @@ class ProfileConfigValueControllerTest {
     }
 
     @Test
+    fun perNozzleEditChangesOnlyTheSelectedProcessColumn() {
+        val profile = ConfigObject().apply { put("outer_wall_speed", "42,55,61") }
+
+        ProfileConfigValueController.stageValue(
+            profileType, profile, "outer_wall_speed", ConfigOptionDef.GUIType.UNDEFINED,
+            1, "48",
+        )
+
+        assertEquals("42,48,61", ProfileSettingsRepository.pendingEntries(profileType)["outer_wall_speed"])
+        assertEquals("42", ProfileConfigValueController.valueFor(
+            profileType, profile, "outer_wall_speed", ConfigOptionDef.GUIType.UNDEFINED,
+            null, 0, ignorePending = false,
+        ))
+        assertEquals("48", ProfileConfigValueController.valueFor(
+            profileType, profile, "outer_wall_speed", ConfigOptionDef.GUIType.UNDEFINED,
+            null, 1, ignorePending = false,
+        ))
+        assertEquals("61", ProfileConfigValueController.valueFor(
+            profileType, profile, "outer_wall_speed", ConfigOptionDef.GUIType.UNDEFINED,
+            null, 2, ignorePending = false,
+        ))
+    }
+
+    @Test
     fun stagesMultipleIndexedEditsWithoutDiscardingEarlierChanges() {
         val profile = ConfigObject().apply { put("nozzle_diameter", "0.4,0.6") }
 

@@ -5,6 +5,7 @@ import ru.ytkab0bp.slicebeam.R
 import ru.ytkab0bp.slicebeam.SliceBeam
 import ru.ytkab0bp.slicebeam.config.ConfigObject
 import ru.ytkab0bp.slicebeam.config.ProfileSettingsRepository
+import ru.ytkab0bp.slicebeam.config.ProcessExtruderVariantPolicy
 import ru.ytkab0bp.slicebeam.slic3r.PrintConfigDef
 import ru.ytkab0bp.slicebeam.slic3r.Slic3rUtils
 
@@ -14,6 +15,7 @@ class PrintConfigFragment : ProfileListFragment() {
     private var lastPrinter: String? = null
     private var lastUid = 0
     private var currentConfig: ConfigObject? = null
+    private var selectedToolColumnIndex: Int = -1
 
     override fun getProfileListType(): Int = ConfigObject.PROFILE_LIST_PRINT
 
@@ -94,6 +96,33 @@ class PrintConfigFragment : ProfileListFragment() {
 
     internal fun currentSettingValue(key: String): String = optionValue(key)
 
+    internal fun selectedToolColumnIndex(): Int = selectedToolColumnIndex
+
+    internal fun toolColumnSelector(): ProfileOptionElement? {
+        val ids = ProfileSettingsRepository.valueFor(
+            getProfileListType(), requireNotNull(currentConfig), "print_extruder_id", true,
+        )?.split(',')?.map(String::trim).orEmpty()
+        val variants = ProfileSettingsRepository.valueFor(
+            getProfileListType(), requireNotNull(currentConfig), "print_extruder_variant", true,
+        )?.let(ru.ytkab0bp.slicebeam.config.ProfileStringVectorCodec::parse).orEmpty()
+        if (ids.size < 2 || ids.size != variants.size) {
+            selectedToolColumnIndex = -1
+            return null
+        }
+        if (selectedToolColumnIndex !in ids.indices) selectedToolColumnIndex = -1
+        val columns = ids.indices.map { index ->
+            val tool = (ids[index].toIntOrNull() ?: 1).coerceAtLeast(1) - 1
+            val variant = variants[index].takeIf(String::isNotBlank)
+            val label = if (variant == null) "T$tool" else "T$tool · $variant"
+            label
+        }
+        val selected = selectedToolColumnIndex
+        return ProfileOptionElement(ProfileToolColumnSelector(selected, columns) { index ->
+            selectedToolColumnIndex = index
+            onUpdateConfigItems()
+        })
+    }
+
     internal fun refreshConditionalSettings() = onUpdateConfigItems()
 
     override fun cloneCurrentProfile() {
@@ -171,14 +200,35 @@ class PrintConfigFragment : ProfileListFragment() {
     }
 
     override fun onResetConfig() {
+        selectedToolColumnIndex = -1
         val profile = SliceBeam.requireConfig().findPrint(SliceBeam.requireConfig().presets!!.get("print"))
         if (profile != null) {
             currentConfig = ConfigObject(profile)
+            expandProcessColumnsForAvailablePrinter(currentConfig!!)
         } else {
             val custom = ConfigObject(SliceBeam.requireInstance().getString(R.string.IntroCustomProfileName))
             currentConfig = custom
             SliceBeam.requireConfig().printConfigs.add(ConfigObject(custom))
             saveConfigOrNotify()
+        }
+    }
+
+    private fun expandProcessColumnsForAvailablePrinter(profile: ConfigObject) {
+        val config = SliceBeam.requireConfig()
+        val printer = config.findPrinter(config.presets?.get("printer")) ?: return
+        val variantsByTool = ru.ytkab0bp.slicebeam.config.ProfileStringVectorCodec
+            .parse(printer.get("extruder_variant_list").orEmpty()) ?: return
+        val perNozzleKeys = PrintConfigDef.getInstance().options.values.asSequence()
+            .filter { it.perNozzle }
+            .map { it.key }
+            .filter { it != "print_extruder_id" && it != "print_extruder_variant" }
+            .toSet()
+        val expanded = ProcessExtruderVariantPolicy.addMissingToolColumns(
+            profile.values.toMap(), variantsByTool, perNozzleKeys,
+        )
+        if (expanded != profile.values) {
+            profile.values.clear()
+            profile.values.putAll(expanded)
         }
     }
 

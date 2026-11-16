@@ -8517,34 +8517,53 @@ const PrintConfigDef print_config_def;
 
 //todo
 std::set<std::string> print_options_with_variant = {
-    //"initial_layer_speed",
-    //"initial_layer_infill_speed",
-    //"outer_wall_speed",
-    //"inner_wall_speed",
-    //"small_perimeter_speed",  //coFloatsOrPercents
-    //"small_perimeter_threshold",
-    //"sparse_infill_speed",
-    //"internal_solid_infill_speed",
-    //"top_surface_speed",
-    //"enable_overhang_speed", //coBools
-    //"overhang_1_4_speed",
-    //"overhang_2_4_speed",
-    //"overhang_3_4_speed",
-    //"overhang_4_4_speed",
-    //"bridge_speed",
-    //"gap_infill_speed",
-    //"support_speed",
-    //"support_interface_speed",
-    //"travel_speed",
-    //"travel_speed_z",
-    //"default_acceleration",
-    //"initial_layer_acceleration",
-    //"outer_wall_acceleration",
-    //"inner_wall_acceleration",
-    //"sparse_infill_acceleration", //coFloatsOrPercents
-    //"top_surface_acceleration",
+    "initial_layer_speed",
+    "initial_layer_infill_speed",
+    "outer_wall_speed",
+    "inner_wall_speed",
+    "small_perimeter_speed",  //coFloatsOrPercents
+    "small_perimeter_threshold",
+    "small_support_perimeter_speed",  //coFloatsOrPercents
+    "small_support_perimeter_threshold",
+    "sparse_infill_speed",
+    "internal_solid_infill_speed",
+    "top_surface_speed",
+    "enable_overhang_speed", //coBools
+    "overhang_1_4_speed",
+    "overhang_2_4_speed",
+    "overhang_3_4_speed",
+    "overhang_4_4_speed",
+    "slowdown_for_curled_perimeters",
+    "bridge_speed",
+    "internal_bridge_speed",
+    "gap_infill_speed",
+    "support_speed",
+    "support_interface_speed",
+    "travel_speed",
+    "travel_speed_z",
+    "initial_layer_travel_speed",
+    "default_acceleration",
+    "bridge_acceleration",
+    "travel_acceleration",
+    "initial_layer_travel_acceleration",
+    "initial_layer_acceleration",
+    "outer_wall_acceleration",
+    "inner_wall_acceleration",
+    "sparse_infill_acceleration", //coFloatsOrPercents
+    "internal_solid_infill_acceleration", //coFloatsOrPercents
+    "top_surface_acceleration",
+    "default_jerk",
+    "outer_wall_jerk",
+    "inner_wall_jerk",
+    "infill_jerk",
+    "top_surface_jerk",
+    "initial_layer_jerk",
+    "travel_jerk",
+    "initial_layer_travel_jerk",
+    "default_junction_deviation",
     "print_extruder_id", //coInts
-    "print_extruder_variant" //coStrings
+    "print_extruder_variant", //coStrings
+    "top_solid_infill_flow_ratio"
 };
 
 std::set<std::string> filament_options_with_variant = {

@@ -965,6 +965,7 @@ extern "C" {
         jfieldID multilineField = env->GetFieldID(configOptionDefClass, "multiline", "Z");
         jfieldID fullWidthField = env->GetFieldID(configOptionDefClass, "fullWidth", "Z");
         jfieldID readonlyField = env->GetFieldID(configOptionDefClass, "readonly", "Z");
+        jfieldID perNozzleField = env->GetFieldID(configOptionDefClass, "perNozzle", "Z");
         jfieldID nullableField = env->GetFieldID(configOptionDefClass, "nullable", "Z");
         jfieldID heightField = env->GetFieldID(configOptionDefClass, "height", "I");
         jfieldID widthField = env->GetFieldID(configOptionDefClass, "width", "I");
@@ -1145,6 +1146,7 @@ extern "C" {
             env->SetBooleanField(cfgDef, multilineField, nCfgDef->multiline);
             env->SetBooleanField(cfgDef, fullWidthField, nCfgDef->full_width);
             env->SetBooleanField(cfgDef, readonlyField, nCfgDef->readonly);
+            env->SetBooleanField(cfgDef, perNozzleField, print_options_with_variant.count(key) > 0);
             env->SetBooleanField(cfgDef, nullableField, nCfgDef->nullable);
             env->SetIntField(cfgDef, heightField, nCfgDef->height);
             env->SetIntField(cfgDef, widthField, nCfgDef->width);

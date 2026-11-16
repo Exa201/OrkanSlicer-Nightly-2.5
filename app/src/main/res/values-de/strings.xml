@@ -1,5 +1,7 @@
 <?xml version='1.0' encoding='utf-8'?>
 <resources>
+    <string name="ProfileToolColumnLabel">Pro-Düse-Druckwerte</string>
+    <string name="ProfileToolColumnShared">Für alle Düsen gemeinsam</string>
     <string name="StepImportTitle">STEP-Datei importieren</string>
     <string name="StepImportDescription">STEP-Geometrie wird vor dem Laden in ein Dreiecksnetz umgewandelt. Kleinere Abweichungswerte erhalten mehr Details, benötigen aber mehr Zeit und Speicher.</string>
     <string name="StepLinearDeflection">Lineare Abweichung (mm)</string>

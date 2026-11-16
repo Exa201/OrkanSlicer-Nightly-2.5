@@ -16,6 +16,7 @@ object OrcaPrintSettingsBuilder {
         val definition = PrintConfigDef.getInstance()
         val addedKeys = HashSet<String>()
         val items = ArrayList<ProfileOptionElement>()
+        fragment.toolColumnSelector()?.let(items::add)
         val showLightningOptions = OrcaConditionalSettingsPolicy.showLightningOptions(
             fragment.currentSettingValue("sparse_infill_density"),
             fragment.currentSettingValue("sparse_infill_pattern"),
@@ -57,7 +58,7 @@ object OrcaPrintSettingsBuilder {
                     val visibilityDependency = key == "sparse_infill_density" || key == "sparse_infill_pattern"
                     items.add(fragment.createOptionElement(
                         option,
-                        -1,
+                        if (option.perNozzle) fragment.selectedToolColumnIndex() else -1,
                         if (visibilityDependency) Runnable { fragment.refreshConditionalSettings() } else null,
                     ))
                 }

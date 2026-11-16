@@ -1,4 +1,4 @@
-# Aktueller Stand — Nightly 0.8.484; Upgrade-Zyklus: 37/100 geprüft — 2026-11-16
+# Aktueller Stand — Nightly 0.8.484; Upgrade-Zyklus: 38/100 geprüft — 2026-11-16
 
 ## Upstream-Abgleich — 2026-11-16
 
@@ -6,7 +6,7 @@
 - Die jüngsten Commits im Vorlauf zu `59acdedd06` (`4b161be150`, `87fb987668` und Installer-/Plattformcommits) bringen keine weitere übertragbare Android-Core-Änderung. `4b161be150` ist ein Wayland-AMS-Popup-Fix; `87fb987668` ändert ausschließlich den Desktop-Mess-Gizmo.
 - Relevante kurz zuvor gelandete Änderungen wurden gegen den Nightly-Quellcode geprüft: Orca `87cf1429ca` (mehrere Tree-Support-Überhänge pro Cluster/Schicht), `3538f239c2` (Mehrfarben-Brückenanker), `ea80024735` (Werkzeugbefehl vor Filament-Start-G-Code) und `fabad6114a` (keine fremde Filamentprofil-Zuordnung bei unbekanntem Material) sind im Nightly bereits umgesetzt. Diese werden nicht erneut portiert oder doppelt gezählt.
 - `NativeSliceDeviceTest#treeSupportsKeepEveryOverhangThatJoinsAClusterOnTheSameLayer` wurde auf API 36 erneut ausgeführt und bestand **1/1**. Gradle startete danach zusätzlich den angeschlossenen Xiaomi-Lauf; Android blockierte die Testinstallation (`INSTALL_FAILED_USER_RESTRICTED`). Das Xiaomi-Ergebnis ist daher **nicht getestet**, der Gesamt-Gradle-Task meldete entsprechend Fehler trotz bestandenem Emulatorlauf.
-- Nächster Kandidat zur Umsetzung: Orca `34de2b49df` ergänzt pro-Düse-Druckprofile beim Toolchanger um fehlende Werkzeug-/Varianten-Spalten und kopiert passende Werte. Der Android-Kern hat keinen `add_process_columns_for_new_tools`-Helper und die Compose-Druckprofilseite bietet derzeit keinen Werkzeugspalten-Schalter/Kopierdialog. Daher wäre ein sinnvoller Android-Port eine kompakte Werkzeugspalten-Auswahl in der bestehenden Druckprofilseite plus dieselbe getestete Kernlogik, nicht ein ungenutzter Desktop-Dialog-Port. Dieser ist die nächste zu untersuchende Funktion; er wird erst gezählt, wenn Auswahl, Bearbeiten, Slice-Übernahme und Abbruch/Zurück regressionsgeprüft sind.
+- Orca `34de2b49df` wurde auf Android portiert: pro-Düse-Prozesswerte sind in der nativen Options-Metadatenliste aktiv, vorhandene Mehrspaltenprofile ergänzen fehlende Werkzeug-/Varianten-Spalten mit passenden Ausgangswerten, und die Druckprofilseite besitzt einen T0…Tn-/„Gemeinsam“-Schalter. Der Schalter übergibt beim Bearbeiten den echten Orca-Spaltenindex an die bestehende Options-/Profilbearbeitung. Die Compose-Auswahl und JNI-Metadaten sind durch API-36-Instrumentierung abgedeckt; gezielte Policy-/Profilwerttests und der ARM64-Native-Build bestanden. Das zählt als Schritt 38/100. Änderungen werden erst durch „Speichern“ des Profils übernommen; die Spaltenauswahl selbst verändert keinen Profilwert.
 
 ## Upgrade-Arbeitsplan
 
@@ -21,9 +21,17 @@
 9. Ergebnisse, bekannte Geräteblockaden und Commit im Ausführungsstand festhalten; nur verifizierte Android-relevante Änderungen erhöhen den 100er-Zähler.
 10. Erst bei 100/100 die vollständige Abschlussverifikation, APK-Erstellung, SHA-256, GitHub-Prerelease und aktualisierte Release-Dokumentation durchführen.
 
-Der bestätigte Orca-Upgrade-Zähler bleibt **37/100**: dieser Abgleich fand keine neue unportierte Änderung, die bereits als abgeschlossener Schritt zählen dürfte.
+Der bestätigte Orca-Upgrade-Zähler beträgt **38/100**.
 
 ## Laufender 100-Schritte-Upgrade-Zyklus
+
+### Schritt 38/100 — Per-Düse-Druckwerte und Varianten-Spalten auswählen
+
+- Orca-Upstream `34de2b49df` (per-nozzle process settings und fehlende Werkzeug-/Varianten-Spalten) auf Android integriert. Native `print_options_with_variant`-Metadaten aktivieren die Orca-Optionen für Geschwindigkeit, Beschleunigung, Ruck, Überhang und weitere Prozesswerte. JNI stellt die Eigenschaft `perNozzle` den Compose-Profilzeilen bereit.
+- Druckprofile mit mindestens zwei bereits vorhandenen Spalten ergänzen auf Basis der aktiven Drucker-Varianten fehlende Werkzeugspalten. Werte werden von derselben Variante an Werkzeug 1 kopiert, sonst vom ersten Profilfeld; gemeinsame Optionen und Ein-Spaltenprofile bleiben unverändert.
+- Die Druckprofilseite bietet für Mehrspaltenprofile eine barrierefrei beschriftete Auswahl „Gemeinsam“ oder T0…Tn. Nur Optionen, die Orca als per-Düse markiert, lesen/schreiben anschließend den ausgewählten Spaltenindex. Das Speichern/Abbrechen bleibt im bestehenden Profil-Lifecycle.
+- Verifikation: `ProcessExtruderVariantPolicyTest` und `ProfileConfigValueControllerTest` bestanden; ARM64 `externalNativeBuildDebug` erfolgreich; `compileSliceTestAndroidTestKotlin` und APK/Test-APK-Build erfolgreich. `PerNozzleProcessSchemaDeviceTest` auf API-36-Emulator **2/2 bestanden** (nativer Optionsschema-Test + tatsächliche Compose-Auswahl Gemeinsam → T1). Xiaomi-Installation/Test wurde von Android mit `INSTALL_FAILED_USER_RESTRICTED` blockiert und zählt nicht als bestanden.
+- Kein Release/APK veröffentlicht. Nächster Schritt: weiteren Orca-Nightly-Kandidaten gegen den Android-Port abgleichen und eine konkrete Regression für das nächste fehlende Slice-/Profilverhalten auswählen.
 
 ### Schritt 37/100 — Bemalung bleibt nach Boolean-Operationen slicebar
 

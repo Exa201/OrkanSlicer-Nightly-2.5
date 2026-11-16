@@ -27,6 +27,8 @@ class ConfigOptionDef @Keep constructor() {
     @JvmField var multiline: Boolean = false
     @JvmField var fullWidth: Boolean = false
     @JvmField var readonly: Boolean = false
+    /** Orca marks process options whose vector entries belong to individual tool/variant columns. */
+    @JvmField var perNozzle: Boolean = false
     @JvmField var nullable: Boolean = false
     @JvmField var height: Int = -1
     @JvmField var width: Int = -1
