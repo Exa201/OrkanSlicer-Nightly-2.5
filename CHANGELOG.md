@@ -5,7 +5,7 @@
 - Querformat: Menüaktionen liegen jetzt als kompaktes 4-Spalten-Raster unter der Druckplatte; die Platte nutzt die volle mittlere Breite.
 - Filamentzuordnung und Druckersynchronisierung bleiben im oberen Workspace-Bereich erreichbar. Auf schmalen Displays weichen die dort doppelten Schnellaktionen ins Druckmenü aus.
 - Dateiaktionen verwenden Orca-nahe Bezeichnungen: „Datei“, „Modell öffnen“, „Zuletzt verwendete Modelle“ und „3MF exportieren“.
-- Regressionstest für die Landscape-Menühöhe ergänzt; vollständige Geräteabnahme und APK-Veröffentlichung folgen nach erfolgreichem Build.
+- Verifiziert: Debug-Unit **813/813**, SliceTest-Unit **813/813**, Workspace-/Layout-Instrumentierung auf API 36 **11/11**. Debug-APK gebaut, signiert, auf dem API-36-Emulator installiert und gestartet.
 
 ## 0.8.485 — Anycubic-Upload gegen falsches ACE-Routing abgesichert — 2026-11-16
 

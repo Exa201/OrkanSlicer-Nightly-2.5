@@ -1,5 +1,13 @@
 # Nightly 0.8.485 — Release- und Teststand — 2026-11-16
 
+## Aktueller Workspace-Stand — Nightly 0.8.486 — 2026-11-16
+
+- Menübezeichnungen auf Orca-nahe Dateiaktionen umgestellt. Filamentzuordnung und Synchronisierung bleiben im Kopfbereich erreichbar; doppelte Druck-Schnellaktionen werden auf schmalen Displays im Druckmenü angeboten.
+- Querformataktionen als vier-spaltiges Raster unter dem Renderer; die Druckplatte erhält die volle mittlere Bildschirmbreite.
+- Debug-Unit **813/813**, SliceTest-Unit **813/813**, gezielte API-36-Compose-/Layout-Instrumentierung **11/11**. Debug-APK erfolgreich gebaut, Nightly-Signatur geprüft und auf API 36 installiert/gestartet.
+- Version **0.8.486 / Code 521**, Paket `com.exa201.orkanslicer.nightly25`, Branch `codex/ui-2.1-redesign`. Hardwaretest auf Xiaomi/HONOR für diese Änderung nicht ausgeführt.
+- Nächster Schritt: Nightly-Prerelease und Asset-SHA-256 verifizieren; danach Orca-Kern-Portierzyklus bei Schritt **41/100** fortsetzen.
+
 ## Fortsetzung Orca-Kern — Schritt 41/100 — 2026-11-16
 
 - Orca `82135af6ff` aktualisiert den Override für Retract nach Außenwänden: PA-Pattern und PA-Tower deaktivieren die Qualitätsoption nun wie automatische PA-Linie und Retraktions-Tower während der Kalibrierung.

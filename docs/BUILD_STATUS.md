@@ -62,6 +62,14 @@
 - Retained the newest five Nightly prereleases: 0.8.442 through 0.8.438; removed 0.8.437 and its tag.
 # Build Status
 
+## OrkanSlicer Nightly 2.5 — Workspace-Menüs und Filamentzugriff — 2026-11-16 — 0.8.486
+
+- Version **0.8.486 / Code 521**, Paket `com.exa201.orkanslicer.nightly25`, Branch `codex/ui-2.1-redesign`.
+- Orca-nahe Dateiaktionen: „Datei“, „Modell öffnen“, „Zuletzt verwendete Modelle“ und „3MF exportieren“. Filamentzuordnung/-synchronisierung bleibt im Workspace-Header sichtbar; doppelte Druck-Schnellaktionen weichen auf schmalen Geräten in das Druckmenü aus. Im Querformat sitzt das vier-spaltige Aktionsmenü unter dem Renderer, sodass die Druckplatte die mittlere Breite erhält.
+- Verifikation: Debug-Unit **813/813**, SliceTest-Unit **813/813**, API-36-Workspace-Instrumentierung **11/11**. Debug-APK-Build erfolgreich; Paketmanager bestätigt Version 0.8.486 / Code 521 nach Emulatorinstallation und Start.
+- Signierte APK: `outputs/OrkanSlicerNightly25_0.8.486/OrkanSlicerNightly25_0.8.486_signed.apk`. Der API-36-Emulator wurde verwendet; Xiaomi/HONOR wurden für diese Änderung nicht geprüft.
+- GitHub-Prerelease und SHA-256 werden nach dem Upload hier ergänzt.
+
 ## Nightly 2.5 Arrange action verification — 2026-11-06 — 0.8.447
 
 - Release [`v0.8.447-nightly.1`](https://github.com/Exa201/OrkanSlicer-Nightly-2.5/releases/tag/v0.8.447-nightly.1), source commit `e2ed9672519a815b4d3c7be031516fe0c26b4ad3`; app 0.8.447/code 482, package `com.exa201.orkanslicer.nightly25`.
