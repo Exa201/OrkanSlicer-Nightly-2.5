@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.8.485 — Anycubic-Upload gegen falsches ACE-Routing abgesichert — 2026-11-16
+
+- Vor dem Upload wird geprüft, ob die tatsächlich geschriebene G-Code-Werkzeugroute mit dem Preflight übereinstimmt. Veraltete oder widersprüchliche Werkzeugdaten verwerfen die temporäre Datei und verhindern das Senden.
+- Einzelspulenmodus bleibt unverändert; dort werden ACE-Werkzeugbefehle absichtlich entfernt.
+- Verifiziert: Debug- und SliceTest-Unit jeweils 812/812; API-36-NativeSlice-Instrumentierung 214/214.
+
 ## 0.8.484 — Flachlegen und ACE-Werkzeugzuordnung — 2026-11-16
 
 - Flachlegen dreht ein zusammengesetztes Objekt um einen gemeinsamen lokalen Pivot; verschobene, rotierte und skalierte Instanzen behalten Lage und Abstände ihrer Teile.
