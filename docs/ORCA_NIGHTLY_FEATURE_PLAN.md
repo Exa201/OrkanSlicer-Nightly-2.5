@@ -30,7 +30,7 @@ Der bestätigte Orca-Upgrade-Zähler beträgt **41/100**.
 
 - Beim Abgleich mit Orca `82135af6ff` zeigte sich, dass Nightly den Retract-Override nur für automatische PA-Linie und Retraktions-Tower setzte. Orca deaktiviert ihn zusätzlich für PA-Pattern und PA-Tower, damit die Qualitätsoption das Kalibrierungsmodell nicht verändert.
 - Nightly setzt den Kalibrierungs-Override jetzt für PA-Pattern, PA-Tower, automatische PA-Linie und Retraktions-Tower.
-- Verifikation: ARM64 `externalNativeBuildDebug`, `verifyNightlyChangelog` und Debug-Unit-Suite erfolgreich; `NativeSliceDeviceTest#pressureAdvanceLineCalibrationUsesAssignedFilamentFlowAndVolumetricLimit` auf API-36-Emulator **1/1 bestanden**. Die vollständige Instrumentierungsabdeckung der vier Override-Modi steht noch aus.
+- Verifikation: ARM64 `externalNativeBuildDebug`, `verifyNightlyChangelog` und Debug-Unit-Suite erfolgreich; `NativeSliceDeviceTest#pressureAdvanceLineCalibrationUsesAssignedFilamentFlowAndVolumetricLimit` und `NativeSliceDeviceTest#paAndRetractionCalibrationModesIgnoreRetractAfterOuterWallSetting` auf API-36-Emulator bestanden. Die neue Regression slicet alle vier Modi bei aktivierter und deaktivierter Option und vergleicht die erzeugten Rückzugsbefehle.
 - Orca-Upstream wurde bis `c49e32c1e76e312838ef6c5b07bd5ec9f9d63bac` geprüft. Die Volumetric-Speed-Funktion bleibt ein späterer Kandidat: sie ändert gleichzeitig PrintConfig, Filament-/Werkzeugspalten, G-Code-Flussauflösung, Kühlung und Wipe-Tower-Pfade und lässt sich nicht direkt auf den abweichenden Android/Bambu-Fork anwenden.
 
 ### Schritt 40/100 — ACE-Werkzeugroute der tatsächlich geschriebenen Uploaddatei absichern

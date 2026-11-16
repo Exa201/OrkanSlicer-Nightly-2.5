@@ -4365,6 +4365,63 @@ class NativeSliceDeviceTest {
         }
     }
 
+    @Test(timeout = 360_000)
+    fun paAndRetractionCalibrationModesIgnoreRetractAfterOuterWallSetting() = withKobraProfile {
+        val context = InstrumentationRegistry.getInstrumentation().targetContext
+        val source = copyCube(context, "orca25-calibration-retract-override.stl")
+        val model = Model(source)
+        val process = requireNotNull(SliceBeam.CONFIG?.findPrint("0.16mm Standard"))
+        val previous = process.get("retract_after_outer_wall")
+        val output = File(context.cacheDir, "orca25-calibration-retract-override.gcode")
+        val calibrationModes = listOf(
+            Triple(2, 0.0, 0.02) to 0.002, // PA pattern
+            Triple(3, 0.0, 0.02) to 0.002, // PA tower
+            Triple(4, 0.0, 0.02) to 0.002, // automatic PA line
+            Triple(9, 0.1, 3.0) to 0.2,   // retraction tower
+        )
+        val retractCommands = Regex("(?m)^G1[^\\r\\n]*\\bE-\\d+(?:\\.\\d+)?(?:\\s|$)")
+
+        fun slice(mode: Int, start: Double, end: Double, step: Double, enabled: Boolean): List<String> {
+            process.put("retract_after_outer_wall", if (enabled) "1" else "0")
+            SliceBeam.genCurrentConfig(model)
+            val result = model.slice(
+                SliceBeam.getCurrentConfigFile().absolutePath,
+                output.absolutePath,
+                null,
+                mode,
+                start,
+                end,
+                step,
+            )
+            return try {
+                assertTrue("calibration mode $mode must produce G-code", output.isFile && output.length() > 0L)
+                retractCommands.findAll(output.readText()).map { it.value }.toList()
+            } finally {
+                result.release()
+            }
+        }
+
+        try {
+            calibrationModes.forEach { (modeRange, step) ->
+                val (mode, start, end) = modeRange
+                val withOption = slice(mode, start, end, step, enabled = true)
+                val withoutOption = slice(mode, start, end, step, enabled = false)
+                assertEquals(
+                    "calibration mode $mode must use its calibration override, independent of the saved print option",
+                    withoutOption,
+                    withOption,
+                )
+            }
+        } finally {
+            if (previous == null) process.remove("retract_after_outer_wall")
+            else process.put("retract_after_outer_wall", previous)
+            model.release()
+            source.delete()
+            output.delete()
+            SliceBeam.getCurrentConfigFile().delete()
+        }
+    }
+
     @Test
     fun objectTooThinForAnyLayerWithRaftOrPreciseZReportsSlicingErrorInsteadOfCrashing() = withKobraProfile {
         val context = InstrumentationRegistry.getInstrumentation().targetContext

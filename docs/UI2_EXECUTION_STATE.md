@@ -4,9 +4,9 @@
 
 - Orca `82135af6ff` aktualisiert den Override für Retract nach Außenwänden: PA-Pattern und PA-Tower deaktivieren die Qualitätsoption nun wie automatische PA-Linie und Retraktions-Tower während der Kalibrierung.
 - Verifikation erfolgreich: ARM64-Native-Build, Debug-Unit-Suite, `verifyNightlyChangelog`, Test-APK-Build; `NativeSliceDeviceTest#pressureAdvanceLineCalibrationUsesAssignedFilamentFlowAndVolumetricLimit` auf API-36-Emulator **1/1**.
-- Die zusätzliche Instrumentierungsabdeckung für PA-Pattern, PA-Tower, automatische PA-Linie und Retraktions-Tower ist noch offen. Xiaomi und Emulator sind per ADB sichtbar; das Honor wird wegen der früheren Gerätesperre nicht verwendet.
+- `NativeSliceDeviceTest#paAndRetractionCalibrationModesIgnoreRetractAfterOuterWallSetting` ergänzt und auf API-36 bestanden: PA-Pattern, PA-Tower, automatische PA-Linie und Retraktions-Tower wurden jeweils mit ein- und ausgeschalteter Option gesliced; die erzeugten Rückzugsbefehle stimmten pro Modus überein. Xiaomi und Emulator sind per ADB sichtbar; das Honor wird wegen der früheren Gerätesperre nicht verwendet.
 - Aktuelle freigegebene Nightly bleibt 0.8.485; für diesen Zwischenstand wurde kein weiteres APK/Release gebaut. Upgrade-Zyklus **41/100**.
-- Nächster Schritt: für die vier Kalibrierungsmodi einen gezielten G-Code-Test ergänzen und anschließend den nächsten fehlenden Android-Core-Fix aus dem Orca-Upstream auswählen.
+- Nächster Schritt: nächsten noch fehlenden Orca-Core-Fix auswählen und durch einen reproduzierbaren Slice-/G-Code-Fall abdecken.
 
 ## Nightly-Paket 0.8.485 — 2026-11-16
 
