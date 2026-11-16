@@ -45,7 +45,6 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.platform.LocalConfiguration
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.platform.testTag
@@ -131,7 +130,6 @@ class FilamentPaletteController(private val onPaletteChanged: () -> Unit = {}) {
         onDismiss: () -> Unit,
         onSyncFilaments: ((MmuFilamentSync.Callback) -> Unit)?,
     ) {
-        val context = LocalContext.current
         val screenHeight = LocalConfiguration.current.screenHeightDp.dp
         val snapshots = remember(paletteRevision) { slots.map { PaletteSlotSnapshot(it.color, it.type) } }
         val materialCount = snapshots.count { !it.type.isNullOrBlank() }
@@ -140,10 +138,11 @@ class FilamentPaletteController(private val onPaletteChanged: () -> Unit = {}) {
         var isSyncing by remember(printerTitle) { mutableStateOf(false) }
         var syncUpdated by remember(printerTitle) { mutableIntStateOf(-1) }
         var syncError by remember(printerTitle) { mutableStateOf<String?>(null) }
-        var syncSuccessMessage by remember(printerTitle) { mutableStateOf<String?>(null) }
+        var syncSuccessMaterial by remember(printerTitle) { mutableStateOf<String?>(null) }
         var pendingDeleteIndex by remember { mutableIntStateOf(-1) }
-        val syncMessage = syncError ?: syncSuccessMessage ?: if (syncUpdated >= 0)
-            stringResource(R.string.MmuSyncSuccess, syncUpdated) else null
+        val syncMessage = syncError ?: syncSuccessMaterial?.let {
+            stringResource(R.string.MmuExternalSpoolSyncSuccess, it)
+        } ?: if (syncUpdated >= 0) stringResource(R.string.MmuSyncSuccess, syncUpdated) else null
         val syncDescription = stringResource(R.string.MmuSyncDescription)
         val canSync = onSyncFilaments != null && !printer?.get("print_host").isNullOrBlank()
         val selectedGates = remember(paletteRevision, printerTitle) {
@@ -190,7 +189,7 @@ class FilamentPaletteController(private val onPaletteChanged: () -> Unit = {}) {
                         isSyncing = true
                         syncUpdated = -1
                         syncError = null
-                        syncSuccessMessage = null
+                        syncSuccessMaterial = null
                         onSyncFilaments?.invoke(MmuFilamentSync.Callback { updated, error ->
                             isSyncing = false
                             if (error == null) {
@@ -198,7 +197,7 @@ class FilamentPaletteController(private val onPaletteChanged: () -> Unit = {}) {
                                 onPaletteChanged()
                                 if (MmuFilamentSync.externalSpoolReady(printerTitle)) {
                                     val material = slots.firstOrNull { !it.type.isNullOrBlank() }?.type.orEmpty()
-                                    syncSuccessMessage = context.getString(R.string.MmuExternalSpoolSyncSuccess, material)
+                                    syncSuccessMaterial = material
                                 } else {
                                     syncUpdated = updated
                                 }
@@ -245,6 +244,7 @@ class FilamentPaletteController(private val onPaletteChanged: () -> Unit = {}) {
                     val description = stringResource(R.string.FilamentPaletteSlotDescription, index, material)
                     val colorHex = String.format(Locale.ROOT, "#%06X", slot.color and 0x00FFFFFF)
                     val colorDescription = stringResource(R.string.FilamentPaletteColorDescription, colorHex)
+                    val deleteDescription = stringResource(R.string.FilamentPaletteDeleteDescription, index + 1)
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
@@ -292,10 +292,7 @@ class FilamentPaletteController(private val onPaletteChanged: () -> Unit = {}) {
                                     .size(OrkanUiTokens.touchTarget)
                                     .testTag("filament-slot-delete-$index")
                                     .semantics {
-                                        contentDescription = context.getString(
-                                            R.string.FilamentPaletteDeleteDescription,
-                                            index + 1,
-                                        )
+                                        contentDescription = deleteDescription
                                     },
                             ) {
                                 Icon(

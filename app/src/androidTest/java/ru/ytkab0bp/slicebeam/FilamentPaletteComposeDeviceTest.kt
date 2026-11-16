@@ -210,7 +210,13 @@ class FilamentPaletteComposeDeviceTest {
         }
 
         try {
-            compose.onNodeWithTag("filament-slot-delete-0").assertIsDisplayed().performClick()
+            compose.onNodeWithTag("filament-slot-delete-0")
+                .assertIsDisplayed()
+                .assert(SemanticsMatcher.expectValue(
+                    SemanticsProperties.ContentDescription,
+                    listOf(context.getString(R.string.FilamentPaletteDeleteDescription, 1)),
+                ))
+                .performClick()
             compose.onNodeWithText(context.getString(R.string.FilamentPaletteDeleteConfirm, 1)).assertIsDisplayed()
             compose.onNodeWithTag("filament-slot-delete-confirm").performClick()
             compose.onNodeWithText(context.getString(R.string.WorkspaceFilamentPaletteCount, 1)).assertIsDisplayed()
