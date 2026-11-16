@@ -103,6 +103,34 @@ class SparseAceRoutingOutputTest {
         }
     }
 
+    @Test fun rewriteRejectsAStalePreflightScanThatWouldRouteTheWrongAceTool() {
+        val scannedSource = File.createTempFile("ace-scan-source", ".gcode")
+        val changedSource = File.createTempFile("ace-changed-source", ".gcode")
+        val output = File.createTempFile("ace-stale-scan-output", ".gcode")
+        try {
+            scannedSource.writeText("; HEADER_BLOCK_START\n; HEADER_BLOCK_END\nT0\nG1 X1 E1\nM400\n")
+            changedSource.writeText("; HEADER_BLOCK_START\n; HEADER_BLOCK_END\nT1\nG1 X1 E1\nM400\n")
+            val staleScan = AnycubicGCodeProcessor.scan(scannedSource)
+            assertFalse(staleScan.matchesSource(changedSource))
+
+            try {
+                AnycubicGCodeProcessor.rewrite(changedSource, output, staleScan,
+                    AnycubicGCodeProcessor.Options().apply {
+                        remappedTools = intArrayOf(0, 1)
+                        gates = intArrayOf(0, 1)
+                    })
+                fail("A source tool mismatch must stop the upload preparation")
+            } catch (expected: java.io.IOException) {
+                assertTrue(expected.message.orEmpty().contains("routing verification failed"))
+            }
+            assertFalse("Rejected output must not remain eligible for upload", output.exists() && output.length() > 0L)
+        } finally {
+            scannedSource.delete()
+            changedSource.delete()
+            output.delete()
+        }
+    }
+
     @Test fun laterToolKeepsItsSlotAfterAnEmptyGateAndKeepsAllLayers() {
         val source = File.createTempFile("ace-gap-source", ".gcode")
         val output = File.createTempFile("ace-gap-output", ".gcode")

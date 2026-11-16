@@ -278,6 +278,10 @@ class AnycubicGCodeProcessor private constructor() {
             val densityList = scan.densities.joinToString(",") { formatDensity(it) }
             var headerClosed = false
             var toolSelectionInserted = false
+            val expectedOutputTools = scan.usedTools.map { sourceTool ->
+                remappedTools.getOrNull(sourceTool)
+            }.filterNotNull().toSet()
+            val writtenOutputTools = linkedSetOf<Int>()
             try {
                 BufferedReader(InputStreamReader(FileInputStream(source), StandardCharsets.UTF_8), 64 * 1024).use { reader ->
                     BufferedWriter(OutputStreamWriter(FileOutputStream(destination, false), StandardCharsets.UTF_8), 64 * 1024).use { writer ->
@@ -348,8 +352,10 @@ class AnycubicGCodeProcessor private constructor() {
                                 val initialTool = remappedTools.firstOrNull()
                                     ?: throw IllegalArgumentException("No ACE slot selected for the initial tool")
                                 writer.write("; filament start gcode\nT$initialTool\n")
+                                writtenOutputTools.add(initialTool)
                                 toolSelectionInserted = true
                             }
+                            GCodeToolMapper.parseToolCommand(line).takeIf { it >= 0 }?.let(writtenOutputTools::add)
                             writer.write(line)
                             writer.newLine()
                             if (headerClosed && line == "; HEADER_BLOCK_END") {
@@ -371,6 +377,17 @@ class AnycubicGCodeProcessor private constructor() {
             if (!headerClosed) {
                 destination.delete()
                 return false
+            }
+            val expectedTools = if (scan.usedTools.isEmpty() && toolSelectionInserted) {
+                writtenOutputTools
+            } else {
+                expectedOutputTools
+            }
+            if (!options.externalSpool && writtenOutputTools != expectedTools) {
+                destination.delete()
+                throw IOException(
+                    "Anycubic tool routing verification failed: expected $expectedTools, wrote $writtenOutputTools",
+                )
             }
             return true
         }

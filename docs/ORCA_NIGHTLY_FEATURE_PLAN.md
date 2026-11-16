@@ -1,4 +1,4 @@
-# Aktueller Stand — Nightly 0.8.484; Upgrade-Zyklus: 39/100 geprüft — 2026-11-16
+# Aktueller Stand — Nightly 0.8.484; Upgrade-Zyklus: 40/100 geprüft — 2026-11-16
 
 ## Upstream-Abgleich — 2026-11-16
 
@@ -22,9 +22,15 @@
 9. Ergebnisse, bekannte Geräteblockaden und Commit im Ausführungsstand festhalten; nur verifizierte Android-relevante Änderungen erhöhen den 100er-Zähler.
 10. Erst bei 100/100 die vollständige Abschlussverifikation, APK-Erstellung, SHA-256, GitHub-Prerelease und aktualisierte Release-Dokumentation durchführen.
 
-Der bestätigte Orca-Upgrade-Zähler beträgt **39/100**.
+Der bestätigte Orca-Upgrade-Zähler beträgt **40/100**.
 
 ## Laufender 100-Schritte-Upgrade-Zyklus
+
+### Schritt 40/100 — ACE-Werkzeugroute der tatsächlich geschriebenen Uploaddatei absichern
+
+- Beim Anycubic-Umschreiben werden die geschriebenen `Tn`-Befehle jetzt gegen die erwarteten physischen Werkzeuge aus dem Preflight-Routing geprüft. Stimmen Quelldatei und vorab gescannte Werkzeugliste nicht überein, wird die temporäre Uploaddatei verworfen und der Upload gestoppt. Ein veralteter Preflight kann so nicht still eine falsche ACE-Route erzeugen. Der Einzelspulenpfad ist ausgenommen, da er ACE-Werkzeugbefehle absichtlich entfernt.
+- Vollständige Debug- und SliceTest-Unit-Suiten: jeweils **812/812**, 0 Fehler/Errors/Skips. `verifyNightlyChangelog` und `git diff --check` bestanden. Die Änderung ist Kotlin-Dateiverarbeitung und benötigt keinen neuen GL-/Native-Instrumentierungstest.
+- Noch kein neuer APK-/Release-Build; der 100-Schritte-Abschlussgate bleibt 100/100.
 
 ### Schritt 39/100 — Kein finaler Ramming-Purge oberhalb des kurzen Reinigungsturms
 
