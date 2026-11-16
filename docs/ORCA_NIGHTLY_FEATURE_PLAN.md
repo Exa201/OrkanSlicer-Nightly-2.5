@@ -1,4 +1,4 @@
-# Aktueller Stand — Nightly 0.8.484; Upgrade-Zyklus: 38/100 geprüft — 2026-11-16
+# Aktueller Stand — Nightly 0.8.484; Upgrade-Zyklus: 39/100 geprüft — 2026-11-16
 
 ## Upstream-Abgleich — 2026-11-16
 
@@ -6,6 +6,7 @@
 - Die jüngsten Commits im Vorlauf zu `59acdedd06` (`4b161be150`, `87fb987668` und Installer-/Plattformcommits) bringen keine weitere übertragbare Android-Core-Änderung. `4b161be150` ist ein Wayland-AMS-Popup-Fix; `87fb987668` ändert ausschließlich den Desktop-Mess-Gizmo.
 - Relevante kurz zuvor gelandete Änderungen wurden gegen den Nightly-Quellcode geprüft: Orca `87cf1429ca` (mehrere Tree-Support-Überhänge pro Cluster/Schicht), `3538f239c2` (Mehrfarben-Brückenanker), `ea80024735` (Werkzeugbefehl vor Filament-Start-G-Code) und `fabad6114a` (keine fremde Filamentprofil-Zuordnung bei unbekanntem Material) sind im Nightly bereits umgesetzt. Diese werden nicht erneut portiert oder doppelt gezählt.
 - `NativeSliceDeviceTest#treeSupportsKeepEveryOverhangThatJoinsAClusterOnTheSameLayer` wurde auf API 36 erneut ausgeführt und bestand **1/1**. Gradle startete danach zusätzlich den angeschlossenen Xiaomi-Lauf; Android blockierte die Testinstallation (`INSTALL_FAILED_USER_RESTRICTED`). Das Xiaomi-Ergebnis ist daher **nicht getestet**, der Gesamt-Gradle-Task meldete entsprechend Fehler trotz bestandenem Emulatorlauf.
+- Orca `2c50d15451` korrigiert den letzten Reinigungsturm-Purge: Bei einem Toolchanger ohne Single-Extruder-MMU muss die letzte Ramming-Spülung entfallen, wenn der Turm vor der höchsten Modellschicht endet. Die vorherige Nightly-Sonderbehandlung setzte den Turm-Purge trotzdem auf Modellhöhe und erzeugte dadurch eine Extrusion oberhalb des realen Turms. Das wurde in Schritt 39 portiert und mit zwei tatsächlichen G-Code-Slices verifiziert.
 - Orca `34de2b49df` wurde auf Android portiert: pro-Düse-Prozesswerte sind in der nativen Options-Metadatenliste aktiv, vorhandene Mehrspaltenprofile ergänzen fehlende Werkzeug-/Varianten-Spalten mit passenden Ausgangswerten, und die Druckprofilseite besitzt einen T0…Tn-/„Gemeinsam“-Schalter. Der Schalter übergibt beim Bearbeiten den echten Orca-Spaltenindex an die bestehende Options-/Profilbearbeitung. Die Compose-Auswahl und JNI-Metadaten sind durch API-36-Instrumentierung abgedeckt; gezielte Policy-/Profilwerttests und der ARM64-Native-Build bestanden. Das zählt als Schritt 38/100. Änderungen werden erst durch „Speichern“ des Profils übernommen; die Spaltenauswahl selbst verändert keinen Profilwert.
 
 ## Upgrade-Arbeitsplan
@@ -21,9 +22,17 @@
 9. Ergebnisse, bekannte Geräteblockaden und Commit im Ausführungsstand festhalten; nur verifizierte Android-relevante Änderungen erhöhen den 100er-Zähler.
 10. Erst bei 100/100 die vollständige Abschlussverifikation, APK-Erstellung, SHA-256, GitHub-Prerelease und aktualisierte Release-Dokumentation durchführen.
 
-Der bestätigte Orca-Upgrade-Zähler beträgt **38/100**.
+Der bestätigte Orca-Upgrade-Zähler beträgt **39/100**.
 
 ## Laufender 100-Schritte-Upgrade-Zyklus
+
+### Schritt 39/100 — Kein finaler Ramming-Purge oberhalb des kurzen Reinigungsturms
+
+- Orca-Upstream `2c50d15451` ist auf den Android-Slicer portiert. Eine kurze Werkzeugwechsler-Turmstruktur erhält keinen finalen Ramming-Purge auf der obersten Modellschicht; dieser Zug hätte ohne physische Turmfläche in der Luft extrudiert. Der notwendige letzte Filament-Entlade-Purge eines Single-Extruder-MMU bleibt erhalten.
+- Die frühere Android-Sonderbehandlung aus `d30509bb00` wurde zurückgenommen. Der alte Regressionstest verlangte explizit diesen ungestützten Purge; er vergleicht jetzt mit deaktiviertem und aktiviertem Ramming die reale physische Turmhöhe im erzeugten G-Code.
+- `NativeSliceDeviceTest#rammingToolChangerDoesNotPurgeAboveThePhysicalTowerWhenItStopsEarly` und `toolchangerSkipsFinalWipeTowerUnloadWhenTheTowerStopsBelowTheModel`: **2/2 bestanden** auf API-36-Emulator. Das Modell druckt weiterhin über dem kurzen Turm, der G-Code enthält die nötige Turmextrusion für Werkzeugwechsel, aber keinen Turmzug oberhalb der letzten echten Turmschicht.
+- ARM64 `externalNativeBuildDebug`, SliceTest-App-/Test-APK-Build und `git diff --check`: erfolgreich. Kein offizielles APK/Release in diesem Schritt. Hardwaretest auf Xiaomi/Honor wurde nicht durchgeführt; der zuvor verbundene Xiaomi-Testlauf wurde von Android mit `INSTALL_FAILED_USER_RESTRICTED` blockiert.
+- Nächster Schritt: weiteren Upstream-Core-Kandidaten gegen den Android-Fork vergleichen und nur eine fehlende Android-Funktion mit reproduzierbarer Verhaltensregression zählen.
 
 ### Schritt 38/100 — Per-Düse-Druckwerte und Varianten-Spalten auswählen
 

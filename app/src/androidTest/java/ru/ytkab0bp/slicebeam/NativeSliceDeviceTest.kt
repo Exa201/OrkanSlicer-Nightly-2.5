@@ -4806,22 +4806,19 @@ class NativeSliceDeviceTest {
     @Test(timeout = 120_000)
     fun toolchangerSkipsFinalWipeTowerUnloadWhenTheTowerStopsBelowTheModel() {
         assertArrayEquals(
-            "SEMM, or a tower reaching the final layer can emit a final purge without ramming",
-            intArrayOf(0, 1, 1, 1, 1),
+            "only SEMM, or a tower reaching the final layer, can emit a final purge",
+            intArrayOf(0, 1, 1, 1),
             Native.short_wipe_tower_final_unload_regression(),
         )
     }
 
     @Test(timeout = 120_000)
-    fun rammingToolChangerRunsFinalUnloadAtTheTopWhenItsTowerStopsEarly() = withToolChangerProfile {
+    fun rammingToolChangerDoesNotPurgeAboveThePhysicalTowerWhenItStopsEarly() = withToolChangerProfile {
         val context = InstrumentationRegistry.getInstrumentation().targetContext
         val process = requireNotNull(SliceBeam.CONFIG?.findPrint("0.20mm Standard"))
         val filament = requireNotNull(SliceBeam.CONFIG?.findFilament("Generic PLA"))
         process.put("enable_prime_tower", "1")
         process.put("wipe_tower_type", "type2")
-        filament.put("filament_multitool_ramming", "1")
-        filament.put("filament_multitool_ramming_volume", "5")
-        filament.put("filament_multitool_ramming_flow", "15")
         val source = copyCube(context, "type2-short-tower-ramming-source.stl")
         val model = Model(source)
         val output = File(context.cacheDir, "type2-short-tower-ramming.gcode")
@@ -4833,31 +4830,49 @@ class NativeSliceDeviceTest {
             model.ensureOnBed(1)
             model.setUniformFilament(0, 1)
             model.setUniformFilament(1, 2)
+
+            fun towerExtrusionHeights(gcode: String): List<Double> {
+                val zToken = Regex("(?:^|\\s)Z(-?[0-9]+(?:\\.[0-9]+)?)")
+                val eToken = Regex("(?:^|\\s)E[+-]?(?:[0-9]+(?:\\.[0-9]*)?|\\.[0-9]+)")
+                var currentZ = 0.0
+                var currentFeatureIsTower = false
+                val heights = mutableListOf<Double>()
+                gcode.lineSequence().forEach { line ->
+                    if (line.startsWith(";TYPE:") || line.startsWith("; FEATURE:"))
+                        currentFeatureIsTower = line.contains("prime tower", ignoreCase = true)
+                    zToken.find(line)?.let { currentZ = it.groupValues[1].toDouble() }
+                    if (currentFeatureIsTower && line.startsWith("G1 ") && eToken.containsMatchIn(line) &&
+                        (line.contains(" X") || line.contains(" Y"))) heights += currentZ
+                }
+                return heights
+            }
+
+            // Establish the physical tower top without the optional final ramming purge.
+            filament.put("filament_multitool_ramming", "0")
             SliceBeam.genCurrentConfig(model)
             result = model.slice(SliceBeam.getCurrentConfigFile().absolutePath, output.absolutePath, null)
-            val gcode = output.readText()
-            assertHasExtrusion(gcode)
-            assertTrue("the type-2 prime tower must still be emitted", gcode.contains("WIPE_TOWER_START"))
-            val layerHeights = layerZValues(gcode)
-            val zToken = Regex("(?:^|\\s)Z(-?[0-9]+(?:\\.[0-9]+)?)")
-            val eToken = Regex("(?:^|\\s)E[+-]?(?:[0-9]+(?:\\.[0-9]*)?|\\.[0-9]+)")
-            var currentZ = 0.0
-            val finalLayerTowerExtrusions = mutableListOf<Double>()
-            var currentFeatureIsTower = false
-            gcode.lineSequence().forEach { line ->
-                if (line.startsWith(";TYPE:") || line.startsWith("; FEATURE:"))
-                    currentFeatureIsTower = line.contains("prime tower", ignoreCase = true)
-                zToken.find(line)?.let { currentZ = it.groupValues[1].toDouble() }
-                if (currentFeatureIsTower && line.startsWith("G1 ") && eToken.containsMatchIn(line) &&
-                    (line.contains(" X") || line.contains(" Y"))) {
-                    finalLayerTowerExtrusions += currentZ
-                }
-            }
-            val highestModelLayer = layerHeights.maxOrNull()!!
-            assertTrue("the model must continue above the early-ending tower", highestModelLayer > 2.0)
+            val baselineGcode = output.readText()
+            assertHasExtrusion(baselineGcode)
+            val physicalTowerTop = towerExtrusionHeights(baselineGcode).maxOrNull()
+            assertNotNull("the baseline must contain a physical prime tower", physicalTowerTop)
+            result.release()
+            result = null
+
+            filament.put("filament_multitool_ramming", "1")
+            filament.put("filament_multitool_ramming_volume", "5")
+            filament.put("filament_multitool_ramming_flow", "15")
+            SliceBeam.genCurrentConfig(model)
+            result = model.slice(SliceBeam.getCurrentConfigFile().absolutePath, output.absolutePath, null)
+            val rammingGcode = output.readText()
+            assertHasExtrusion(rammingGcode)
+            assertTrue("the type-2 prime tower must still be emitted", rammingGcode.contains("WIPE_TOWER_START"))
+            val rammingTowerHeights = towerExtrusionHeights(rammingGcode)
+            assertTrue("the required toolchange must still print the physical tower", rammingTowerHeights.isNotEmpty())
+            val highestModelLayer = layerZValues(rammingGcode).maxOrNull()!!
+            assertTrue("the model must continue above the early-ending tower", highestModelLayer > physicalTowerTop!! + 0.5)
             assertTrue(
-                "ramming must add the final tower unload at the model top; tower Zs=${finalLayerTowerExtrusions.takeLast(8)}, top=$highestModelLayer",
-                finalLayerTowerExtrusions.any { kotlin.math.abs(it - highestModelLayer) <= 1e-3 },
+                "ramming must not emit a final tower purge above its last physical layer; tower=$rammingTowerHeights physicalTop=$physicalTowerTop modelTop=$highestModelLayer",
+                rammingTowerHeights.maxOrNull()!! <= physicalTowerTop + 1e-3,
             )
         } finally {
             result?.release()

@@ -6699,11 +6699,10 @@ extern "C" {
         JNIEnv* env, jclass)
     {
         const jint values[] = {
-            Slic3r::should_generate_final_wipe_tower_purge(false, false, false) ? 1 : 0,
-            Slic3r::should_generate_final_wipe_tower_purge(false, true, false) ? 1 : 0,
-            Slic3r::should_generate_final_wipe_tower_purge(true, false, false) ? 1 : 0,
-            Slic3r::should_generate_final_wipe_tower_purge(true, true, false) ? 1 : 0,
-            Slic3r::should_generate_final_wipe_tower_purge(false, false, true) ? 1 : 0,
+            Slic3r::should_generate_final_wipe_tower_purge(false, false) ? 1 : 0,
+            Slic3r::should_generate_final_wipe_tower_purge(false, true) ? 1 : 0,
+            Slic3r::should_generate_final_wipe_tower_purge(true, false) ? 1 : 0,
+            Slic3r::should_generate_final_wipe_tower_purge(true, true) ? 1 : 0,
         };
         jintArray result = env->NewIntArray(static_cast<jsize>(std::size(values)));
         if (result != nullptr) env->SetIntArrayRegion(result, 0, static_cast<jsize>(std::size(values)), values);

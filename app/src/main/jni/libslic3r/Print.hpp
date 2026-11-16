@@ -28,12 +28,11 @@
 
 namespace Slic3r {
 
-// A short tower still needs a final purge for an MMU unload or final-filament
-// ramming. A non-ramming toolchanger can skip that purge when the tower ends early.
-inline bool should_generate_final_wipe_tower_purge(bool tower_reaches_last_layer, bool single_extruder_multi_material,
-                                                    bool final_filament_uses_ramming = false) noexcept
+// A short tower can host a final purge for a single-extruder MMU, which must unload its last filament.
+// A toolchanger's final operation only rams and must not be emitted after the tower ends.
+inline bool should_generate_final_wipe_tower_purge(bool tower_reaches_last_layer, bool single_extruder_multi_material) noexcept
 {
-    return tower_reaches_last_layer || single_extruder_multi_material || final_filament_uses_ramming;
+    return tower_reaches_last_layer || single_extruder_multi_material;
 }
 
 class GCode;

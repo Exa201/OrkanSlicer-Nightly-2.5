@@ -1,6 +1,20 @@
 # Nightly 0.8.484 — Release- und Teststand — 2026-11-16
 
-## Aktuelle Fortsetzung — Orca-Upgrade-Zyklus 37/100
+## Aktuelle Fortsetzung — Orca-Upgrade-Zyklus 39/100
+
+### Schritt 39 — Kurzer Werkzeugwechselturm bleibt frei von Luft-Extrusionen
+
+- Orca `2c50d15451` korrigiert den Fall, in dem ein Toolchanger mit Ramming oberhalb eines kurz endenden Reinigungsturms final spült. Der native Nightly-Pfad hatte den Zug bisher auf die höchste Modellschicht verschoben, obwohl dort kein Turmmaterial lag. Jetzt wird die finale Spülung für Werkzeugwechsler wie im Upstream ausgelassen; Single-Extruder-MMU entlädt weiterhin.
+- `NativeSliceDeviceTest#rammingToolChangerDoesNotPurgeAboveThePhysicalTowerWhenItStopsEarly` vergleicht zwei echte Type-2-G-Code-Slices desselben Mehrfilamentmodells, einmal ohne und einmal mit Ramming. Der Ramming-G-Code enthält weiter echte Turmextrusion für Werkzeugwechsel, aber keine Extrusion über die physische Turmoberkante. `toolchangerSkipsFinalWipeTowerUnloadWhenTheTowerStopsBelowTheModel` bestätigt die Entscheidungstabelle. API-36-Emulator: **2/2 bestanden**.
+- ARM64-NDK-Build, SliceTest-App-/Instrumentierungs-APK-Build und `git diff --check`: erfolgreich. Xiaomi/Honor wurden nicht getestet; Android hatte den letzten Xiaomi-Testinstallationsversuch mit `INSTALL_FAILED_USER_RESTRICTED` abgewiesen.
+- Kein Release-APK erzeugt. Das 100/100-Gate bleibt bestehen. Als Nächstes folgt ein weiterer Orca-Upstream-Abgleich für einen noch fehlenden Android-Core-Fix.
+
+### Schritt 38 — Orca-Druckprofile pro Düse bearbeiten
+
+- Per-Düse-Druckwerte, fehlende Werkzeug-/Varianten-Spalten und der T0…Tn-/„Gemeinsam“-Compose-Schalter wurden portiert. Profileditor speichert weiter über den bestehenden Speichern-/Abbrechen-Lifecycle.
+- Gezielte Policy-/Profilwerttests, ARM64-Native-Build und API-36-Compose-/JNI-Instrumentierung: bestanden. Xiaomi-Installation nicht möglich (`INSTALL_FAILED_USER_RESTRICTED`). Kein APK/Release erzeugt.
+
+## Historischer Stand nach Schritt 37/100
 
 ### Schritt 37 — Boolean-Bemalung bleibt im G-Code erhalten
 
