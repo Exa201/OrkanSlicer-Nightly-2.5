@@ -1526,3 +1526,4 @@ Der weitere Vergleich am 2026-11-04 prüfte Orca `5fd0edf5cc` (Z-Schrumpfung von
 
 - Der Nutzer hat ausdrücklich um eine installierbare APK für die aktuelle UI-Korrektur gebeten. Deshalb wurde Nightly 0.8.487 als UI-Wartungsbuild bereitgestellt, obwohl das separate Orca-Upstream-Gate noch offen ist.
 - Diese Veröffentlichung zählt nicht als Orca-Engine-Upgrade und erhöht den 100-Schritte-Zähler nicht. Die nächste Kernänderung folgt weiterhin dem Verifikations- und Testprozess dieses Plans.
+- Release: https://github.com/Exa201/OrkanSlicer-Nightly-2.5/releases/tag/v0.8.487-nightly.1
