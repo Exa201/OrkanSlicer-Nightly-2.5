@@ -6,7 +6,8 @@
 - Querformataktionen als vier-spaltiges Raster unter dem Renderer; die Druckplatte erhält die volle mittlere Bildschirmbreite.
 - Debug-Unit **813/813**, SliceTest-Unit **813/813**, gezielte API-36-Compose-/Layout-Instrumentierung **11/11**. Debug-APK erfolgreich gebaut, Nightly-Signatur geprüft und auf API 36 installiert/gestartet.
 - Version **0.8.486 / Code 521**, Paket `com.exa201.orkanslicer.nightly25`, Branch `codex/ui-2.1-redesign`. Hardwaretest auf Xiaomi/HONOR für diese Änderung nicht ausgeführt.
-- Nächster Schritt: Nightly-Prerelease und Asset-SHA-256 verifizieren; danach Orca-Kern-Portierzyklus bei Schritt **41/100** fortsetzen.
+- Nightly-Prerelease [v0.8.486-nightly.1](https://github.com/Exa201/OrkanSlicer-Nightly-2.5/releases/tag/v0.8.486-nightly.1) veröffentlicht. APK-SHA-256 `4d42f437e426b1482dcdede054fad1b786acb534fb4cc289c2b99d64dce4c21b`; GitHub-Asset-Digest stimmt überein. Die fünf neuesten Nightly-Pakete 0.8.482–0.8.486 bleiben erhalten; 0.8.481 ist gelöscht.
+- Nächster Schritt: Orca-Kern-Portierzyklus bei Schritt **41/100** fortsetzen und das nächste fehlende, reproduzierbar testbare Kernverhalten auswählen.
 
 ## Fortsetzung Orca-Kern — Schritt 41/100 — 2026-11-16
 

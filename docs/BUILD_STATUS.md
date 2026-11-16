@@ -67,8 +67,8 @@
 - Version **0.8.486 / Code 521**, Paket `com.exa201.orkanslicer.nightly25`, Branch `codex/ui-2.1-redesign`.
 - Orca-nahe Dateiaktionen: „Datei“, „Modell öffnen“, „Zuletzt verwendete Modelle“ und „3MF exportieren“. Filamentzuordnung/-synchronisierung bleibt im Workspace-Header sichtbar; doppelte Druck-Schnellaktionen weichen auf schmalen Geräten in das Druckmenü aus. Im Querformat sitzt das vier-spaltige Aktionsmenü unter dem Renderer, sodass die Druckplatte die mittlere Breite erhält.
 - Verifikation: Debug-Unit **813/813**, SliceTest-Unit **813/813**, API-36-Workspace-Instrumentierung **11/11**. Debug-APK-Build erfolgreich; Paketmanager bestätigt Version 0.8.486 / Code 521 nach Emulatorinstallation und Start.
-- Signierte APK: `outputs/OrkanSlicerNightly25_0.8.486/OrkanSlicerNightly25_0.8.486_signed.apk`. Der API-36-Emulator wurde verwendet; Xiaomi/HONOR wurden für diese Änderung nicht geprüft.
-- GitHub-Prerelease und SHA-256 werden nach dem Upload hier ergänzt.
+- Prerelease [v0.8.486-nightly.1](https://github.com/Exa201/OrkanSlicer-Nightly-2.5/releases/tag/v0.8.486-nightly.1). APK: [OrkanSlicerNightly25_0.8.486_signed.apk](https://github.com/Exa201/OrkanSlicer-Nightly-2.5/releases/download/v0.8.486-nightly.1/OrkanSlicerNightly25_0.8.486_signed.apk), **252.206.173 Bytes**, SHA-256 `4d42f437e426b1482dcdede054fad1b786acb534fb4cc289c2b99d64dce4c21b`. GitHub meldet denselben Asset-Digest; SHA-256-Sidecar ist angehängt. Signatur-Fingerprint `6254b703f8440e375448b8ec213ef2dc63ebd6c4094ae83eb25f39c2cf426d12`.
+- APK-Quellcodecommit `0f3b46713e`; nach Veröffentlichung auf API 36 installiert und gestartet. Xiaomi/HONOR wurden für diese Änderung nicht geprüft. Ältere Nightly-Prereleases bereinigt; die fünf neuesten Versionen **0.8.482–0.8.486** bleiben erhalten, v0.8.481 wurde entfernt.
 
 ## Nightly 2.5 Arrange action verification — 2026-11-06 — 0.8.447
 
