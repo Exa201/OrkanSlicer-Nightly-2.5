@@ -1146,6 +1146,25 @@ Print::ApplyStatus Print::apply(const Model &model, DynamicPrintConfig new_full_
 	new_full_config.option("filament_settings_id",         true);
 	new_full_config.option("printer_settings_id",          true);
 
+    // Keep filament-to-nozzle assignments within this printer's nozzle range.
+    // Orca treats 0, negative values, and values above nozzle_count as nozzle 1;
+    // leaving them untouched can make extruder/variant and machine-envelope code
+    // index beyond the configured nozzle list. This only mutates this print's copy.
+    if (auto* filament_map = new_full_config.option<ConfigOptionInts>("filament_map")) {
+        const auto* nozzle_diameters = new_full_config.option<ConfigOptionFloats>("nozzle_diameter");
+        const int nozzle_count = nozzle_diameters ? std::max(1, static_cast<int>(nozzle_diameters->values.size())) : 1;
+        bool normalized = false;
+        for (int& nozzle : filament_map->values) {
+            if (nozzle < 1 || nozzle > nozzle_count) {
+                nozzle = 1;
+                normalized = true;
+            }
+        }
+        if (normalized)
+            BOOST_LOG_TRIVIAL(error) << __FUNCTION__ << ": filament_map names a nozzle outside 1.." << nozzle_count
+                                     << ", using nozzle 1 for those filaments";
+    }
+
     // BBS
     std::vector <unsigned int> used_filaments = this->extruders(true);
     std::unordered_set <unsigned int> used_filament_set(used_filaments.begin(), used_filaments.end());

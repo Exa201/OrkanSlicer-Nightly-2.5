@@ -5027,6 +5027,46 @@ class NativeSliceDeviceTest {
         }
     }
 
+    @Test(timeout = 120_000)
+    fun filamentMapOutsidePrinterNozzleRangeUsesNozzleOneWithoutChangingValidMappings() = withToolChangerProfile {
+        val context = InstrumentationRegistry.getInstrumentation().targetContext
+        val config = requireNotNull(SliceBeam.CONFIG)
+        val printer = requireNotNull(config.findPrinter("MyToolChanger 0.4 nozzle"))
+        val source = copyCube(context, "filament-map-nozzle-range.stl")
+        val output = File(context.cacheDir, "filament-map-nozzle-range.gcode")
+        val model = Model(source)
+        var result: GCodeProcessorResult? = null
+        try {
+            model.setUniformFilament(0, 2)
+            val configFile = SliceBeam.getCurrentConfigFile()
+            for (invalidMap in listOf("9,2,3,4,5", "0,2,3,4,5", "-1,2,3,4,5")) {
+                printer.put("filament_map", invalidMap)
+                SliceBeam.genCurrentConfig(model)
+                assertTrue("test must exercise invalid filament-to-nozzle mapping $invalidMap",
+                    configFile.readText().contains("filament_map = $invalidMap"))
+                result = model.slice(configFile.absolutePath, output.absolutePath, null)
+                assertHasExtrusion(output.readText())
+                result.release()
+                result = null
+                output.delete()
+            }
+
+            // A valid assignment to nozzle 2 must remain intact on the same printer profile.
+            printer.put("filament_map", "2,2,3,4,5")
+            SliceBeam.genCurrentConfig(model)
+            assertTrue("valid filament-to-nozzle assignment must not be rewritten",
+                configFile.readText().contains("filament_map = 2,2,3,4,5"))
+            result = model.slice(configFile.absolutePath, output.absolutePath, null)
+            assertHasExtrusion(output.readText())
+        } finally {
+            result?.release()
+            model.release()
+            source.delete()
+            output.delete()
+            SliceBeam.getCurrentConfigFile().delete()
+        }
+    }
+
     @Test
     fun temperatureTowerTargetsTheAssignedToolOnEveryLayer() = withToolChangerProfile {
         val context = InstrumentationRegistry.getInstrumentation().targetContext

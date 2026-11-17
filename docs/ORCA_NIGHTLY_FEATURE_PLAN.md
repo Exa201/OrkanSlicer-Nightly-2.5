@@ -1,4 +1,4 @@
-# Aktueller Stand — Nightly 0.8.492; Orca-Upgrade-Zyklus: 46/100 — 2026-11-17
+# Aktueller Stand — Nightly 0.8.492; Orca-Upgrade-Zyklus: 47/100 — 2026-11-17
 
 ## Upstream-Abgleich — 2026-11-17
 
@@ -22,7 +22,7 @@
 9. Ergebnisse, bekannte Geräteblockaden und Commit im Ausführungsstand festhalten; nur verifizierte Android-relevante Änderungen erhöhen den 100er-Zähler.
 10. Erst bei 100/100 die vollständige Abschlussverifikation, APK-Erstellung, SHA-256, GitHub-Prerelease und aktualisierte Release-Dokumentation durchführen.
 
-Der bestätigte Orca-Upgrade-Zähler beträgt **46/100**. Der aktuelle Orca-`main`-Stand wurde am 17.11.2026 über GitHub API und den Upstream-Remote geprüft: `32f6db87e8`; der aktuelle `nightly-builds`-Tag ist `5841f9652d`. Nächster Schritt: den nächsten Android-erreichbaren, noch fehlenden Orca-Core-Fix aus den nachfolgenden Commits auswählen und zunächst prüfen, ob dessen produktiver Aufrufpfad in der App tatsächlich verwendet wird.
+Der bestätigte Orca-Upgrade-Zähler beträgt **47/100**. Der aktuelle Orca-`main`-Stand wurde am 17.11.2026 über GitHub API und den Upstream-Remote geprüft: `32f6db87e8`; der aktuelle `nightly-builds`-Tag ist `5841f9652d`. Nächster Schritt: den nächsten Android-erreichbaren, noch fehlenden Orca-Core-Fix aus den nachfolgenden Commits auswählen und zunächst prüfen, ob dessen produktiver Aufrufpfad in der App tatsächlich verwendet wird.
 
 ## Laufender 100-Schritte-Upgrade-Zyklus
 
@@ -1547,3 +1547,10 @@ Der weitere Vergleich am 2026-11-04 prüfte Orca `5fd0edf5cc` (Z-Schrumpfung von
 - Orca `98590a8c17` schützt beim Aufbau der `first_tools`-/`first_filaments`-Tabelle vor einem `physical_extruder_map`-Wert außerhalb des Tabellenbereichs. Der Nightly schrieb den Firmware-Werkzeugwert bisher direkt als Vektorindex; ein ungültiges Profil konnte den nativen G-Code-Export mit Speicherbeschädigung beenden.
 - Der Export überspringt jetzt nichtnegative physische Werkzeugnummern, die außerhalb der aktuellen First-use-Tabelle liegen. `NativeSliceDeviceTest#physicalExtruderMapOutsidePlaceholderTableDoesNotCrashGcodeExport` slicet mit absichtlich ungültigem Mapping `9,0,0,0,0`; der bestehende gültige Mapping-Test stellt sicher, dass normale Zuordnungen weiter im G-Code erscheinen.
 - API-36-Emulator: ungültiger Fall **1/1**, gültiger Fall **1/1**, Außenwandflussregression **1/1** bestanden. SliceTest-App und Instrumentierungs-APK wurden frisch gebaut und gemeinsam installiert. Ein früher Wiederholungslauf hatte nur die neue Test-APK installiert und traf eine veraltete App-APK; der erneute Lauf mit beiden frisch installierten APKs bestand.
+
+### Schritt 47/100 — ungültige Filament-Düsen-Zuordnung normalisieren — 2026-11-17
+
+- Orca `e83f5fadff` normalisiert `filament_map`-Werte außerhalb `1..nozzle_count` auf Düse 1, bevor Varianten, Extruder-IDs und Maschinenhüllen verarbeitet werden. Der Nightly konnte Werte `0`, negative Zahlen oder größere Düsenindizes unbegrenzt in die native Slice-Konfiguration übernehmen.
+- `Print::apply` wendet jetzt dieselbe Normalisierung auf die lokale Druckkonfiguration an. Profil-/Projektzustand wird dabei nicht verändert; gültige Zuordnungen bleiben erhalten.
+- `NativeSliceDeviceTest#filamentMapOutsidePrinterNozzleRangeUsesNozzleOneWithoutChangingValidMappings` führt native Slices mit `filament_map`-Werten `9`, `0` und `-1` aus und prüft zusätzlich, dass die gültige Zuordnung zu Düse 2 slicebar bleibt. Zusammen mit den physischen Mapping-Regressionen bestehen auf dem API-36-Emulator **3/3 Tests**.
+- ARM64-Native-Build und SliceTest-/Instrumentierungs-APK-Build erfolgreich. Keine APK oder Release aus diesem Zwischenschritt; der Veröffentlichungsgate bleibt **100/100**.
