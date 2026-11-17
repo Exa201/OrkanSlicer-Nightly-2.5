@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.8.493 — Querformat-Aktionsleiste — 2026-11-17
+
+- Im Querformat klappt das Aktionsfeld beim Menüwechsel und beim Drehen des Geräts ein; Tippen auf das aktive Menü öffnet es bei Bedarf.
+- Reinigungsturm- und Spülvolumen-Aktionen bleiben im Dashboard bei 360 und 480 dp sichtbar; ihre Klick-Handler sind im Compose-Test geprüft.
+- Die Aktionsleiste ist auf 128 dp (100 % Schrift) beziehungsweise 152 dp (ab 130 %) begrenzt. Die gelieferten 3D-Assets werden in den Menüaktionen verwendet; OrcaSlicer-Beschriftungen bleiben erhalten.
+- Verifiziert: Workspace-Layout-Unit-Tests bestanden; Compose-Instrumentierung auf API 36 **15/15** bestanden.
+
 ## 0.8.492 — Lange Kacheltitel bei 150 % — 2026-11-17
 
 - Sehr lange einzelne Aktionsnamen werden auf Honor bei 150 % Schrift weiter verkleinert, damit „Wiederholen“ vollständig in eine Zeile passt.

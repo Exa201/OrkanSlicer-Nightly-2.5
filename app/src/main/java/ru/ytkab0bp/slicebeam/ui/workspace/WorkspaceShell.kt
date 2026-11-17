@@ -253,7 +253,7 @@ internal fun WorkspaceShell(
                 items = navigationItems,
                 selectedSlot = selectedNavigationSlot,
                 isBottomNavigation = false,
-                toolsExpanded = true,
+                toolsExpanded = toolPanelExpanded,
                 panelOpenDescription = stringResource(ru.ytkab0bp.slicebeam.R.string.WorkspaceToolsOpen),
                 panelClosedDescription = stringResource(ru.ytkab0bp.slicebeam.R.string.WorkspaceToolsClosed),
                 announcePanelState = true,
@@ -410,7 +410,7 @@ internal fun WorkspaceActionControl(
 /** Measurable policy for the portion of a compact workspace reserved for the actual build plate. */
 internal object WorkspaceShellLayoutPolicy {
     const val MIN_LANDSCAPE_SIDE_PANEL_WIDTH_DP = 360
-    const val DASHBOARD_ACTION_STRIP_WIDTH_DP = 250
+    const val DASHBOARD_ACTION_STRIP_WIDTH_DP = 260
     private const val WORKSPACE_HEADER_HEIGHT_DP = 80
 
     /** Fixed workspace geometry sized to keep the profile text readable at maximum zoom. */
@@ -487,7 +487,7 @@ internal object WorkspaceShellLayoutPolicy {
     /** Two action rows fit below the landscape renderer while preserving touch targets. */
     @JvmStatic
     fun landscapeMenuPanelMaxHeightDp(fontScale: Float): Int =
-        if (fontScale >= 1.3f) 168 else 152
+        if (fontScale >= 1.3f) 152 else 128
 
     /** availableHeightDp is the content height after the activity's system-bar insets. */
     @JvmStatic

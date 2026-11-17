@@ -185,7 +185,7 @@
     <string name="ModelMenuCancelGroupSelection">Gruppenauswahl beenden</string>
     <string name="ModelMenuApplySelection">Auswahl verwenden (%1$d)</string>
     <string name="ModelMenuAllObjectsGroup">Druckplatte</string>
-    <string name="ModelMenuPlaceOnObject">Auf Objekt setzen</string>
+    <string name="ModelMenuPlaceOnObject">Auf Objekt platzieren</string>
     <string name="ModelMenuPlaceOnObjectShort">Oben</string>
     <string name="ModelMenuPlaceOnObjectDone">Auf das Ziel gesetzt. Beide Objekte bleiben getrennt bearbeitbar.</string>
     <string name="ModelMenuCombineSelected">Als Teile verbinden</string>
@@ -241,7 +241,7 @@
     <string name="ModelObjectCollapseParts">Teile ausblenden (%1$d)</string>
     <string name="ModelMenuPlaceFailed">Die Platzierung ist fehlgeschlagen. Prüfe die Objektpositionen, bevor du fortfährst.</string>
     <string name="ModelMenuPlaceRollbackFailed">Die Platzierung ist fehlgeschlagen und mindestens ein Objekt konnte nicht zurückgesetzt werden. Prüfe das Modell, bevor du fortfährst.</string>
-    <string name="ModelMenuPlaceOnSurface">Auf Fläche setzen</string>
+    <string name="ModelMenuPlaceOnSurface">Auf Fläche legen</string>
     <string name="ModelSurfacePlacementInstruction">Tippe auf eine sichtbare Seiten- oder Oberseite des Ziels. Zurück bricht ab.</string>
     <string name="ModelSurfacePlacementNeedsUpwardFace">Wähle eine sichtbare Seiten- oder Oberseite. Unterseiten werden nicht unterstützt.</string>
     <string name="ModelSurfacePlacementTargetUnavailable">Das Ziel ist nicht mehr verfügbar. Wähle die Objekte erneut aus.</string>
@@ -323,7 +323,7 @@
     <string name="ModelMenuPlaceGroupOnBedDone">Ausgewählte Objekte auf die Platte gestellt</string>
     <string name="ModelMenuPlaceGroupOnBedFailed">Die ausgewählten Objekte konnten nicht sicher auf der Druckplatte platziert werden.</string>
     <string name="ModelMenuAlignSelected">Ausgewählte Objekte ausrichten</string>
-    <string name="ModelMenuAlignPrimaryAxes">An Achsen des Hauptobjekts ausrichten</string>
+    <string name="ModelMenuAlignPrimaryAxes">Entlang Hauptachsen ausrichten</string>
     <string name="ModelMenuAlignMinX">Kleinste X-Kanten ausrichten</string>
     <string name="ModelMenuAlignCenterX">X-Mittelpunkte ausrichten</string>
     <string name="ModelMenuAlignMaxX">Größte X-Kanten ausrichten</string>
@@ -344,7 +344,7 @@
     <string name="ModelMenuFillBed">Druckplatte füllen</string>
     <string name="ModelMenuArrange">Alle anordnen</string>
     <string name="ModelMenuOrientAll">Alle ausrichten</string>
-    <string name="ModelMenuAutoOrientSelected">Auto ausrichten</string>
+    <string name="ModelMenuAutoOrientSelected">Automatisch ausrichten</string>
     <string name="ModelMenuFlatten">Flach hinlegen</string>
     <string name="ModelMenuDeleteSelected">Löschen</string>
     <string name="ModelMenuSelectAll">Alle auswählen</string>

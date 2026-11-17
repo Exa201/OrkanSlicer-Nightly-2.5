@@ -2073,6 +2073,7 @@ overlayLayout!!.postDelayed({ onConfigurationChanged(newConfig) }, 300)
 return
 }
 syncCurrentModel()
+if (!portrait) setWorkspaceActionPanelExpanded(false)
 rebuildAdaptiveLayout(ctx, portrait)
 }
 private fun onMenuNavigationSelected(bottomNavigation: Boolean, slot: Int) {
@@ -2088,7 +2089,14 @@ private fun onMenuNavigationSelected(bottomNavigation: Boolean, slot: Int) {
     // Keep route, selected tool and transient workspace surfaces in one state
     // transition before the Compose route transition starts.
     if (!workspaceController.navigateToDestination(slot)) return
-    if (!menuToolsExpanded) setWorkspaceActionPanelExpanded(true)
+    // In landscape the renderer needs most of the short screen. Keep the action
+    // strip collapsed after changing destinations; tapping the selected rail item
+    // opens it on demand. Portrait keeps its established auto-open behavior.
+    if (bottomNavigation) {
+        if (!menuToolsExpanded) setWorkspaceActionPanelExpanded(true)
+    } else {
+        setWorkspaceActionPanelExpanded(false)
+    }
     if (slot != WorkspaceDestination.SLICE.ordinal) {
         val previousResult = gCodeResult
         gCodeResult = null

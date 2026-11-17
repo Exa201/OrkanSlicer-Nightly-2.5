@@ -100,6 +100,73 @@ class WorkspaceModePanelHostDeviceTest {
         }
     }
 
+    @Test
+    fun dashboardPrintShortcutsInvokeTowerAndFlushHandlers() {
+        var towerCalls = 0
+        var flushCalls = 0
+        compose.setContent {
+            BeamComposeTheme {
+                WorkspacePrintToolActions(
+                    onPrimeTower = { towerCalls++ },
+                    onFlushVolumes = { flushCalls++ },
+                )
+            }
+        }
+
+        compose.onNodeWithTag("workspace-header-prime-tower").assertIsDisplayed().performClick()
+        compose.onNodeWithTag("workspace-header-flush-volumes").assertIsDisplayed().performClick()
+        compose.runOnIdle {
+            assertTrue("prime tower shortcut must call its handler", towerCalls == 1)
+            assertTrue("flush volume shortcut must call its handler", flushCalls == 1)
+        }
+    }
+
+    @Test
+    fun landscapeActionPanelCanStayHiddenToPreserveRendererHeight() {
+        compose.setContent {
+            CompositionLocalProvider(
+                LocalConfiguration provides Configuration().apply {
+                    screenWidthDp = 900
+                    screenHeightDp = 480
+                },
+            ) {
+                BeamComposeTheme {
+                    Box(Modifier.requiredSize(900.dp, 480.dp)) {
+                        WorkspaceShell(
+                            portrait = false,
+                            toolPanelExpanded = false,
+                            toolPanelNeedsTwoRows = false,
+                            navigationItemCount = WorkspaceDestination.visibleNavigationDestinations.size,
+                            menuWidthDp = 240,
+                            rendererView = android.view.View(LocalContext.current),
+                            selectedNavigationSlot = WorkspaceDestination.PROJECT.ordinal,
+                            toolsExpanded = false,
+                            onNavigationSelected = {},
+                            activeMenuSlot = WorkspaceDestination.PROJECT.ordinal,
+                            menuComposeContentForSlot = { Text("Project actions") },
+                            onMenuTransitionSettled = {},
+                            projectSettingsContent = {},
+                            profileStatusContent = { Text("Printer profile") },
+                            filamentButtonContent = { Text("Filament") },
+                            platePickerContent = { Text("Plate") },
+                            printerWebButtonContent = { Text("Connection") },
+                            modePanelContent = null,
+                            modePanelSize = null,
+                            modePanelDocked = false,
+                            modePanelAllowsBackgroundInteraction = false,
+                            onModePanelDismiss = {},
+                            transientPanelContent = null,
+                            snackbarController = WorkspaceSnackbarController(),
+                        )
+                    }
+                }
+            }
+        }
+
+        compose.onNodeWithTag("workspace-renderer-area").assertIsDisplayed()
+        compose.onNodeWithTag("workspace-menu-panel").assertDoesNotExist()
+    }
+
     private fun setDashboardHeaderContent(widthDp: Int) {
         compose.setContent {
             CompositionLocalProvider(

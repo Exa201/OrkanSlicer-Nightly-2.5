@@ -243,7 +243,7 @@ internal fun BedMenuActionsContent(
             val gridState = rememberLazyGridState()
             // Keep wrapped Orca labels readable at large system font sizes while
             // retaining the compact two-row landscape strip.
-            val tileHeight = if (fontScale >= 1.3f) 82.dp else 70.dp
+            val tileHeight = if (fontScale >= 1.3f) 72.dp else 60.dp
             val visibleRows = BedMenuActionTileWidthPolicy.visibleRowsForActionCount(actions.size)
             val targetHeight = tileHeight * visibleRows + 2.dp * (visibleRows - 1)
             val gridHeight = minOf(maxHeight, targetHeight)
@@ -286,64 +286,6 @@ internal fun BedMenuActionsContent(
     }
 }
 
-/** Multicolor action artwork extracted from the user-provided OrkanSlicer button sheets. */
-private fun colorfulMenuActionIcon(titleRes: Int): Int? = when (titleRes) {
-    R.string.WorkspaceObjects -> R.drawable.action3d_objects
-    R.string.ModelMenuDuplicate -> R.drawable.action3d_duplicate
-    R.string.ModelMenuMoveToPlate -> R.drawable.action3d_move_plate
-    R.string.ModelMenuSplit -> R.drawable.action3d_split
-    R.string.ModelMenuCenterOnBed -> R.drawable.action3d_center
-    R.string.ModelScaleToBuildVolume -> R.drawable.action3d_build_volume
-    R.string.ModelMenuPlaceGroupOnBed -> R.drawable.action3d_place_on_bed
-    R.string.ModelMenuPlaceOnObject -> R.drawable.action3d_place_on_object
-    R.string.ModelMenuPlaceOnSurface -> R.drawable.action3d_place_surface
-    R.string.ModelMenuArrange, R.string.MenuOrientationArrange,
-    R.string.MenuArrangeAllObjects -> R.drawable.action3d_arrange
-    R.string.ModelMenuAlignSelected -> R.drawable.action3d_align_all
-    R.string.ModelMenuAlignPrimaryAxes -> R.drawable.action3d_axes
-    R.string.ModelMenuDistributeSelected -> R.drawable.action3d_arrange
-    R.string.ModelMenuCombineSelected -> R.drawable.action3d_combine
-    R.string.ModelMenuBoolean -> R.drawable.action3d_boolean
-    R.string.ModelMenuFillBed, R.string.ModelContextFillBed -> R.drawable.action3d_fill_bed
-    R.string.ModelMenuModifiers -> R.drawable.action3d_modifiers
-    R.string.ModelMenuObjectSettings -> R.drawable.action3d_object_settings
-    R.string.ModelMenuCreatePrimitive -> R.drawable.action3d_primitive
-    R.string.ModelMenuOrientAll, R.string.MenuOrientAllObjects,
-    R.string.ModelMenuAutoOrientSelected, R.string.MenuOrientationAutoOrient -> R.drawable.action3d_auto_orient
-    R.string.ModelMenuFlatten, R.string.MenuOrientationFlatten -> R.drawable.action3d_flatten
-    R.string.ModelMenuDeleteSelected -> R.drawable.action3d_delete
-    R.string.ModelMenuSelectAll -> R.drawable.action3d_select_all
-    R.string.ModelMenuDeleteAll -> R.drawable.action3d_delete_all
-    R.string.ModelContextResetRotation -> R.drawable.action3d_reset_rotation
-    R.string.ModelContextResetScale -> R.drawable.action3d_reset_scale
-    R.string.ModelUndo -> R.drawable.action3d_undo
-    R.string.ModelRedo -> R.drawable.action3d_redo
-    R.string.MenuToolbarMove, R.string.MenuOrientationPosition -> R.drawable.action3d_move
-    R.string.MenuToolbarRotate, R.string.MenuOrientationRotation -> R.drawable.action3d_rotate
-    R.string.MenuTransformScale -> R.drawable.action3d_scale
-    R.string.ModelSimplify -> R.drawable.action3d_simplify
-    R.string.ModelSmoothMesh -> R.drawable.action3d_smooth_mesh
-    R.string.MenuTransformCut -> R.drawable.action3d_cut
-    R.string.MenuToolbarVariableLayerHeight -> R.drawable.action3d_variable_layer_height
-    R.string.MenuToolbarSupportPaint -> R.drawable.action3d_paint_support
-    R.string.MenuToolbarSeamPaint -> R.drawable.action3d_paint_seam
-    R.string.MenuToolbarFuzzyPaint -> R.drawable.action3d_paint_fuzzy_skin
-    R.string.MenuToolbarColorPaint -> R.drawable.action3d_paint_color
-    R.string.MenuToolbarEmboss -> R.drawable.action3d_emboss
-    R.string.MenuToolbarMeasure -> R.drawable.action3d_calibration
-    R.string.QuickSliceTitle -> R.drawable.action3d_quick_slice
-    R.string.SmartSliceTitle -> R.drawable.action3d_smart_slice
-    R.string.MenuSliceCurrentSettings -> R.drawable.action3d_plate_slice
-    R.string.WorkspaceAddModelAction, R.string.MenuFileOpen -> R.drawable.action3d_open_model
-    R.string.RecentModelsTitle -> R.drawable.action3d_recent
-    R.string.MenuFileImportProfiles -> R.drawable.action3d_import_profiles
-    R.string.MenuFileExportProfiles -> R.drawable.action3d_export_profiles
-    R.string.MenuFileExport3mf, R.string.MenuSliceExportToFile -> R.drawable.action3d_export_3mf
-    R.string.MenuSliceSendToPrinter, R.string.MenuSliceSendToPrinterAndPrint -> R.drawable.action3d_slice
-    R.string.MenuFileCalibrations -> R.drawable.action3d_calibration
-    else -> null
-}
-
 @Composable
 private fun BedMenuActionTile(
     action: BedComposeMenuAction,
@@ -376,7 +318,7 @@ private fun BedMenuActionTile(
     val iconTint = (if (action.selected) MaterialTheme.colorScheme.onPrimary
         else MaterialTheme.colorScheme.onPrimaryContainer)
         .copy(alpha = if (action.enabled) 1f else 0.55f)
-    val colorfulIcon = colorfulMenuActionIcon(action.titleRes)
+    val colorfulIcon = menuActionArtwork(action.titleRes)
     val iconRes = colorfulIcon ?: action.iconRes
     val iconColorFilter = if (colorfulIcon != null) null else ColorFilter.tint(iconTint)
     // At large system font sizes, keep enough tile height for the two-line Orca
