@@ -5699,3 +5699,12 @@ Phase 4 — workspace overlay migration is continuing. The model context menu an
 - Hinweis zum Orca-Upgrade-Gate: Die APK wurde aufgrund der ausdrücklichen Nutzeranforderung für diesen UI-Fix veröffentlicht; dies ist ein UI-Wartungsbuild und zählt nicht als Abschluss des separaten Upstream-Ziels 100/100. Der UI-Upgrade-Zähler bleibt unverändert.
 - Nightly-Aufbewahrung: die fünf neuesten Prereleases **0.8.487, 0.8.486, 0.8.485, 0.8.484 und 0.8.483** bleiben erhalten; das ältere **0.8.482** samt Tag wurde entfernt.
 - Nächster konkreter Schritt: den eingeklappten/ausgeklappten Aktionsstreifen auf dem Honor durch direkte Bedienung mit mehreren Menüs prüfen; danach die nächsten offenen Orca-Upstream-Fälle gemäß `ORCA_NIGHTLY_FEATURE_PLAN.md` bearbeiten.
+
+## Nightly-UI — Nutzer-Assets für Menüaktionen — 2026-11-17
+
+- Die bereitgestellten mehrfarbigen 3D-Buttonmotive sind als 56 `drawable-nodpi`-Assets eingebunden und den passenden OrcaSlicer-Menüaktionen zugeordnet. Die Aktionsbezeichnungen stammen weiterhin aus den lokalisierten OrcaSlicer-Strings.
+- Die eingebettete Beschriftung aus dem Motiv „Modell vereinfachen“ wurde entfernt, damit sie sich nicht mit dem echten Menütext überlagert. Bei 150 % Schrift passt auch „Wiederholen“ vollständig in die Kachel; die Kachelmaße und das Vier-Spalten-Raster bleiben erhalten.
+- Prüfung: `BedMenuActionTileWidthPolicyTest` **4/4**; `verifyNightlyChangelog` und signierter Release-Build erfolgreich. Honor PTP-N49 / Android 16 / 150 %: Nightly **0.8.492 (Code 527)** installiert und gestartet; Modell- und Ändern-Menü visuell kontrolliert. Kein FATAL, ANR oder OutOfMemoryError in den erfassten Logcat-Zeilen.
+- Screenshots: `docs/images/ui21/honor-nightly-0.8.492-model-150.png` und `docs/images/ui21/honor-nightly-0.8.492-edit-150.png`.
+- APK `OrkanSlicerNightly25_0.8.492-signed.apk`, SHA-256 `60473EFD4DFC77C22E9D23F6A7FB3B2542127F84CD4FD4170D55F62DCC52D7E8`.
+- Noch offen: vollständige Interaktionsabnahme aller 56 Aktionen auf Honor; die Prüfung dieses Schritts deckt die Assetzuordnung und die sichtbaren Modell-/Ändern-Menüs ab.

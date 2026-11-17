@@ -105,25 +105,19 @@ internal object BedMenuActionTileWidthPolicy {
     @Suppress("UNUSED_PARAMETER")
     fun columnsForLayout(fontScale: Float, screenWidthDp: Int): Int = 4
 
-    fun reducedTileSizeDp(sizeDp: Int): Int = (sizeDp * TILE_SIZE_REDUCTION).toInt().coerceAtLeast(48)
+    fun reducedTileHeightDp(sizeDp: Int): Int = (sizeDp * TILE_SIZE_REDUCTION).toInt().coerceAtLeast(48)
+
+    /** Keep four-column Orca labels readable without splitting long words at large system text sizes. */
+    fun labelScaleForFontScale(fontScale: Float): Float = when {
+        fontScale >= 1.5f -> 0.6f
+        fontScale >= 1.3f -> 0.75f
+        else -> 1f
+    }
 
     /** Up to four actions use one row; later rows are revealed only by vertical scrolling. */
     fun visibleRowsForActionCount(actionCount: Int): Int =
         ((actionCount.coerceAtLeast(1) + 3) / 4).coerceIn(1, 2)
 
-    /** Fits all four portrait columns beside the fixed menu-customization control. */
-    fun gridTileWidthDp(
-        screenWidthDp: Int,
-        columns: Int,
-        horizontalPaddingDp: Int = 4,
-        spacingDp: Int = 2,
-        reservedEndDp: Int = horizontalPaddingDp,
-    ): Int {
-        val safeColumns = columns.coerceAtLeast(1)
-        val available = screenWidthDp.coerceAtLeast(0) - horizontalPaddingDp -
-            reservedEndDp - spacingDp * (safeColumns - 1)
-        return (available / safeColumns).coerceAtLeast(48)
-    }
 }
 
 @Composable
@@ -151,13 +145,6 @@ internal fun BedMenuActionsContent(
         // this content, so a short menu no longer reserves a large empty panel.
         BoxWithConstraints(modifier.fillMaxWidth()) {
             val visibleRows = BedMenuActionTileWidthPolicy.visibleRowsForActionCount(actions.size)
-            val tileWidth = BedMenuActionTileWidthPolicy.gridTileWidthDp(
-                screenWidthDp = maxWidth.value.toInt(),
-                columns = columns,
-                horizontalPaddingDp = 4,
-                spacingDp = 2,
-                reservedEndDp = 4,
-            ).dp
             val gridState = rememberLazyGridState()
             var gridBounds by remember { mutableStateOf(Rect.Zero) }
             val latestDragPointer = rememberUpdatedState(draggedActionPointerInRoot)
@@ -186,7 +173,7 @@ internal fun BedMenuActionsContent(
                 }
             }
             val gridTileHeight = BedMenuActionTileWidthPolicy
-                .reducedTileSizeDp(if (fontScale >= 1.15f) 112 else 94).dp
+                .reducedTileHeightDp(if (fontScale >= 1.15f) 112 else 94).dp
             val gridHeight = minOf(
                 maxHeight,
                 gridTileHeight * visibleRows + 2.dp * (visibleRows - 1),
@@ -220,9 +207,10 @@ internal fun BedMenuActionsContent(
                             portrait = true,
                             menuView = menuView,
                             compactPortraitGrid = false,
-                            modifier = Modifier.width(
-                                BedMenuActionTileWidthPolicy.reducedTileSizeDp(tileWidth.value.toInt()).dp,
-                            ).height(gridTileHeight),
+                            // Fill the action cell. Reducing the tile to 80% of an
+                            // already compact cell left too little width for Orca's
+                            // real labels on 480 dp screens.
+                            modifier = Modifier.fillMaxWidth().height(gridTileHeight),
                             onActionPositioned = onActionPositioned,
                             onActionDragStart = onActionDragStart,
                             onActionDrag = onActionDrag,
@@ -246,7 +234,9 @@ internal fun BedMenuActionsContent(
         BoxWithConstraints(modifier.fillMaxWidth()) {
             val columns = 4
             val gridState = rememberLazyGridState()
-            val tileHeight = 70.dp
+            // Keep wrapped Orca labels readable at large system font sizes while
+            // retaining the compact two-row landscape strip.
+            val tileHeight = if (fontScale >= 1.3f) 82.dp else 70.dp
             val visibleRows = BedMenuActionTileWidthPolicy.visibleRowsForActionCount(actions.size)
             val targetHeight = tileHeight * visibleRows + 2.dp * (visibleRows - 1)
             val gridHeight = minOf(maxHeight, targetHeight)
@@ -289,34 +279,61 @@ internal fun BedMenuActionsContent(
     }
 }
 
-/** Purpose-built isometric pictograms make frequent actions recognizable without labels. */
+/** Multicolor action artwork extracted from the user-provided OrkanSlicer button sheets. */
 private fun colorfulMenuActionIcon(titleRes: Int): Int? = when (titleRes) {
-    R.string.WorkspaceObjects -> R.drawable.menu3d_objects
-    R.string.ModelMenuDuplicate -> R.drawable.menu3d_duplicate
-    R.string.ModelMenuMoveToPlate -> R.drawable.menu3d_move_plate
-    R.string.ModelMenuSplit -> R.drawable.menu3d_split
-    R.string.ModelMenuCenterOnBed -> R.drawable.menu3d_center
-    R.string.ModelScaleToBuildVolume, R.string.MenuTransformScale, R.string.ModelContextResetScale ->
-        R.drawable.menu3d_scale
-    R.string.ModelMenuPlaceGroupOnBed, R.string.ModelMenuPlaceOnObject, R.string.ModelMenuPlaceOnSurface,
-    R.string.ModelContextSetOnFace -> R.drawable.menu3d_place
-    R.string.ModelMenuAlignSelected, R.string.ModelMenuAlignPrimaryAxes, R.string.ModelMenuDistributeSelected,
-    R.string.ModelMenuArrange, R.string.MenuOrientationArrange, R.string.MenuArrangeAllObjects,
-    R.string.MenuOrientAllObjects -> R.drawable.menu3d_arrange
-    R.string.ModelMenuCombineSelected, R.string.ModelMenuBoolean -> R.drawable.menu3d_combine
-    R.string.ModelMenuFillBed, R.string.ModelContextFillBed -> R.drawable.menu3d_fill_bed
-    R.string.MenuToolbarMove, R.string.MenuOrientationPosition ->
-        R.drawable.menu3d_move
-    R.string.MenuToolbarRotate, R.string.ModelContextResetRotation, R.string.MenuOrientationRotation ->
-        R.drawable.menu3d_rotate
-    R.string.MenuToolbarVariableLayerHeight, R.string.MenuSliceLayers -> R.drawable.menu3d_layers
-    R.string.QuickSliceTitle -> R.drawable.menu3d_quick_slice
-    R.string.SmartSliceTitle -> R.drawable.menu3d_smart_slice
-    R.string.MenuSliceCurrentSettings -> R.drawable.menu3d_tune
-    R.string.WorkspaceAddModelAction, R.string.MenuFileImportProfiles -> R.drawable.menu3d_file_import
-    R.string.MenuFileExport3mf, R.string.MenuFileExportProfiles, R.string.MenuSliceExportToFile ->
-        R.drawable.menu3d_file_export
-    R.string.MenuSliceSendToPrinter, R.string.MenuSliceSendToPrinterAndPrint -> R.drawable.menu3d_printer_send
+    R.string.WorkspaceObjects -> R.drawable.action3d_objects
+    R.string.ModelMenuDuplicate -> R.drawable.action3d_duplicate
+    R.string.ModelMenuMoveToPlate -> R.drawable.action3d_move_plate
+    R.string.ModelMenuSplit -> R.drawable.action3d_split
+    R.string.ModelMenuCenterOnBed -> R.drawable.action3d_center
+    R.string.ModelScaleToBuildVolume -> R.drawable.action3d_build_volume
+    R.string.ModelMenuPlaceGroupOnBed -> R.drawable.action3d_place_on_bed
+    R.string.ModelMenuPlaceOnObject -> R.drawable.action3d_place_on_object
+    R.string.ModelMenuPlaceOnSurface -> R.drawable.action3d_place_surface
+    R.string.ModelMenuArrange, R.string.MenuOrientationArrange,
+    R.string.MenuArrangeAllObjects -> R.drawable.action3d_arrange
+    R.string.ModelMenuAlignSelected -> R.drawable.action3d_align_all
+    R.string.ModelMenuAlignPrimaryAxes -> R.drawable.action3d_axes
+    R.string.ModelMenuDistributeSelected -> R.drawable.action3d_arrange
+    R.string.ModelMenuCombineSelected -> R.drawable.action3d_combine
+    R.string.ModelMenuBoolean -> R.drawable.action3d_boolean
+    R.string.ModelMenuFillBed, R.string.ModelContextFillBed -> R.drawable.action3d_fill_bed
+    R.string.ModelMenuModifiers -> R.drawable.action3d_modifiers
+    R.string.ModelMenuObjectSettings -> R.drawable.action3d_object_settings
+    R.string.ModelMenuCreatePrimitive -> R.drawable.action3d_primitive
+    R.string.ModelMenuOrientAll, R.string.MenuOrientAllObjects,
+    R.string.ModelMenuAutoOrientSelected, R.string.MenuOrientationAutoOrient -> R.drawable.action3d_auto_orient
+    R.string.ModelMenuFlatten, R.string.MenuOrientationFlatten -> R.drawable.action3d_flatten
+    R.string.ModelMenuDeleteSelected -> R.drawable.action3d_delete
+    R.string.ModelMenuSelectAll -> R.drawable.action3d_select_all
+    R.string.ModelMenuDeleteAll -> R.drawable.action3d_delete_all
+    R.string.ModelContextResetRotation -> R.drawable.action3d_reset_rotation
+    R.string.ModelContextResetScale -> R.drawable.action3d_reset_scale
+    R.string.ModelUndo -> R.drawable.action3d_undo
+    R.string.ModelRedo -> R.drawable.action3d_redo
+    R.string.MenuToolbarMove, R.string.MenuOrientationPosition -> R.drawable.action3d_move
+    R.string.MenuToolbarRotate, R.string.MenuOrientationRotation -> R.drawable.action3d_rotate
+    R.string.MenuTransformScale -> R.drawable.action3d_scale
+    R.string.ModelSimplify -> R.drawable.action3d_simplify
+    R.string.ModelSmoothMesh -> R.drawable.action3d_smooth_mesh
+    R.string.MenuTransformCut -> R.drawable.action3d_cut
+    R.string.MenuToolbarVariableLayerHeight -> R.drawable.action3d_variable_layer_height
+    R.string.MenuToolbarSupportPaint -> R.drawable.action3d_paint_support
+    R.string.MenuToolbarSeamPaint -> R.drawable.action3d_paint_seam
+    R.string.MenuToolbarFuzzyPaint -> R.drawable.action3d_paint_fuzzy_skin
+    R.string.MenuToolbarColorPaint -> R.drawable.action3d_paint_color
+    R.string.MenuToolbarEmboss -> R.drawable.action3d_emboss
+    R.string.MenuToolbarMeasure -> R.drawable.action3d_calibration
+    R.string.QuickSliceTitle -> R.drawable.action3d_quick_slice
+    R.string.SmartSliceTitle -> R.drawable.action3d_smart_slice
+    R.string.MenuSliceCurrentSettings -> R.drawable.action3d_plate_slice
+    R.string.WorkspaceAddModelAction, R.string.MenuFileOpen -> R.drawable.action3d_open_model
+    R.string.RecentModelsTitle -> R.drawable.action3d_recent
+    R.string.MenuFileImportProfiles -> R.drawable.action3d_import_profiles
+    R.string.MenuFileExportProfiles -> R.drawable.action3d_export_profiles
+    R.string.MenuFileExport3mf, R.string.MenuSliceExportToFile -> R.drawable.action3d_export_3mf
+    R.string.MenuSliceSendToPrinter, R.string.MenuSliceSendToPrinterAndPrint -> R.drawable.action3d_slice
+    R.string.MenuFileCalibrations -> R.drawable.action3d_calibration
     else -> null
 }
 
@@ -355,7 +372,19 @@ private fun BedMenuActionTile(
     val colorfulIcon = colorfulMenuActionIcon(action.titleRes)
     val iconRes = colorfulIcon ?: action.iconRes
     val iconColorFilter = if (colorfulIcon != null) null else ColorFilter.tint(iconTint)
-    val iconSize = if (colorfulIcon != null) 34.dp else 30.dp
+    // At large system font sizes, keep enough tile height for the two-line Orca
+    // label. The colorful artwork remains prominent but must not push the title
+    // outside the fixed-height menu cell.
+    val displayFontScale = ru.ytkab0bp.slicebeam.ui.LocalBeamLayoutFontScale.current
+    val tileLabelScale = BedMenuActionTileWidthPolicy.labelScaleForFontScale(displayFontScale)
+    val tileLabelFontSize = OrkanUiTokens.menuLabelSize * tileLabelScale
+    val tileLabelLineHeight = 16.sp * tileLabelScale
+    val iconSize = when {
+        colorfulIcon != null && displayFontScale >= 1.3f -> 28.dp
+        colorfulIcon != null -> 40.dp
+        displayFontScale >= 1.3f -> 24.dp
+        else -> 30.dp
+    }
     val interaction = if (action.toggleable) {
         Modifier.toggleable(
             value = action.selected,
@@ -464,14 +493,14 @@ private fun BedMenuActionTile(
                 Text(
                     text = stringResource(actionLabel),
                     color = foreground,
-                    fontSize = OrkanUiTokens.menuLabelSize,
-                    lineHeight = 16.sp,
+                    fontSize = tileLabelFontSize,
+                    lineHeight = tileLabelLineHeight,
                     textAlign = TextAlign.Center,
-                    maxLines = 1,
-                    softWrap = false,
+                    maxLines = 2,
+                    softWrap = true,
                     autoSize = androidx.compose.foundation.text.TextAutoSize.StepBased(
                         minFontSize = 8.sp,
-                        maxFontSize = OrkanUiTokens.menuLabelSize,
+                        maxFontSize = tileLabelFontSize,
                         stepSize = 1.sp,
                     ),
                     overflow = TextOverflow.Clip,
@@ -493,14 +522,14 @@ private fun BedMenuActionTile(
                 Text(
                     text = stringResource(actionLabel),
                     color = foreground,
-                    fontSize = OrkanUiTokens.menuLabelSize,
-                    lineHeight = 16.sp,
+                    fontSize = tileLabelFontSize,
+                    lineHeight = tileLabelLineHeight,
                     textAlign = TextAlign.Center,
-                    maxLines = 1,
-                    softWrap = false,
+                    maxLines = 2,
+                    softWrap = true,
                     autoSize = androidx.compose.foundation.text.TextAutoSize.StepBased(
                         minFontSize = 8.sp,
-                        maxFontSize = OrkanUiTokens.menuLabelSize,
+                        maxFontSize = tileLabelFontSize,
                         stepSize = 1.sp,
                     ),
                     overflow = TextOverflow.Clip,

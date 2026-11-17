@@ -1,5 +1,35 @@
 # Changelog
 
+## 0.8.492 — Lange Kacheltitel bei 150 % — 2026-11-17
+
+- Sehr lange einzelne Aktionsnamen werden auf Honor bei 150 % Schrift weiter verkleinert, damit „Wiederholen“ vollständig in eine Zeile passt.
+- Kürzere Texte behalten die größere Schrift; OrcaSlicer-Originalnamen und Kachelgrößen bleiben unverändert.
+- Auf dem Honor PTP-N49 bei 150 % Systemschrift geprüft.
+
+## 0.8.491 — Orca-Beschriftungen auf schmalen Kacheln — 2026-11-17
+
+- Bei großer Systemschrift werden Aktionsbeschriftungen innerhalb der unveränderten 4-Spalten-Kacheln maßvoll verkleinert, damit längere OrcaSlicer-Titel nicht mitten im Wort umbrechen.
+- Symbole und Bedienflächen bleiben erhalten; die Maßnahme betrifft nur die Aktionsbeschriftung ab 130 % Schriftgröße.
+- Geprüft mit Workspace-Instrumentierung auf Honor und API-36-Emulator; Geräte-Screenshot bei 150 % Schrift folgt.
+
+## 0.8.490 — Menü-Assets bei großer Schrift — 2026-11-17
+
+- Mehrfarbige Aktionsbilder lassen bei 130 % und größerer Schrift mehr vertikalen Platz für die originalen OrcaSlicer-Beschriftungen.
+- Das Bild „Modell vereinfachen“ wurde ohne eingebettete Beschriftung zugeschnitten; der Aktionstitel erscheint dadurch nur einmal.
+- Geprüft mit fokussierten Menü-/Layouttests sowie Honor-Installation und Screenshotkontrolle.
+
+## 0.8.489 — Mehrfarbige Aktionssymbole — 2026-11-17
+
+- Die bereitgestellten 3D-Aktionsmotive sind jetzt den passenden OrcaSlicer-Menüaktionen zugeordnet; echte lokalisierte Orca-Titel bleiben als Buttonbeschriftung erhalten.
+- Das Querformat-Navigationssymbol zeigt jetzt den tatsächlichen Zustand der einklappbaren Aktionsleiste.
+- Verifiziert mit Debug-Kotlin-Kompilierung, fokussierten Menü-/Layouttests und Honor-Installation; vollständige Ergebnisse stehen in `docs/UI2_EXECUTION_STATE.md`.
+
+## 0.8.488 — Orca-Menütexte ohne Abschneiden — 2026-11-17
+
+- Vollständige OrcaSlicer-Aktionsnamen umbrechen jetzt sauber auf höchstens zwei Zeilen, statt bei schmalen Kacheln abgeschnitten zu werden.
+- Die einklappbare Menüleiste berücksichtigt die größere Textfläche bei 150 % Schriftgröße und hält weiterhin bis zu acht Aktionen in zwei Reihen sichtbar.
+- Verifiziert auf Honor PTP-N49/Android 16 und API-36-Emulator; Details folgen in `docs/UI2_EXECUTION_STATE.md`.
+
 ## 0.8.487 — Workspace-Menüs und Dashboard — 2026-11-16
 
 - Aktionskacheln verwenden wieder die vollständigen, kurzen OrcaSlicer-Bezeichnungen statt gekürzter oder beschreibender Ersatztexte.

@@ -90,9 +90,9 @@ fun AdaptiveWorkspaceNavigation(
                 ) {
                     items.forEach { item ->
                         Destination(item, item.slot == selectedSlot, Modifier.fillMaxWidth(), onSelected,
-                            compactRail = true, panelOpen = true, panelOpenDescription = panelOpenDescription,
+                            compactRail = true, panelOpen = toolsExpanded, panelOpenDescription = panelOpenDescription,
                             panelClosedDescription = panelClosedDescription, announcePanelState = announcePanelState,
-                            showPanelToggleIndicator = false)
+                            showPanelToggleIndicator = item.slot == selectedSlot && announcePanelState)
                     }
                 }
                 if (railScrollState.canScrollForward) {
