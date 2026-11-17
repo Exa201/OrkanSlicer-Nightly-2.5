@@ -1,4 +1,13 @@
-# Aktueller Arbeitsstand — Nightly 0.8.492 — 2026-11-17
+# Aktueller Arbeitsstand — Nightly 0.8.493 — 2026-11-17
+
+- UI-Folgeänderungen aus der letzten Honor-Rückmeldung: Dashboard zeigt Filament-Synchronisierung, Reinigungsturm und Spülvolumen nebeneinander; Mindestbreite sichert die Aktionen im Portrait. Im Querformat klappt die Aktionsleiste beim Bereichswechsel und bei Rotation ein; die sichtbare Leiste ist auf 128 dp (bzw. 152 dp bei großer Schrift) begrenzt, damit der Renderer mehr Höhe erhält.
+- Orca-nahe Aktionsbeschriftungen beibehalten/ergänzt und 58 zugeschnittene Bildassets aus den gelieferten mehrfarbigen Aktionsgrafiken eingebunden. Die Aktionen behalten ihre bestehenden IDs und Handler.
+- Gezielte Tests: `WorkspaceShellLayoutPolicyTest` bestanden; API-36 Compose-/Layout-Instrumentierung `WorkspaceModePanelHostDeviceTest` **15/15 bestanden**. Debug-APK gebaut, auf API-36-Emulator installiert und gestartet; Screenshot unter `artifacts/ui21-0493-emulator.png`. APK: `app/build/outputs/apk/debug/OrkanSlicerNightly25_afc8d7c518.apk`, **263,935,595 Bytes**, SHA-256 `EC8BDF2BBAA69A49D4086713C50039DA798150446AEF60D8E34652E3EA370144`.
+- Honor wurde bei dieser Prüfung nicht durch ADB gefunden; verfügbar waren Xiaomi `e7dbd22e` und API-36-Emulator. Daher kein behaupteter Honor-Installations- oder Hardwaretest.
+- Code-Commit `afc8d7c518` auf `codex/ui-2.1-redesign`. Orca-Portierzyklus bleibt **50/100**; Veröffentlichungsgate **100/100**. Für diesen UI-Zwischenschritt wurde kein Nightly-Release erstellt.
+- Nächster konkreter Schritt: Honor-Wireless-ADB erneut erfassen und Querformat-Aktionsleiste sowie Dashboard-Schnellaktionen am Gerät prüfen; anschließend den Orca-Portierzyklus ab Schritt 51 fortsetzen.
+
+# Vorheriger Kern-Arbeitsstand — Nightly 0.8.492 — 2026-11-17
 
 - Der Orca-Portierzyklus steht bei **50/100**. Schritt 50 ergänzt den Orca-Port `c49e32c1e7`: Außenwand-, Innenwand- und Gap-Fill-Flüsse fließen nun in die Perimeter-Regionskompatibilität ein, damit unterschiedlich konfigurierte Regionen nicht mit einer gemeinsamen Flusskonfiguration erzeugt werden.
 - Verifikation: ARM64 SliceTest-Native-Build und SliceTest-/Instrumentierungs-APK-Build erfolgreich; `NativeSliceDeviceTest#legacyBedExcludeAreaKeepsCompoundPathsAndRejectsCrossings` auf API-36-Emulator **1/1 bestanden**, einschließlich unveränderter Legacy-Ausschlussflächenfälle und neuer Flow-Kompatibilitätsprüfungen.
