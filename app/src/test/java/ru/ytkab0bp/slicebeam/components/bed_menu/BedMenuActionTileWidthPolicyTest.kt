@@ -40,4 +40,13 @@ class BedMenuActionTileWidthPolicyTest {
         assertEquals(0.6f, BedMenuActionTileWidthPolicy.labelScaleForFontScale(1.5f), 0f)
         assertEquals(0.6f, BedMenuActionTileWidthPolicy.labelScaleForFontScale(2f), 0f)
     }
+
+    @Test
+    fun providedColorfulIconsGrowWithoutChangingTileSizeAtEveryFontScale() {
+        assertEquals(54, BedMenuActionTileWidthPolicy.colorfulIconSizeDp(1f))
+        assertEquals(46, BedMenuActionTileWidthPolicy.colorfulIconSizeDp(1.3f))
+        assertEquals(40, BedMenuActionTileWidthPolicy.colorfulIconSizeDp(1.5f))
+        assertEquals(40, BedMenuActionTileWidthPolicy.colorfulIconSizeDp(2f))
+        assertEquals(4, BedMenuActionTileWidthPolicy.columnsForLayout(1.5f, 480))
+    }
 }

@@ -114,6 +114,13 @@ internal object BedMenuActionTileWidthPolicy {
         else -> 1f
     }
 
+    /** The supplied multicolor artwork needs to read clearly inside the unchanged tile size. */
+    fun colorfulIconSizeDp(fontScale: Float): Int = when {
+        fontScale >= 1.5f -> 40
+        fontScale >= 1.3f -> 46
+        else -> 54
+    }
+
     /** Up to four actions use one row; later rows are revealed only by vertical scrolling. */
     fun visibleRowsForActionCount(actionCount: Int): Int =
         ((actionCount.coerceAtLeast(1) + 3) / 4).coerceIn(1, 2)
@@ -380,8 +387,7 @@ private fun BedMenuActionTile(
     val tileLabelFontSize = OrkanUiTokens.menuLabelSize * tileLabelScale
     val tileLabelLineHeight = 16.sp * tileLabelScale
     val iconSize = when {
-        colorfulIcon != null && displayFontScale >= 1.3f -> 28.dp
-        colorfulIcon != null -> 40.dp
+        colorfulIcon != null -> BedMenuActionTileWidthPolicy.colorfulIconSizeDp(displayFontScale).dp
         displayFontScale >= 1.3f -> 24.dp
         else -> 30.dp
     }
