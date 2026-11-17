@@ -1,8 +1,8 @@
 # Aktueller Arbeitsstand — Nightly 0.8.492 — 2026-11-17
 
-- Der Orca-Portierzyklus steht bei **48/100**. Schritt 48 erweitert Orca `b3f8d0af15`: auch direkte CGAL-In-place-Boolean-Konvertierungen entfernen jetzt unreferenzierte Mesh-Vertices, bevor Volumenprüfung/Corefinement darauf zugreifen.
-- Verifikation: ARM64 SliceTest-Native-Build und Test-APK-Build erfolgreich; gezielter `NativeSliceDeviceTest#cgalBooleanVolumeChecksIgnoreUnreferencedVertices`-Lauf auf API 36 **1/1 bestanden**, einschließlich echter Boolean-Union, Volumen 1117 mm³ und gültiger Indizes.
-- Geräte: Xiaomi sichtbar, nicht für diesen gezielten Test benutzt. Honor war bei der aktuellen ADB-Abfrage nicht verbunden. Kein Druckstart, keine Nutzer-APK und kein Release in diesem Schritt.
+- Der Orca-Portierzyklus steht bei **49/100**. Schritt 49 korrigiert den Port von Orca `8b8d573a85`: nach dem Festhalten von Außenwand-Geschwindigkeiten außerhalb des Resonanzbands wird die verbleibende Kühlzeit erneut mit dem beschleunigungsbewussten Layer-Solver berechnet.
+- Verifikation: ARM64 SliceTest-Native-Build und SliceTest-/Instrumentierungs-APK-Build erfolgreich; `NativeSliceDeviceTest#layerCoolingKeepsOuterWallsOutsideResonanceAvoidanceRange` auf API-36-Emulator **1/1 bestanden**, einschließlich Kühlzeitvergleich und gleicher Schichtanzahl.
+- Geräte: Xiaomi sichtbar, nicht für diesen Regressionstest benutzt. Honor war bei der aktuellen ADB-Abfrage nicht verbunden. Kein Druckstart, keine Nutzer-APK und kein Release in diesem Schritt.
 - Branch `codex/ui-2.1-redesign`; der veröffentlichte Nightly bleibt unverändert. Das Veröffentlichungsgate bleibt **100/100**.
 - Nächster konkreter Schritt: Orca-Upstream auf einen weiteren noch fehlenden Android-Core-Fix prüfen, den produktiven Nightly-Aufrufpfad verifizieren und einen gezielten Regressionstest ergänzen.
 

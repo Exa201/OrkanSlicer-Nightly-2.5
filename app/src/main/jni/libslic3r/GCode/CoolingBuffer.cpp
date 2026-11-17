@@ -383,14 +383,15 @@ std::string CoolingBuffer::process_layer(std::string &&gcode, size_t layer_id, b
                                                return outer_wall_slowed_into_range(adjustment, ra_min, ra_max);
                                            })) {
             // Keep an outer wall that cooling pulled into the resonance band at its upper edge, then
-            // use the remaining adjustable moves to meet the layer-time target.
+            // run the acceleration-aware solver again so the remaining adjustable moves still meet
+            // the layer-time target. The direct slowdown helper alone does not estimate motion time.
             std::vector<PerExtruderAdjustments> held = unslowed;
             hold_outer_walls(held, per_extruder_adjustments, ra_min, ra_max, ra_max);
-            float held_time = this->calculate_layer_slowdown(held, 1.f);
+            float held_time = this->slow_down_layer(m_gcode, held);
             if (held_time < 0.998f * std::min(layer_time_stretched, longest_minimum_layer_time(unslowed))) {
                 held = unslowed;
                 hold_outer_walls(held, per_extruder_adjustments, ra_min, ra_max, ra_min);
-                held_time = this->calculate_layer_slowdown(held, 1.f);
+                held_time = this->slow_down_layer(m_gcode, held);
             }
             per_extruder_adjustments = std::move(held);
             layer_time_stretched = held_time;

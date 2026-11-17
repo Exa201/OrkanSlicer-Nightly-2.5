@@ -1,4 +1,4 @@
-# Aktueller Stand — Nightly 0.8.492; Orca-Upgrade-Zyklus: 48/100 — 2026-11-17
+# Aktueller Stand — Nightly 0.8.492; Orca-Upgrade-Zyklus: 49/100 — 2026-11-17
 
 ## Upstream-Abgleich — 2026-11-17
 
@@ -22,7 +22,14 @@
 9. Ergebnisse, bekannte Geräteblockaden und Commit im Ausführungsstand festhalten; nur verifizierte Android-relevante Änderungen erhöhen den 100er-Zähler.
 10. Erst bei 100/100 die vollständige Abschlussverifikation, APK-Erstellung, SHA-256, GitHub-Prerelease und aktualisierte Release-Dokumentation durchführen.
 
-Der bestätigte Orca-Upgrade-Zähler beträgt **48/100**. Der aktuelle Orca-`main`-Stand wurde am 17.11.2026 über GitHub API und den Upstream-Remote geprüft: `32f6db87e8`; der aktuelle `nightly-builds`-Tag ist `5841f9652d`. Nächster Schritt: den nächsten Android-erreichbaren, noch fehlenden Orca-Core-Fix aus den nachfolgenden Commits auswählen und zunächst prüfen, ob dessen produktiver Aufrufpfad in der App tatsächlich verwendet wird.
+Der bestätigte Orca-Upgrade-Zähler beträgt **49/100**. Der aktuelle Orca-`main`-Stand wurde am 17.11.2026 über GitHub API und den Upstream-Remote geprüft: `32f6db87e8`; der aktuelle `nightly-builds`-Tag ist `5841f9652d`. Nächster Schritt: den nächsten Android-erreichbaren, noch fehlenden Orca-Core-Fix aus den nachfolgenden Commits auswählen und zunächst prüfen, ob dessen produktiver Aufrufpfad in der App tatsächlich verwendet wird.
+
+### Schritt 49/100 — Kühlzeit bei Resonanzvermeidung der Außenwände erhalten — 2026-11-17
+
+- Orca `8b8d573a85` hält Außenwände aus dem konfigurierten Resonanz-Geschwindigkeitsband heraus. Der Port im Nightly schützte bereits deren Geschwindigkeit, berechnete nach dem Festhalten der Außenwandgeschwindigkeit aber die verbleibende Schichtzeit nur mit dem direkten Slowdown-Faktor. Dadurch fehlte die erneute beschleunigungsbewusste Bewegungszeit-Schätzung und die Schicht konnte ihr Kühlzeitziel verfehlen.
+- Beide Zweige rufen jetzt den Orca-Solver `slow_down_layer(m_gcode, held)` erneut auf, um die verbleibenden anpassbaren Bewegungen gegen das Zeitziel zu optimieren.
+- `NativeSliceDeviceTest#layerCoolingKeepsOuterWallsOutsideResonanceAvoidanceRange` prüft nun zusätzlich gleiche Vorschau-Schichtanzahl sowie die Kühlzeit jeder inneren Schicht im geschützten und ungeschützten Slice. API-36-Emulator: **1/1 bestanden**.
+- ARM64 SliceTest-Native-Build sowie SliceTest- und Instrumentierungs-APK-Build erfolgreich. Kein Druckstart, keine Nutzer-APK und kein Release; Veröffentlichung bleibt bis **100/100** gesperrt. Honor war bei der ADB-Abfrage nicht erreichbar.
 
 ## Laufender 100-Schritte-Upgrade-Zyklus
 

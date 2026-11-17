@@ -1717,7 +1717,7 @@ class NativeSliceDeviceTest {
         val output = File(context.cacheDir, "resonance-cooling-outer-wall.gcode")
         val model = Model(source).also { it.ensureOnBed(0) }
 
-        fun outerWallSpeeds(resonanceAvoidance: Boolean): List<Double> {
+        fun sliceResonanceCase(resonanceAvoidance: Boolean): Pair<List<Double>, FloatArray> {
             printer.put("resonance_avoidance", if (resonanceAvoidance) "1" else "0")
             // The acceleration-aware cooler slows this small model below 70 mm/s. Use its observed
             // 30–45 mm/s range so the unprotected slice still exercises the resonance guard.
@@ -1751,19 +1751,29 @@ class NativeSliceDeviceTest {
                     if (feature == "Outer wall" && values.containsKey("E") && (values.containsKey("X") || values.containsKey("Y")))
                         speeds += feedrate / 60.0
                 }
-                return speeds
+                return speeds to result.getLayerTimes()
             } finally {
                 result.release()
             }
         }
 
         try {
-            val reproduced = outerWallSpeeds(resonanceAvoidance = false)
+            val (reproduced, unprotectedLayerTimes) = sliceResonanceCase(resonanceAvoidance = false)
             assertTrue("Fixture must reproduce outer walls slowed into the configured resonance band: ${reproduced}",
                 reproduced.any { it > 30.0 && it < 45.0 })
-            val protected = outerWallSpeeds(resonanceAvoidance = true)
+            val (protected, protectedLayerTimes) = sliceResonanceCase(resonanceAvoidance = true)
             assertTrue("Resonance protection must keep external walls outside 30–45 mm/s: ${protected}",
                 protected.isNotEmpty() && protected.none { it > 30.0 && it < 45.0 })
+            assertEquals("Resonance avoidance must preserve the preview layer count",
+                unprotectedLayerTimes.size, protectedLayerTimes.size)
+            for (layer in 1 until protectedLayerTimes.lastIndex) {
+                val minimumExpected = minOf(unprotectedLayerTimes[layer], 10f)
+                assertTrue(
+                    "Layer $layer must retain its cooling time after outer walls are held outside the resonance band " +
+                        "(expected at least ${minimumExpected * 0.99f}s, got ${protectedLayerTimes[layer]}s)",
+                    protectedLayerTimes[layer] >= minimumExpected * 0.99f,
+                )
+            }
         } finally {
             printerKeys.forEach { printer.put(it, previousPrinter[it]) }
             processKeys.forEach { process.put(it, previousProcess[it]) }
