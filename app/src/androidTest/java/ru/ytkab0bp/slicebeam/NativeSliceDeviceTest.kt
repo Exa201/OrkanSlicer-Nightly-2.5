@@ -1190,10 +1190,17 @@ class NativeSliceDeviceTest {
                     externalMaxFlow.toDouble().takeIf { it > 0.0 } ?: Double.POSITIVE_INFINITY,
                 ) else null
                 if (expectedStartFlow != null) {
-                    assertTrue(
-                        "the generated start G-code must use the configured outer-wall volumetric flow",
-                        Regex("(?m)^; OUTER_WALL_FLOW=${expectedStartFlow}(?:\\.0+)?$").containsMatchIn(text),
+                    val actualStartFlow = text.lineSequence()
+                        .firstNotNullOfOrNull { line ->
+                            Regex("^; OUTER_WALL_FLOW=(-?[0-9]+(?:\\.[0-9]+)?)$")
+                                .matchEntire(line.trim())?.groupValues?.getOrNull(1)?.toDoubleOrNull()
+                        }
+                    assertNotNull(
+                        "the generated start G-code must expose outer-wall flow; actual=" +
+                            text.lineSequence().filter { it.contains("OUTER_WALL_FLOW") }.take(3).joinToString(" | "),
+                        actualStartFlow,
                     )
+                    assertEquals("the generated start G-code must use the configured outer-wall volumetric flow", expectedStartFlow, actualStartFlow!!, 0.01)
                 }
                 val feedRate = Regex("\\bF([0-9]+(?:\\.[0-9]+)?)")
                 val speeds = mutableListOf<Double>()
@@ -1232,6 +1239,10 @@ class NativeSliceDeviceTest {
             assertTrue(
                 "2 mm³/s absolute flow and 10% of a 20 mm³/s filament cap should resolve to equivalent G-code speeds (percent=$volumetricMinimum, absolute=$absoluteMinimum)",
                 kotlin.math.abs(volumetricMinimum - absoluteMinimum) < 2.0,
+            )
+            assertTrue(
+                "a 1 mm³/s external filament cap must reduce the slowest outer-wall feed rate compared with uncapped 2 mm³/s (capped=${externalCapSpeeds.minOrNull()}, uncapped=$absoluteMinimum)",
+                (externalCapSpeeds.minOrNull() ?: Double.POSITIVE_INFINITY) < absoluteMinimum * 0.9,
             )
         } finally {
             keys.forEach { key -> process.put(key, previous[key]) }
