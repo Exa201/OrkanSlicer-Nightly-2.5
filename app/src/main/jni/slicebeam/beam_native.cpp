@@ -886,12 +886,28 @@ extern "C" {
         for (const Vec3i32 &face : result.its.indices)
             for (int i = 0; i < 3; ++i)
                 validIndices &= face[i] >= 0 && static_cast<size_t>(face[i]) < result.its.vertices.size();
-        const std::array<jdouble, 5> values{
+        // Exercise the in-place boolean path too: unlike the conversion probe
+        // above, MeshBoolean::plus converts directly into a Surface_mesh.
+        indexed_triangle_set booleanTarget = source;
+        indexed_triangle_set cutter = its_make_cube(5., 5., 5.);
+        for (Vec3f &vertex : cutter.vertices)
+            vertex += Vec3f(8.f, 8.f, 8.f);
+        MeshBoolean::cgal::plus(booleanTarget, cutter);
+        TriangleMesh booleanResult(std::move(booleanTarget));
+        bool booleanIndicesValid = true;
+        for (const Vec3i32 &face : booleanResult.its.indices)
+            for (int i = 0; i < 3; ++i)
+                booleanIndicesValid &= face[i] >= 0 &&
+                    static_cast<size_t>(face[i]) < booleanResult.its.vertices.size();
+        const std::array<jdouble, 8> values{
             boundsVolume ? 1.0 : 0.0,
             selfIntersects ? 1.0 : 0.0,
             static_cast<jdouble>(result.volume()),
             validIndices ? 1.0 : 0.0,
             static_cast<jdouble>(result.its.indices.size()),
+            static_cast<jdouble>(booleanResult.volume()),
+            booleanIndicesValid ? 1.0 : 0.0,
+            static_cast<jdouble>(booleanResult.its.indices.size()),
         };
         jdoubleArray output = env->NewDoubleArray(static_cast<jsize>(values.size()));
         if (output != nullptr)

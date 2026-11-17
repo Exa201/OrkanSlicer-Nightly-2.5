@@ -1,3 +1,11 @@
+# Aktueller Arbeitsstand — Nightly 0.8.492 — 2026-11-17
+
+- Der Orca-Portierzyklus steht bei **48/100**. Schritt 48 erweitert Orca `b3f8d0af15`: auch direkte CGAL-In-place-Boolean-Konvertierungen entfernen jetzt unreferenzierte Mesh-Vertices, bevor Volumenprüfung/Corefinement darauf zugreifen.
+- Verifikation: ARM64 SliceTest-Native-Build und Test-APK-Build erfolgreich; gezielter `NativeSliceDeviceTest#cgalBooleanVolumeChecksIgnoreUnreferencedVertices`-Lauf auf API 36 **1/1 bestanden**, einschließlich echter Boolean-Union, Volumen 1117 mm³ und gültiger Indizes.
+- Geräte: Xiaomi sichtbar, nicht für diesen gezielten Test benutzt. Honor war bei der aktuellen ADB-Abfrage nicht verbunden. Kein Druckstart, keine Nutzer-APK und kein Release in diesem Schritt.
+- Branch `codex/ui-2.1-redesign`; der veröffentlichte Nightly bleibt unverändert. Das Veröffentlichungsgate bleibt **100/100**.
+- Nächster konkreter Schritt: Orca-Upstream auf einen weiteren noch fehlenden Android-Core-Fix prüfen, den produktiven Nightly-Aufrufpfad verifizieren und einen gezielten Regressionstest ergänzen.
+
 # Nightly 0.8.485 — Release- und Teststand — 2026-11-16
 
 ## Aktueller Workspace-Stand — Nightly 0.8.486 — 2026-11-16

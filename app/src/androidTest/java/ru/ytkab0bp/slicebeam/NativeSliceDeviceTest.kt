@@ -989,6 +989,9 @@ class NativeSliceDeviceTest {
         assertEquals("isolated vertices must be removed without changing volume", 1000.0, result[2], 1e-3)
         assertEquals("compacted triangle indices must remain valid", 1.0, result[3], 0.0)
         assertEquals("all twelve cube triangles must survive conversion", 12.0, result[4], 0.0)
+        assertEquals("the production in-place union must also clean isolated vertices", 1117.0, result[5], 1e-3)
+        assertEquals("boolean output triangle indices must remain valid", 1.0, result[6], 0.0)
+        assertTrue("boolean union must produce a non-empty mesh", result[7] > 0.0)
     }
 
     @Test

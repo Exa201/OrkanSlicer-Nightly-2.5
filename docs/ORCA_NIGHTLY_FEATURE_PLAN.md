@@ -1,4 +1,4 @@
-# Aktueller Stand — Nightly 0.8.492; Orca-Upgrade-Zyklus: 47/100 — 2026-11-17
+# Aktueller Stand — Nightly 0.8.492; Orca-Upgrade-Zyklus: 48/100 — 2026-11-17
 
 ## Upstream-Abgleich — 2026-11-17
 
@@ -22,7 +22,7 @@
 9. Ergebnisse, bekannte Geräteblockaden und Commit im Ausführungsstand festhalten; nur verifizierte Android-relevante Änderungen erhöhen den 100er-Zähler.
 10. Erst bei 100/100 die vollständige Abschlussverifikation, APK-Erstellung, SHA-256, GitHub-Prerelease und aktualisierte Release-Dokumentation durchführen.
 
-Der bestätigte Orca-Upgrade-Zähler beträgt **47/100**. Der aktuelle Orca-`main`-Stand wurde am 17.11.2026 über GitHub API und den Upstream-Remote geprüft: `32f6db87e8`; der aktuelle `nightly-builds`-Tag ist `5841f9652d`. Nächster Schritt: den nächsten Android-erreichbaren, noch fehlenden Orca-Core-Fix aus den nachfolgenden Commits auswählen und zunächst prüfen, ob dessen produktiver Aufrufpfad in der App tatsächlich verwendet wird.
+Der bestätigte Orca-Upgrade-Zähler beträgt **48/100**. Der aktuelle Orca-`main`-Stand wurde am 17.11.2026 über GitHub API und den Upstream-Remote geprüft: `32f6db87e8`; der aktuelle `nightly-builds`-Tag ist `5841f9652d`. Nächster Schritt: den nächsten Android-erreichbaren, noch fehlenden Orca-Core-Fix aus den nachfolgenden Commits auswählen und zunächst prüfen, ob dessen produktiver Aufrufpfad in der App tatsächlich verwendet wird.
 
 ## Laufender 100-Schritte-Upgrade-Zyklus
 
@@ -1554,3 +1554,11 @@ Der weitere Vergleich am 2026-11-04 prüfte Orca `5fd0edf5cc` (Z-Schrumpfung von
 - `Print::apply` wendet jetzt dieselbe Normalisierung auf die lokale Druckkonfiguration an. Profil-/Projektzustand wird dabei nicht verändert; gültige Zuordnungen bleiben erhalten.
 - `NativeSliceDeviceTest#filamentMapOutsidePrinterNozzleRangeUsesNozzleOneWithoutChangingValidMappings` führt native Slices mit `filament_map`-Werten `9`, `0` und `-1` aus und prüft zusätzlich, dass die gültige Zuordnung zu Düse 2 slicebar bleibt. Zusammen mit den physischen Mapping-Regressionen bestehen auf dem API-36-Emulator **3/3 Tests**.
 - ARM64-Native-Build und SliceTest-/Instrumentierungs-APK-Build erfolgreich. Keine APK oder Release aus diesem Zwischenschritt; der Veröffentlichungsgate bleibt **100/100**.
+
+### Schritt 48/100 — isolierte Vertices auch in direkten CGAL-Boolean-Pfaden entfernen — 2026-11-17
+
+- Orca `b3f8d0af15` hatte den Rückgabepfad `triangle_mesh_to_cgal(...)` gegen nicht referenzierte Mesh-Vertices abgesichert. Der Nightly enthielt diesen Fix bereits dort, aber seine echten In-place-Boolean-Operationen wandeln die Meshes direkt in `Surface_mesh` um und umgingen damit die Bereinigung.
+- `triangle_mesh_to_cgal(V, F, out)` entfernt jetzt isolierte Vertices und kompaktifiziert die Deskriptoren für alle Aufrufer. UV-Parameterisierung nutzt weiterhin den separaten Polygon-Soup-Pfad mit ursprünglicher Nummerierung.
+- Die native Regression prüft weiterhin den geschlossenen Würfel samt isolierten Vertices vor, zwischen und nach referenzierten Vertices und führt zusätzlich die produktive In-place-Union mit einem teilweise überlappenden Würfel aus. Erwartetes Volumen **1117 mm³**, gültige Indizes und nichtleeres Ergebnis.
+- ARM64 SliceTest-Native-Build sowie SliceTest-/Instrumentierungs-APK-Build erfolgreich. API-36-Emulator `NativeSliceDeviceTest#cgalBooleanVolumeChecksIgnoreUnreferencedVertices`: **1/1 bestanden**. Xiaomi war per ADB sichtbar, wurde für diesen Test nicht verwendet; Honor war in der ADB-Geräteliste nicht verbunden.
+- Kein Nutzer-APK oder Release; 100/100-Gate bleibt bestehen. Nächster Schritt: weiteren fehlenden Android-erreichbaren Orca-Core-Fix auswählen und den konkreten Produktionspfad regressionsprüfen.

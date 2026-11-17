@@ -183,6 +183,13 @@ void triangle_mesh_to_cgal(const std::vector<stl_vertex> &                 V,
     using VI = typename _Mesh::Vertex_index;
     for (auto &f : F)
         out.add_face(VI(f(0)), VI(f(1)), VI(f(2)));
+
+    // CGAL boolean predicates may visit every vertex and assume it has an
+    // incident halfedge. Imported meshes can contain valid but unreferenced
+    // vertices, so clean them here as well as in the owning-pointer overload:
+    // the in-place boolean paths call this conversion directly.
+    if (CGALProc::remove_isolated_vertices(out) != 0)
+        out.collect_garbage();
 }
 
 inline Vec3f to_vec3f(const _EpicMesh::Point& v)
@@ -243,10 +250,6 @@ triangle_mesh_to_cgal(const std::vector<stl_vertex> &V,
 {
     std::unique_ptr<CGALMesh, CGALMeshDeleter> out(new CGALMesh{});
     triangle_mesh_to_cgal(V, F, out->m);
-    // CGAL's volume predicate dereferences an incident halfedge for every vertex.
-    // Remove isolated vertices and compact their indices for conversion back to an ITS.
-    if (CGALProc::remove_isolated_vertices(out->m) != 0)
-        out->m.collect_garbage();
     return out;
 }
 
