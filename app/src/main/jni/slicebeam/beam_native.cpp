@@ -7999,6 +7999,9 @@ extern "C" {
         Pointfs self_intersecting {{0., 0.}, {20., 20.}, {0., 20.}, {20., 0.}};
         Pointfs duplicate {{0., 0.}, {20., 0.}, {20., 20.}, {20., 0.}};
         Pointfs non_finite {{0., 0.}, {20., 0.}, {std::numeric_limits<double>::quiet_NaN(), 20.}};
+        Pointfs legacy_compound {{0., 0.}, {3., 0.}, {3., 420.}, {0., 420.}, {0., 0.},
+                                 {423., 0.}, {423., 0.}, {423., 0.}, {423., 0.}, {426., 0.},
+                                 {426., 420.}, {423., 420.}, {423., 0.}, {0., 0.}, {0., 0.}, {0., 0.}};
         PrintConfig config;
         config.bed_exclude_area.values = valid;
         const jint valid_area_count = static_cast<jint>(get_bed_excluded_area(config).size());
@@ -8008,13 +8011,14 @@ extern "C" {
             is_valid_bed_exclude_area(self_intersecting) ? 1 : 0,
             is_valid_bed_exclude_area(duplicate) ? 1 : 0,
             is_valid_bed_exclude_area(non_finite) ? 1 : 0,
+            is_valid_bed_exclude_area(legacy_compound) ? 1 : 0,
             valid_area_count,
             static_cast<jint>(get_bed_excluded_area(config).size()),
             static_cast<jint>(get_bed_excluded_regions(config).size())
         };
-        jintArray result = env->NewIntArray(7);
+        jintArray result = env->NewIntArray(8);
         if (result != nullptr)
-            env->SetIntArrayRegion(result, 0, 7, checks);
+            env->SetIntArrayRegion(result, 0, 8, checks);
         return result;
     }
 

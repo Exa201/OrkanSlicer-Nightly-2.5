@@ -1216,6 +1216,183 @@ class NativeSliceDeviceTest {
         }
     }
 
+    @Test(timeout = 240_000)
+    fun volumetricFeatureFlowsUseAssignedToolAndFirstLayerValuesWithPrimeTower() = withToolChangerProfile {
+        val context = InstrumentationRegistry.getInstrumentation().targetContext
+        val process = requireNotNull(SliceBeam.CONFIG?.findPrint("0.20mm Standard"))
+        val processKeys = listOf(
+            "enable_volumetric_speeds", "enable_prime_tower", "wipe_tower_type",
+            "outer_wall_speed", "outer_wall_volumetric_flow", "initial_layer_volumetric_flow",
+            "initial_layer_print_height", "layer_height", "slow_down_for_layer_cooling",
+        )
+        val previous = processKeys.associateWith(process::get)
+        val source = copyCube(context, "volumetric-multitool-tower.stl")
+        val secondSource = copyCube(context, "volumetric-multitool-tower-second.stl")
+        val output = File(context.cacheDir, "volumetric-multitool-tower.gcode")
+        val model = Model(source)
+        val secondModel = Model(secondSource)
+        try {
+            process.put("enable_volumetric_speeds", "1")
+            process.put("enable_prime_tower", "1")
+            process.put("wipe_tower_type", "type1")
+            process.put("outer_wall_speed", "160")
+            process.put("outer_wall_volumetric_flow", "25%,25%")
+            process.put("initial_layer_volumetric_flow", "50%,50%")
+            process.put("initial_layer_print_height", "0.2")
+            process.put("layer_height", "0.2")
+            process.put("slow_down_for_layer_cooling", "0")
+
+            model.addObject(secondModel, 0)
+            model.translate(1, 35.0, 0.0, 0.0)
+            model.setUniformFilament(0, 1)
+            model.setUniformFilament(1, 2)
+            SliceBeam.genCurrentConfig(model)
+
+            // Explicit per-tool caps make this a real verification of the writer's assigned
+            // filament index, rather than merely checking that the setting was serialized.
+            val configFile = SliceBeam.getCurrentConfigFile()
+            var configText = configFile.readText()
+            fun overrideConfig(key: String, value: String) {
+                val line = Regex("(?m)^${Regex.escape(key)}\\s*=.*$")
+                configText = if (line.containsMatchIn(configText)) configText.replace(line, "$key = $value")
+                else "$configText\n$key = $value\n"
+            }
+            overrideConfig("filament_max_volumetric_speed", "12,6")
+            overrideConfig("filament_max_external_volumetric_speed", "0,0")
+            overrideConfig("outer_wall_volumetric_flow", "25%,25%")
+            overrideConfig("initial_layer_volumetric_flow", "50%,50%")
+            overrideConfig("enable_volumetric_speeds", "1")
+            configFile.writeText(configText)
+
+            output.delete()
+            val result = model.slice(configFile.absolutePath, output.absolutePath, null)
+            try {
+                val gcode = output.readText()
+                assertHasExtrusion(gcode)
+                assertTrue("the two assigned tools must both be emitted", Regex("(?m)^T0(?:\\s|$)").containsMatchIn(gcode) &&
+                    Regex("(?m)^T1(?:\\s|$)").containsMatchIn(gcode))
+                assertTrue("the real multi-tool slice must include a physical prime tower", gcode.contains("WIPE_TOWER_START") &&
+                    gcode.contains("WIPE_TOWER_END"))
+
+                data class WallMove(val tool: Int, val z: Double, val speed: Double)
+                val moves = mutableListOf<WallMove>()
+                var activeTool = 0
+                var currentZ = 0.0
+                var currentFeed = 0.0
+                var inOuterWall = false
+                val word = Regex("\\b([TZF])([+-]?(?:\\d+(?:\\.\\d*)?|\\.\\d+))")
+                for (line in gcode.lineSequence()) {
+                    if (line.startsWith("T") && line.substring(1).takeWhile(Char::isDigit).isNotEmpty()) {
+                        activeTool = line.substring(1).takeWhile(Char::isDigit).toInt()
+                    }
+                    val comment = line.substringAfter(';', "")
+                    if ("FEATURE:" in comment || "TYPE:" in comment) {
+                        inOuterWall = "Outer wall" in comment
+                    }
+                    val values = word.findAll(line.substringBefore(';')).associate { it.groupValues[1] to it.groupValues[2].toDouble() }
+                    values["Z"]?.let { currentZ = it }
+                    values["F"]?.let { currentFeed = it / 60.0 }
+                    if (inOuterWall && line.startsWith("G1 ") && Regex("\\bE[+-]?(?:\\d+(?:\\.\\d*)?|\\.\\d+)").containsMatchIn(line)) {
+                        moves += WallMove(activeTool, currentZ, currentFeed)
+                    }
+                }
+                val firstLayerByTool = moves.filter { it.z <= 0.21 }.groupBy(WallMove::tool)
+                val laterLayerByTool = moves.filter { it.z >= 0.4 }.groupBy(WallMove::tool)
+                for (tool in 0..1) {
+                    val first = firstLayerByTool[tool].orEmpty().map(WallMove::speed).filter { it > 0.0 }
+                    val later = laterLayerByTool[tool].orEmpty().map(WallMove::speed).filter { it > 0.0 }
+                    assertTrue("tool T$tool must emit first-layer and later outer walls; first=$first later=$later", first.isNotEmpty() && later.isNotEmpty())
+                    val firstMedian = first.sorted()[first.size / 2]
+                    val laterMedian = later.sorted()[later.size / 2]
+                    assertTrue("T$tool first-layer flow (50%) must be faster than normal outer-wall flow (25%): first=$firstMedian later=$laterMedian",
+                        firstMedian > laterMedian * 1.5)
+                }
+                val later0 = laterLayerByTool.getValue(0).map(WallMove::speed).filter { it > 0.0 }.sorted().let { it[it.size / 2] }
+                val later1 = laterLayerByTool.getValue(1).map(WallMove::speed).filter { it > 0.0 }.sorted().let { it[it.size / 2] }
+                assertTrue("T1's 6 mm³/s cap must produce slower walls than T0's 12 mm³/s cap; T0=$later0 T1=$later1",
+                    later0 > later1 * 1.5)
+            } finally {
+                result.release()
+            }
+        } finally {
+            processKeys.forEach { key -> process.put(key, previous[key]) }
+            model.release()
+            secondModel.release()
+            source.delete()
+            secondSource.delete()
+            output.delete()
+            SliceBeam.getCurrentConfigFile().delete()
+        }
+    }
+
+    @Test(timeout = 120_000)
+    fun volumetricOuterWallFlowIsTheBaseForSmallPerimeterModifiers() = withKobraProfile {
+        val context = InstrumentationRegistry.getInstrumentation().targetContext
+        val process = requireNotNull(SliceBeam.CONFIG?.findPrint("0.16mm Standard"))
+        val filament = requireNotNull(SliceBeam.CONFIG?.findFilament("Anycubic Generic PLA"))
+        val processKeys = listOf(
+            "enable_volumetric_speeds", "outer_wall_speed", "outer_wall_volumetric_flow",
+            "small_perimeter_speed", "small_perimeter_threshold", "layer_height",
+            "initial_layer_print_height", "slow_down_for_layer_cooling",
+        )
+        val previous = processKeys.associateWith(process::get)
+        val previousMaxFlow = filament["filament_max_volumetric_speed"]
+        val source = createCylinderFixture("volumetric-small-perimeter.stl", 2.0, 1.2, 48)
+        val output = File(context.cacheDir, "volumetric-small-perimeter.gcode")
+        val model = Model(source).also { it.ensureOnBed(0) }
+        try {
+            process.put("enable_volumetric_speeds", "1")
+            process.put("outer_wall_speed", "100")
+            process.put("outer_wall_volumetric_flow", "0.5")
+            process.put("small_perimeter_speed", "50%")
+            process.put("small_perimeter_threshold", "20")
+            process.put("layer_height", "0.2")
+            process.put("initial_layer_print_height", "0.2")
+            process.put("slow_down_for_layer_cooling", "0")
+            filament.put("filament_max_volumetric_speed", "1000")
+            SliceBeam.genCurrentConfig(model)
+            val config = SliceBeam.getCurrentConfigFile()
+            output.delete()
+            val result = model.slice(config.absolutePath, output.absolutePath, null)
+            try {
+                val gcode = output.readText()
+                assertHasExtrusion(gcode)
+                val outerWallSpeeds = mutableListOf<Double>()
+                var inOuterWall = false
+                var currentZ = 0.0
+                var currentFeed = 0.0
+                val word = Regex("\\b([ZF])([+-]?(?:\\d+(?:\\.\\d*)?|\\.\\d+))")
+                for (line in gcode.lineSequence()) {
+                    val comment = line.substringAfter(';', "")
+                    if ("FEATURE:" in comment || "TYPE:" in comment)
+                        inOuterWall = "Outer wall" in comment
+                    val values = word.findAll(line.substringBefore(';')).associate { it.groupValues[1] to it.groupValues[2].toDouble() }
+                    values["Z"]?.let { currentZ = it }
+                    values["F"]?.let { currentFeed = it / 60.0 }
+                    if (inOuterWall && currentZ >= 0.4 && line.startsWith("G1 ") &&
+                        Regex("\\bE[+-]?(?:\\d+(?:\\.\\d*)?|\\.\\d+)").containsMatchIn(line)) {
+                        outerWallSpeeds += currentFeed
+                    }
+                }
+                assertTrue("the small cylinder must emit identifiable outer-wall moves", outerWallSpeeds.isNotEmpty())
+                val median = outerWallSpeeds.sorted()[outerWallSpeeds.size / 2]
+                assertTrue(
+                    "50% small-perimeter modifier must apply to the 0.5 mm³/s outer-wall flow, not the 100 mm/s legacy speed; observed=$median mm/s",
+                    median in 1.0..8.0,
+                )
+            } finally {
+                result.release()
+            }
+        } finally {
+            processKeys.forEach { key -> process.put(key, previous[key]) }
+            filament.put("filament_max_volumetric_speed", previousMaxFlow)
+            model.release()
+            source.delete()
+            output.delete()
+            SliceBeam.getCurrentConfigFile().delete()
+        }
+    }
+
     @Test(timeout = 120_000)
     fun experimentalHighPrecisionSettingChangesRealSliceCoordinatesAndExtrusionDigits() = withKobraProfile {
         val context = InstrumentationRegistry.getInstrumentation().targetContext
@@ -2385,9 +2562,9 @@ class NativeSliceDeviceTest {
     }
 
     @Test
-    fun legacyBedExcludeAreaRejectsMalformedPolygonsFromProductionGeometry() {
+    fun legacyBedExcludeAreaKeepsCompoundPathsAndRejectsCrossings() {
         assertArrayEquals(
-            intArrayOf(1, 0, 0, 0, 1, 0, 0),
+            intArrayOf(1, 0, 0, 0, 1, 1, 0, 0),
             Native.bed_exclude_area_validation_regression(),
         )
     }
@@ -4379,6 +4556,13 @@ class NativeSliceDeviceTest {
             setConfig("filament_diameter", "1.75,2.85")
             setConfig("filament_flow_ratio", "1,0.9")
             setConfig("filament_max_volumetric_speed", "21,4")
+            // Deliberately restrictive feature and visible-feature limits must not replace
+            // the calibration's own speed model. The calibration path still honors the
+            // selected filament's 4 mm³/s general cap, verified below.
+            setConfig("enable_volumetric_speeds", "1")
+            setConfig("outer_wall_volumetric_flow", "0.1,0.1")
+            setConfig("initial_layer_volumetric_flow", "0.1,0.1")
+            setConfig("filament_max_external_volumetric_speed", "0.01,0.01")
             setConfig("filament_map", "1,1")
             configFile.writeText(configText)
 

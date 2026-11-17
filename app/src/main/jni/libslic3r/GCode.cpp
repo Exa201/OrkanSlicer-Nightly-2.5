@@ -5950,14 +5950,10 @@ std::string GCode::extrude_loop(const ExtrusionLoop&        loop_ref,
     loop.clip_end(clip_length, &paths);
     if (paths.empty()) return "";
 
-    // SoftFever: check loop lenght for small perimeter. 
-    double small_peri_speed = -1;
-    if (speed == -1 && loop.length() <= SMALL_PERIMETER_LENGTH(m_config.small_perimeter_threshold.value)) {
-        if(m_config.small_perimeter_speed == 0)
-            small_peri_speed = m_config.outer_wall_speed * 0.5;
-        else
-            small_peri_speed = m_config.small_perimeter_speed.get_abs_value(m_config.outer_wall_speed);
-    }
+    // Orca: small-perimeter speed is a modifier of the resolved outer-wall speed.
+    // With volumetric feature speeds, resolve the outer-wall flow for each path first.
+    const bool is_small_perimeter = speed == -1 &&
+        loop.length() <= SMALL_PERIMETER_LENGTH(m_config.small_perimeter_threshold.value);
 
     // extrude along the path
     std::string gcode;
@@ -6036,10 +6032,34 @@ std::string GCode::extrude_loop(const ExtrusionLoop&        loop_ref,
     }
 
 
-    const auto speed_for_path = [&speed, &small_peri_speed](const ExtrusionPath& path) {
-        // don't apply small perimeter setting for overhangs/bridges/non-perimeters
-        const bool is_small_peri = is_perimeter(path.role()) && !is_bridge(path.role()) && small_peri_speed > 0;
-        return is_small_peri ? small_peri_speed : speed;
+    const auto speed_for_path = [this, speed, is_small_perimeter](const ExtrusionPath& path) {
+        // Don't apply small-perimeter speed to overhangs, bridges, or non-perimeters.
+        if (!is_small_perimeter || is_bridge(path.role()) || !is_perimeter(path.role()))
+            return speed;
+
+        double outer_wall_speed = m_config.get_abs_value("outer_wall_speed");
+        const double mm3_per_mm = path.mm3_per_mm * this->config().print_flow_ratio *
+            FILAMENT_CONFIG(filament_flow_ratio);
+        const size_t nozzle_id = get_extruder_id(m_writer.filament()->id());
+        const bool first_layer_path = this->on_first_layer() || object_layer_over_raft();
+        const auto& flow_values = first_layer_path
+            ? m_config.initial_layer_volumetric_flow
+            : m_config.outer_wall_volumetric_flow;
+        if (m_config.enable_volumetric_speeds && m_print->calib_mode() == CalibMode::Calib_None &&
+            mm3_per_mm > 0.0 && !flow_values.is_nil(nozzle_id)) {
+            const FloatOrPercent configured_flow = flow_values.get_at(nozzle_id);
+            const double max_flow = FILAMENT_CONFIG(filament_max_volumetric_speed);
+            const double requested_flow = configured_flow.percent
+                ? max_flow * configured_flow.value / 100.0
+                : configured_flow.value;
+            if (requested_flow > 0.0)
+                outer_wall_speed = requested_flow / mm3_per_mm;
+        }
+
+        const double small_peri_speed = m_config.small_perimeter_speed.value == 0
+            ? outer_wall_speed * 0.5
+            : m_config.small_perimeter_speed.get_abs_value(outer_wall_speed);
+        return small_peri_speed > 0 ? small_peri_speed : speed;
     };
 
     
