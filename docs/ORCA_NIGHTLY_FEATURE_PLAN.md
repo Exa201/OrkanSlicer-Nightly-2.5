@@ -1,9 +1,9 @@
-# Aktueller Stand — Nightly 0.8.485; Upgrade-Zyklus: 41/100 geprüft — 2026-11-16
+# Aktueller Stand — Nightly 0.8.492; Orca-Upgrade-Zyklus: 43/100 — 2026-11-17
 
-## Upstream-Abgleich — 2026-11-16
+## Upstream-Abgleich — 2026-11-17
 
-- GitHub-Upstream `OrcaSlicer/OrcaSlicer`, Branch `nightly-builds`, wurde frisch abgeglichen. Aktueller HEAD: `59acdedd065e5213445163a581947353d3208ccd` (2026-11-16).
-- Die jüngsten Commits im Vorlauf zu `59acdedd06` (`4b161be150`, `87fb987668` und Installer-/Plattformcommits) bringen keine weitere übertragbare Android-Core-Änderung. `4b161be150` ist ein Wayland-AMS-Popup-Fix; `87fb987668` ändert ausschließlich den Desktop-Mess-Gizmo.
+- GitHub-Upstream `OrcaSlicer/OrcaSlicer` wurde frisch abgeglichen. `main` steht bei `32f6db87e8` (`Fix validation of legacy bed exclusion areas`); der `nightly-builds`-Tag steht bei `5841f9652d` und enthält optionale CI-Änderungen, keine zusätzliche Android-Core-Funktion.
+- Nach `59acdedd06` geprüfte Änderungen: `9cdaaedad7` betrifft den Desktop-Mess-Gizmo; `c49e32c1e7`, `0e8e95d516`, `8b8d573a85`, `8a1cef365e`, `6268535d2f`, `82135af6ff`, `87cf1429ca`, `36815b4f03`, `2c50d15451`, `97bf1f4d1d`, `db9968b9ee` und `32dbacb423` sind im Nightly bereits umgesetzt und durch vorhandene Core-/Instrumentierungsregressionen abgesichert. Wayland-/Windows-/Desktop-GUI-Änderungen werden nicht als Android-Ports gezählt.
 - Relevante kurz zuvor gelandete Änderungen wurden gegen den Nightly-Quellcode geprüft: Orca `87cf1429ca` (mehrere Tree-Support-Überhänge pro Cluster/Schicht), `3538f239c2` (Mehrfarben-Brückenanker), `ea80024735` (Werkzeugbefehl vor Filament-Start-G-Code) und `fabad6114a` (keine fremde Filamentprofil-Zuordnung bei unbekanntem Material) sind im Nightly bereits umgesetzt. Diese werden nicht erneut portiert oder doppelt gezählt.
 - `NativeSliceDeviceTest#treeSupportsKeepEveryOverhangThatJoinsAClusterOnTheSameLayer` wurde auf API 36 erneut ausgeführt und bestand **1/1**. Gradle startete danach zusätzlich den angeschlossenen Xiaomi-Lauf; Android blockierte die Testinstallation (`INSTALL_FAILED_USER_RESTRICTED`). Das Xiaomi-Ergebnis ist daher **nicht getestet**, der Gesamt-Gradle-Task meldete entsprechend Fehler trotz bestandenem Emulatorlauf.
 - Orca `2c50d15451` korrigiert den letzten Reinigungsturm-Purge: Bei einem Toolchanger ohne Single-Extruder-MMU muss die letzte Ramming-Spülung entfallen, wenn der Turm vor der höchsten Modellschicht endet. Die vorherige Nightly-Sonderbehandlung setzte den Turm-Purge trotzdem auf Modellhöhe und erzeugte dadurch eine Extrusion oberhalb des realen Turms. Das wurde in Schritt 39 portiert und mit zwei tatsächlichen G-Code-Slices verifiziert.
@@ -22,7 +22,7 @@
 9. Ergebnisse, bekannte Geräteblockaden und Commit im Ausführungsstand festhalten; nur verifizierte Android-relevante Änderungen erhöhen den 100er-Zähler.
 10. Erst bei 100/100 die vollständige Abschlussverifikation, APK-Erstellung, SHA-256, GitHub-Prerelease und aktualisierte Release-Dokumentation durchführen.
 
-Der bestätigte Orca-Upgrade-Zähler beträgt **41/100**.
+Der bestätigte Orca-Upgrade-Zähler beträgt **43/100**. Die erneute API-36-Ausführung von `NativeSliceDeviceTest#legacyBedExcludeAreaKeepsCompoundPathsAndRejectsCrossings` bestand **1/1**. Nächster Schritt: im bestehenden Feature-Backlog die nächste nicht implementierte Orca-Funktion nach Android-Abhängigkeiten und Speicher-/Rendererkosten priorisieren; erst nach konkreter Implementierung und Regression zählt sie als Schritt 44.
 
 ## Laufender 100-Schritte-Upgrade-Zyklus
 

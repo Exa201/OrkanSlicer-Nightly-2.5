@@ -967,7 +967,7 @@
     <string name="MenuToolbarNavigation">Edit</string>
     <string name="MenuOptions">Options</string>
     <string name="MenuToolbarNavigationCompact">Edit</string>
-    <string name="MenuOptionsCompact">Tools</string>
+    <string name="MenuOptionsCompact">Options</string>
     <string name="MenuToolbarNotImplemented">%1$s isn\'t available yet.</string>
     <string name="MenuToolbarSplit">Separate parts</string>
     <string name="MenuToolbarSplitNothing">This object contains no separable parts.</string>

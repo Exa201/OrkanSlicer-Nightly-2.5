@@ -5734,3 +5734,11 @@ Phase 4 — workspace overlay migration is continuing. The model context menu an
 - Begleitende UI-Regressionsprüfungen auf API 36 bestätigten die sichtbaren Dashboard-Shortcuts für Filamentzuweisung, Turmposition und Spülvolumen sowie die Landscape-Menüzeilen mit voller Orca-Beschriftung: **2/2** bestanden. Der Quellcode erlaubt bereits das Ein-/Ausklappen der unteren Aktionsleiste durch erneutes Antippen des ausgewählten Navigationsziels; die kompakte Ansicht blendet die Aktionsleiste aus.
 - ADB listet nur Xiaomi und API-36-Emulator. Der alte Honor-Wireless-Endpunkt `192.168.68.66:41319` verweigert die Verbindung; daher kein Honor-Lauf.
 - Orca-Zykluszähler: **43/100**. Nächster konkreter Schritt: nächsten Android-relevanten Orca-Core-Änderungskandidaten anhand des aktuellen Upstreams auswählen und mit einem realen Slicing-Verhaltenstest abdecken.
+
+## Nightly-UI — Dashboardaktionen und Orca-Navigationsnamen — 2026-11-17
+
+- Die Dashboard-Aktionsleiste reserviert jetzt mindestens **250 dp** für Filamentsync, Turmposition, Spülvolumen, Plattenwahl und Verbindungsstatus. Die bisher proportionale Gewichtung konnte Turm-/Spül-Buttons auf kompakter Breite aus dem Header schieben.
+- Die kompakten Navigationsbeschriftungen stimmen jetzt mit den vollständigen Orca-Bereichsnamen überein: **Bearbeiten / Edit** und **Werkzeuge / Options**. Das Querformatmenü wird weiterhin nur im ausgeklappten Zustand gezeigt.
+- Verifikation: Debug-Unit `WorkspaceShellLayoutPolicyTest` erfolgreich; `WorkspaceModePanelHostDeviceTest` auf API-36-Emulator **13/13 bestanden**, einschließlich aller fünf Dashboard-Aktionen bei **360 dp** und **480 dp** sowie der Querformat-Menühost-Prüfungen. `verifyNightlyChangelog`, SliceTest-App-/Instrumentierungs-APK-Build und `git diff --check` erfolgreich.
+- Physische Honor-Prüfung noch offen: ADB listet weiterhin nur Xiaomi `e7dbd22e` und Emulator `emulator-5554`; der gespeicherte Honor-Endpunkt `192.168.68.66:41319` verweigert die Verbindung und mDNS meldet nur Xiaomi.
+- Kein neuer Nutzer-APK-Build oder Release in diesem UI-Schritt. Nightly bleibt **0.8.492 / Code 527**; Orca-Kernzyklus bleibt **43/100**. Nächster konkreter Schritt: nach Wiedererscheinen des Honor in ADB den 480-dp-Header bei 150 % Schrift öffnen und Turm-/Spül-Dialoge direkt antippen; anschließend bei Bedarf das signierte Paket erstellen.

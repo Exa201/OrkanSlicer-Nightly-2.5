@@ -947,8 +947,8 @@
     <string name="MenuToolbar">Bearbeiten</string>
     <string name="MenuToolbarNavigation">Bearbeiten</string>
     <string name="MenuOptions">Werkzeuge</string>
-    <string name="MenuToolbarNavigationCompact">Ändern</string>
-    <string name="MenuOptionsCompact">Tools</string>
+    <string name="MenuToolbarNavigationCompact">Bearbeiten</string>
+    <string name="MenuOptionsCompact">Werkzeuge</string>
     <string name="MenuToolbarNotImplemented">%1$s ist noch nicht verfügbar.</string>
     <string name="MenuToolbarSplit">Teile trennen</string>
     <string name="MenuToolbarSplitNothing">Dieses Objekt enthält keine trennbaren Teile.</string>

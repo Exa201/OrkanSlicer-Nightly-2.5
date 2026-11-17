@@ -20,6 +20,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.wrapContentHeight
+import androidx.compose.foundation.layout.wrapContentWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -109,11 +110,6 @@ internal fun WorkspaceShell(
     val showHeaderFilamentShortcut = true
     // The tower and purge-volume controls are primary print setup actions. Keep
     // them in the dashboard on compact phones as well as wide layouts.
-    val headerActionWeight = when {
-        LocalConfiguration.current.screenWidthDp < 400 -> 2.2f
-        LocalConfiguration.current.screenWidthDp < 480 -> 2.2f
-        else -> 1.15f
-    }
     val navigationItems = WorkspaceDestination.visibleNavigationDestinations.map { destination ->
         val compactTitle = when (destination) {
             WorkspaceDestination.PROJECT -> ru.ytkab0bp.slicebeam.R.string.MenuFileCompact
@@ -158,10 +154,11 @@ internal fun WorkspaceShell(
                     .testTag("workspace-header-profile-status"),
             ) { profileStatusContent() }
             Row(
-                // Spread the compact controls through the available dashboard header
-                // instead of leaving a large unused strip after the last icon.
-                // Their fixed touch targets still fit the smallest supported width.
-                modifier = Modifier.weight(headerActionWeight).fillMaxWidth()
+                // Reserve enough width for every always-visible dashboard shortcut.
+                // A weighted row used to squeeze this strip on compact phones, pushing
+                // the tower and flush-volume buttons beyond the right edge.
+                modifier = Modifier.widthIn(min = WorkspaceShellLayoutPolicy.DASHBOARD_ACTION_STRIP_WIDTH_DP.dp)
+                    .wrapContentWidth(Alignment.End)
                     .testTag("workspace-header-actions"),
                 horizontalArrangement = Arrangement.SpaceBetween,
             ) {
@@ -413,6 +410,7 @@ internal fun WorkspaceActionControl(
 /** Measurable policy for the portion of a compact workspace reserved for the actual build plate. */
 internal object WorkspaceShellLayoutPolicy {
     const val MIN_LANDSCAPE_SIDE_PANEL_WIDTH_DP = 360
+    const val DASHBOARD_ACTION_STRIP_WIDTH_DP = 250
     private const val WORKSPACE_HEADER_HEIGHT_DP = 80
 
     /** Fixed workspace geometry sized to keep the profile text readable at maximum zoom. */

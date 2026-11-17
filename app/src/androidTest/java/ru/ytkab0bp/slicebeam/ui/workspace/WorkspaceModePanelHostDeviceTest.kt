@@ -58,15 +58,58 @@ class WorkspaceModePanelHostDeviceTest {
 
     @Test
     fun dashboardHeaderKeepsFilamentAssignmentVisibleWhileToolPanelIsOpen() {
+        setDashboardHeaderContent(widthDp = 480)
+
+        val header = compose.onNodeWithTag("workspace-header").assertIsDisplayed()
+            .fetchSemanticsNode().boundsInRoot
+        val actionArea = compose.onNodeWithTag("workspace-header-actions")
+            .assertIsDisplayed().fetchSemanticsNode().boundsInRoot
+        listOf(
+            "workspace-header-filament-action",
+            "workspace-header-prime-tower",
+            "workspace-header-flush-volumes",
+            "workspace-header-plate-action",
+            "workspace-header-printer-action",
+        ).forEach { tag ->
+            val bounds = compose.onNodeWithTag(tag).assertIsDisplayed().fetchSemanticsNode().boundsInRoot
+            assertTrue("$tag must stay inside the dashboard header", bounds.left >= header.left && bounds.right <= header.right)
+        }
+        val plate = compose.onNodeWithTag("workspace-header-plate-action")
+            .assertIsDisplayed().fetchSemanticsNode().boundsInRoot
+        val connection = compose.onNodeWithTag("workspace-header-printer-action")
+            .assertIsDisplayed().fetchSemanticsNode().boundsInRoot
+        assertTrue("connection control should reach the right side of the dashboard header", connection.right >= actionArea.right - 1f)
+        assertTrue("connection and plate controls must not overlap", connection.left >= plate.right - 1f)
+    }
+
+    @Test
+    fun dashboardHeaderKeepsTowerAndFlushActionsVisibleAt360Dp() {
+        setDashboardHeaderContent(widthDp = 360)
+
+        val header = compose.onNodeWithTag("workspace-header").assertIsDisplayed()
+            .fetchSemanticsNode().boundsInRoot
+        listOf(
+            "workspace-header-filament-action",
+            "workspace-header-prime-tower",
+            "workspace-header-flush-volumes",
+            "workspace-header-plate-action",
+            "workspace-header-printer-action",
+        ).forEach { tag ->
+            val bounds = compose.onNodeWithTag(tag).assertIsDisplayed().fetchSemanticsNode().boundsInRoot
+            assertTrue("$tag must stay inside the dashboard header at 360 dp", bounds.left >= header.left && bounds.right <= header.right)
+        }
+    }
+
+    private fun setDashboardHeaderContent(widthDp: Int) {
         compose.setContent {
             CompositionLocalProvider(
                 LocalConfiguration provides Configuration().apply {
-                    screenWidthDp = 480
+                    screenWidthDp = widthDp
                     screenHeightDp = 800
                 },
             ) {
                 BeamComposeTheme {
-                    Box(Modifier.requiredSize(480.dp, 800.dp)) {
+                    Box(Modifier.requiredSize(widthDp.dp, 800.dp)) {
                         WorkspaceShell(
                             portrait = true,
                             toolPanelExpanded = false,
@@ -100,18 +143,6 @@ class WorkspaceModePanelHostDeviceTest {
                 }
             }
         }
-
-        val actionArea = compose.onNodeWithTag("workspace-header-actions")
-            .assertIsDisplayed().fetchSemanticsNode().boundsInRoot
-        compose.onNodeWithTag("workspace-header-filament-action").assertIsDisplayed()
-        compose.onNodeWithTag("workspace-header-prime-tower").assertIsDisplayed()
-        compose.onNodeWithTag("workspace-header-flush-volumes").assertIsDisplayed()
-        val plate = compose.onNodeWithTag("workspace-header-plate-action")
-            .assertIsDisplayed().fetchSemanticsNode().boundsInRoot
-        val connection = compose.onNodeWithTag("workspace-header-printer-action")
-            .assertIsDisplayed().fetchSemanticsNode().boundsInRoot
-        assertTrue("connection control should reach the right side of the dashboard header", connection.right >= actionArea.right - 1f)
-        assertTrue("connection and plate controls must not overlap", connection.left >= plate.right - 1f)
     }
 
     @Test
