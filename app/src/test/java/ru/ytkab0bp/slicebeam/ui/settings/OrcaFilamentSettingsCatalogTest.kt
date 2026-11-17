@@ -87,4 +87,13 @@ class OrcaFilamentSettingsCatalogTest {
             "filament_adaptive_volumetric_speed" in filamentKeys,
         )
     }
+
+    @Test
+    fun externalVolumetricLimitIsEditableInFilamentPrintSpeedSettings() {
+        val section = OrcaFilamentSettingsCatalog.categories()
+            .single { it.title == "Advanced" }
+            .sections.single { it.title == "Print speed override" }
+        assertTrue("The visible-feature flow ceiling belongs to its filament profile",
+            "filament_max_external_volumetric_speed" in section.keys)
+    }
 }

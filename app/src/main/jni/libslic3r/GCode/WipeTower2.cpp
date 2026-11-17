@@ -1291,6 +1291,20 @@ WipeTower2::WipeTower2(const PrintConfig& config, const PrintRegionConfig& defau
     if (m_perimeter_speed == 0.f)
         m_perimeter_speed = 80.f;
 
+    if (config.enable_volumetric_speeds) {
+        const size_t extruder_idx = get_extruder_index(config, (unsigned int)initial_tool);
+        const double max_volumetric_speed = config.filament_max_volumetric_speed.get_at(initial_tool);
+        const auto infill_flow = default_region_config.sparse_infill_volumetric_flow.get_at(extruder_idx);
+        const auto perimeter_flow = default_region_config.inner_wall_volumetric_flow.get_at(extruder_idx);
+        const auto first_layer_flow = config.initial_layer_volumetric_flow.get_at(extruder_idx);
+        m_infill_volumetric_flow = float(infill_flow.percent
+            ? max_volumetric_speed * infill_flow.value / 100.0 : infill_flow.value);
+        m_perimeter_volumetric_flow = float(perimeter_flow.percent
+            ? max_volumetric_speed * perimeter_flow.value / 100.0 : perimeter_flow.value);
+        m_first_layer_volumetric_flow = float(first_layer_flow.percent
+            ? max_volumetric_speed * first_layer_flow.value / 100.0 : first_layer_flow.value);
+    }
+
 
     // If this is a single extruder MM printer, we will use all the SE-specific config values.
     // Otherwise, the defaults will be used to turn off the SE stuff.

@@ -995,12 +995,14 @@ PRINT_CONFIG_CLASS_DEFINE(
     // Spacing between interface lines (the hatching distance). Set zero to get a solid interface.
     ((ConfigOptionFloat,               support_interface_spacing))
     ((ConfigOptionFloat,               support_interface_speed))
+    ((ConfigOptionFloatsOrPercentsNullable, support_interface_volumetric_flow))
     ((ConfigOptionEnum<SupportMaterialPattern>, support_base_pattern))
     ((ConfigOptionEnum<SupportMaterialInterfacePattern>, support_interface_pattern))
     // Spacing between support material lines (the hatching distance).
     ((ConfigOptionFloat,               support_base_pattern_spacing))
     ((ConfigOptionFloat,               support_expansion))
     ((ConfigOptionFloat,               support_speed))
+    ((ConfigOptionFloatsOrPercentsNullable, support_volumetric_flow))
     ((ConfigOptionEnum<SupportMaterialStyle>, support_style))
 
     // Orca: a flag enabling the ability to override flow ratios
@@ -1116,6 +1118,8 @@ PRINT_CONFIG_CLASS_DEFINE(
     ((ConfigOptionFloat,                internal_bridge_flow))
     ((ConfigOptionFloat,                bridge_speed))
     ((ConfigOptionFloatOrPercent,       internal_bridge_speed))
+    ((ConfigOptionFloatsOrPercentsNullable, bridge_volumetric_flow))
+    ((ConfigOptionFloatsOrPercentsNullable, internal_bridge_volumetric_flow))
     ((ConfigOptionEnum<EnsureVerticalShellThickness>,   ensure_vertical_shell_thickness))
     ((ConfigOptionPercent,              top_surface_density))
     ((ConfigOptionPercent,               bottom_surface_density))
@@ -1126,6 +1130,7 @@ PRINT_CONFIG_CLASS_DEFINE(
     ((ConfigOptionEnum<InfillPattern>, internal_solid_infill_pattern))
     ((ConfigOptionFloatOrPercent,       outer_wall_line_width))
     ((ConfigOptionFloat,                outer_wall_speed))
+    ((ConfigOptionFloatsOrPercentsNullable, outer_wall_volumetric_flow))
     ((ConfigOptionFloat,                infill_direction))
     ((ConfigOptionFloat,                solid_infill_direction))
     ((ConfigOptionString,               solid_infill_rotate_template))
@@ -1156,11 +1161,13 @@ PRINT_CONFIG_CLASS_DEFINE(
     ((ConfigOptionPercent,              fuzzy_skin_ripple_offset))
     ((ConfigOptionInt,                  fuzzy_skin_layers_between_ripple_offset))
     ((ConfigOptionFloat,                gap_infill_speed))
+    ((ConfigOptionFloatsOrPercentsNullable, gap_infill_volumetric_flow))
     ((ConfigOptionInt,                  sparse_infill_filament_id))
     ((ConfigOptionFloatOrPercent,       sparse_infill_line_width))
     ((ConfigOptionPercent,              infill_wall_overlap))
     ((ConfigOptionPercent,              top_bottom_infill_wall_overlap))
     ((ConfigOptionFloat,                sparse_infill_speed))
+    ((ConfigOptionFloatsOrPercentsNullable, sparse_infill_volumetric_flow))
     ((ConfigOptionPercent, skeleton_infill_density))
     ((ConfigOptionPercent, skin_infill_density))
     ((ConfigOptionFloat, infill_lock_depth))
@@ -1193,6 +1200,7 @@ PRINT_CONFIG_CLASS_DEFINE(
     ((ConfigOptionInt, inner_wall_filament_id))
     ((ConfigOptionFloatOrPercent, inner_wall_line_width))
     ((ConfigOptionFloat, inner_wall_speed))
+    ((ConfigOptionFloatsOrPercentsNullable, inner_wall_volumetric_flow))
     // Total number of perimeters.
     ((ConfigOptionInt, wall_loops))
     ((ConfigOptionBool, alternate_extra_wall))
@@ -1202,6 +1210,7 @@ PRINT_CONFIG_CLASS_DEFINE(
     ((ConfigOptionInt, bottom_surface_filament_id))
     ((ConfigOptionFloatOrPercent, internal_solid_infill_line_width))
     ((ConfigOptionFloat, internal_solid_infill_speed))
+    ((ConfigOptionFloatsOrPercentsNullable, internal_solid_infill_volumetric_flow))
     // Detect thin walls.
     ((ConfigOptionBool, detect_thin_wall))
     ((ConfigOptionFloatOrPercent, top_surface_line_width))
@@ -1209,6 +1218,7 @@ PRINT_CONFIG_CLASS_DEFINE(
     ((ConfigOptionInt, top_color_penetration_layers))
     ((ConfigOptionFloat, top_shell_thickness))
     ((ConfigOptionFloat, top_surface_speed))
+    ((ConfigOptionFloatsOrPercentsNullable, top_surface_volumetric_flow))
     //BBS
     ((ConfigOptionBool,                 enable_overhang_speed))
     ((ConfigOptionFloatOrPercent,       overhang_1_4_speed))
@@ -1375,6 +1385,7 @@ PRINT_CONFIG_CLASS_DEFINE(
     ((ConfigOptionStrings,             default_filament_colour))
     ((ConfigOptionInts,                temperature_vitrification))  //BBS
     ((ConfigOptionFloats,              filament_max_volumetric_speed))
+    ((ConfigOptionFloats,              filament_max_external_volumetric_speed))
     ((ConfigOptionInts,                required_nozzle_HRC))
     ((ConfigOptionEnum<FilamentMapMode>, filament_map_mode))
     ((ConfigOptionInts,                filament_map))
@@ -1579,9 +1590,12 @@ PRINT_CONFIG_CLASS_DERIVED_DEFINE(
     ((ConfigOptionFloatOrPercent,     initial_layer_line_width))
     ((ConfigOptionFloat,              initial_layer_print_height))
     ((ConfigOptionFloat,              initial_layer_speed))
+    ((ConfigOptionFloatsOrPercentsNullable, initial_layer_volumetric_flow))
 
     //BBS
     ((ConfigOptionFloat,              initial_layer_infill_speed))
+    ((ConfigOptionFloatsOrPercentsNullable, initial_layer_infill_volumetric_flow))
+    ((ConfigOptionBool,               enable_volumetric_speeds))
     ((ConfigOptionInts,               nozzle_temperature_initial_layer))
     ((ConfigOptionInts,               full_fan_speed_layer))
     ((ConfigOptionFloats,               fan_max_speed))

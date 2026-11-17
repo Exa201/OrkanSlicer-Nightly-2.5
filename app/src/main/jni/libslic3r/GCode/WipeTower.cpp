@@ -1504,6 +1504,13 @@ WipeTower::WipeTower(const PrintConfig& config, int plate_idx, Vec3d plate_origi
     m_first_layer_speed = config.get_abs_value("initial_layer_speed");
     if (m_first_layer_speed == 0.f) // just to make sure autospeed doesn't break it.
         m_first_layer_speed = default_speed / 2.f;
+    if (config.enable_volumetric_speeds) {
+        const size_t extruder_idx = get_extruder_index(config, (unsigned int)initial_tool);
+        const double max_flow = config.filament_max_volumetric_speed.get_at(initial_tool);
+        const auto configured_flow = config.initial_layer_volumetric_flow.get_at(extruder_idx);
+        m_first_layer_volumetric_flow = float(configured_flow.percent
+            ? max_flow * configured_flow.value / 100.0 : configured_flow.value);
+    }
 
     // If this is a single extruder MM printer, we will use all the SE-specific config values.
     // Otherwise, the defaults will be used to turn off the SE stuff.

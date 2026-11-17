@@ -237,6 +237,7 @@ open class Slic3rConfigWrapper {
                 "filament_soluble",
                 "filament_notes",
                 "filament_max_volumetric_speed",
+                "filament_max_external_volumetric_speed",
                 "extrusion_multiplier",
                 "filament_density",
                 "filament_cost",

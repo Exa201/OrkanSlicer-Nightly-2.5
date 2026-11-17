@@ -110,6 +110,15 @@ public:
 		
 		// Calculate extrusion flow from desired line width, nozzle diameter, filament diameter and layer_height:
 		m_extrusion_flow = extrusion_flow(layer_height);
+		const float mm3_per_mm = m_extrusion_flow * filament_area();
+		if (mm3_per_mm > 0.f) {
+			if (m_infill_volumetric_flow > 0.f)
+				m_infill_speed = m_infill_volumetric_flow / mm3_per_mm;
+			if (m_perimeter_volumetric_flow > 0.f)
+				m_perimeter_speed = m_perimeter_volumetric_flow / mm3_per_mm;
+			if (m_first_layer_volumetric_flow > 0.f)
+				m_first_layer_speed = m_first_layer_volumetric_flow / mm3_per_mm;
+		}
 	}
 
 	// Return the wipe tower position.
@@ -219,6 +228,9 @@ private:
     float  m_wipe_tower_max_purge_speed   = 90.f;
 	float  m_perimeter_speed    = 0.f;
     float  m_first_layer_speed  = 0.f;
+    float  m_infill_volumetric_flow = 0.f;
+    float  m_perimeter_volumetric_flow = 0.f;
+    float  m_first_layer_volumetric_flow = 0.f;
     size_t m_first_layer_idx    = size_t(-1);
     bool   m_flat_ironing       = false;
     bool   m_enable_tower_interface_features = false;

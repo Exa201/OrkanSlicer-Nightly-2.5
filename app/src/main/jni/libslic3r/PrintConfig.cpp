@@ -2237,6 +2237,41 @@ void PrintConfigDef::init_fff_params()
     def->mode = comAdvanced;
     def->set_default_value(new ConfigOptionFloat(60));
 
+    // Orca feature speeds can be entered as volumetric flow instead of a linear speed.
+    // Keep these native options available to profiles/import while Android UI is added
+    // only after the G-code implementation and regression checks are complete.
+    def = this->add("enable_volumetric_speeds", coBool);
+    def->label = L("Volumetric speeds");
+    def->category = L("Speed");
+    def->tooltip = L("Set feature speeds as volumetric flow (mm³/s) or as a percentage of the filament's max volumetric speed.");
+    def->mode = comAdvanced;
+    def->set_default_value(new ConfigOptionBool(false));
+
+    auto add_volumetric_flow = [this](const char *key, const char *label, double value) {
+        auto *flow = this->add(key, coFloatsOrPercents);
+        flow->label = L(label);
+        flow->full_label = L(label);
+        flow->category = L("Speed");
+        flow->tooltip = L("Volumetric flow for this extrusion feature when volumetric speeds are enabled. Percentages use the filament's max volumetric speed.");
+        flow->sidetext = L(u8"mm³/s or %");
+        flow->min = 0.1;
+        flow->mode = comAdvanced;
+        flow->nullable = true;
+        flow->set_default_value(new ConfigOptionFloatsOrPercentsNullable{FloatOrPercent{value, true}});
+    };
+    add_volumetric_flow("outer_wall_volumetric_flow", "Outer wall", 50);
+    add_volumetric_flow("inner_wall_volumetric_flow", "Inner wall", 100);
+    add_volumetric_flow("sparse_infill_volumetric_flow", "Sparse infill", 100);
+    add_volumetric_flow("internal_solid_infill_volumetric_flow", "Internal solid infill", 100);
+    add_volumetric_flow("top_surface_volumetric_flow", "Top surface", 50);
+    add_volumetric_flow("gap_infill_volumetric_flow", "Gap infill", 50);
+    add_volumetric_flow("support_volumetric_flow", "Support", 100);
+    add_volumetric_flow("support_interface_volumetric_flow", "Support interface", 50);
+    add_volumetric_flow("bridge_volumetric_flow", "External bridge", 25);
+    add_volumetric_flow("internal_bridge_volumetric_flow", "Internal bridge", 40);
+    add_volumetric_flow("initial_layer_volumetric_flow", "First layer", 25);
+    add_volumetric_flow("initial_layer_infill_volumetric_flow", "First layer infill", 50);
+
     def = this->add("small_perimeter_speed", coFloatOrPercent);
     def->label = L("Small perimeters");
     def->category = L("Speed");
@@ -2669,6 +2704,14 @@ void PrintConfigDef::init_fff_params()
     def->min = 0;
     def->mode = comAdvanced;
     def->set_default_value(new ConfigOptionFloats { 2. });
+
+    def = this->add("filament_max_external_volumetric_speed", coFloats);
+    def->label = L("Max external volumetric speed");
+    def->tooltip = L("Additional volumetric speed limit for visible external features. 0 disables this extra limit.");
+    def->sidetext = L(u8"mm³/s");
+    def->min = 0;
+    def->mode = comAdvanced;
+    def->set_default_value(new ConfigOptionFloats { 0. });
 
     def = this->add("machine_load_filament_time", coFloat);
     def->label = L("Filament load time");
@@ -8518,16 +8561,23 @@ const PrintConfigDef print_config_def;
 //todo
 std::set<std::string> print_options_with_variant = {
     "initial_layer_speed",
+    "initial_layer_volumetric_flow",
     "initial_layer_infill_speed",
+    "initial_layer_infill_volumetric_flow",
     "outer_wall_speed",
+    "outer_wall_volumetric_flow",
     "inner_wall_speed",
+    "inner_wall_volumetric_flow",
     "small_perimeter_speed",  //coFloatsOrPercents
     "small_perimeter_threshold",
     "small_support_perimeter_speed",  //coFloatsOrPercents
     "small_support_perimeter_threshold",
     "sparse_infill_speed",
+    "sparse_infill_volumetric_flow",
     "internal_solid_infill_speed",
+    "internal_solid_infill_volumetric_flow",
     "top_surface_speed",
+    "top_surface_volumetric_flow",
     "enable_overhang_speed", //coBools
     "overhang_1_4_speed",
     "overhang_2_4_speed",
@@ -8535,10 +8585,15 @@ std::set<std::string> print_options_with_variant = {
     "overhang_4_4_speed",
     "slowdown_for_curled_perimeters",
     "bridge_speed",
+    "bridge_volumetric_flow",
     "internal_bridge_speed",
+    "internal_bridge_volumetric_flow",
     "gap_infill_speed",
+    "gap_infill_volumetric_flow",
     "support_speed",
+    "support_volumetric_flow",
     "support_interface_speed",
+    "support_interface_volumetric_flow",
     "travel_speed",
     "travel_speed_z",
     "initial_layer_travel_speed",
@@ -8569,6 +8624,7 @@ std::set<std::string> print_options_with_variant = {
 std::set<std::string> filament_options_with_variant = {
     "filament_flow_ratio",
     "filament_max_volumetric_speed",
+    "filament_max_external_volumetric_speed",
     //"filament_extruder_id",
     "filament_extruder_variant",
     "filament_retraction_length",

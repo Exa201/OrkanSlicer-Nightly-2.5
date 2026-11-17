@@ -1145,13 +1145,22 @@ bool PrintObject::invalidate_state_by_config_options(
             || opt_key == "brim_ears_detection_length"
             // BBS: brim generation depends on printing speed
             || opt_key == "outer_wall_speed"
+            || opt_key == "outer_wall_volumetric_flow"
             || opt_key == "small_perimeter_speed"
             || opt_key == "small_perimeter_threshold"
             || opt_key == "sparse_infill_speed"
+            || opt_key == "sparse_infill_volumetric_flow"
             || opt_key == "inner_wall_speed"
+            || opt_key == "inner_wall_volumetric_flow"
             || opt_key == "support_speed"
+            || opt_key == "support_volumetric_flow"
             || opt_key == "internal_solid_infill_speed"
-            || opt_key == "top_surface_speed") {
+            || opt_key == "internal_solid_infill_volumetric_flow"
+            || opt_key == "top_surface_speed"
+            || opt_key == "top_surface_volumetric_flow"
+            || opt_key == "bridge_volumetric_flow"
+            || opt_key == "internal_bridge_volumetric_flow"
+            || opt_key == "support_interface_volumetric_flow") {
             // Brim is printed below supports, support invalidates brim and skirt.
             steps.emplace_back(posSupportMaterial);
             if (opt_key == "brim_type") {
@@ -1185,7 +1194,7 @@ bool PrintObject::invalidate_state_by_config_options(
         } else if (
             opt_key == "small_area_infill_flow_compensation_model") {
             steps.emplace_back(posSlice);
-        } else if (opt_key == "gap_infill_speed"
+        } else if (opt_key == "gap_infill_speed" || opt_key == "gap_infill_volumetric_flow"
             || opt_key == "filter_out_gap_fill" ) {
             // Return true if gap-fill speed has changed from zero value to non-zero or from non-zero value to zero.
             // todo multi_extruders: Parameter migration between single and double extruder printers

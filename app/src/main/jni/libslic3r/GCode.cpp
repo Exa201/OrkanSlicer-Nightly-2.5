@@ -6767,6 +6767,46 @@ std::string GCode::_extrude(const ExtrusionPath &path, std::string description, 
             }
         }
     }
+
+    // Orca volumetric feature speeds. Resolve after first-layer slowdown selection so
+    // the dedicated first-layer feature flow takes precedence over the normal flow.
+    const bool volumetric_feature_speeds = m_config.enable_volumetric_speeds &&
+        m_print->calib_mode() == CalibMode::Calib_None && _mm3_per_mm > 0.0;
+    if (volumetric_feature_speeds) {
+        const ConfigOptionFloatsOrPercentsNullable *flow_values = nullptr;
+        const bool first_layer_path = this->on_first_layer() || object_layer_over_raft();
+        if (first_layer_path && path.role() != erSkirt) {
+            flow_values = (is_perimeter(path.role()) || path.role() == erBrim)
+                ? &m_config.initial_layer_volumetric_flow
+                : &m_config.initial_layer_infill_volumetric_flow;
+        } else {
+            switch (path.role()) {
+                case erPerimeter: flow_values = &m_config.inner_wall_volumetric_flow; break;
+                case erExternalPerimeter: flow_values = &m_config.outer_wall_volumetric_flow; break;
+                case erInternalBridgeInfill: flow_values = &m_config.internal_bridge_volumetric_flow; break;
+                case erOverhangPerimeter:
+                case erSupportTransition:
+                case erBridgeInfill: flow_values = &m_config.bridge_volumetric_flow; break;
+                case erInternalInfill: flow_values = &m_config.sparse_infill_volumetric_flow; break;
+                case erSolidInfill: flow_values = &m_config.internal_solid_infill_volumetric_flow; break;
+                case erTopSolidInfill: flow_values = &m_config.top_surface_volumetric_flow; break;
+                case erBottomSurface: flow_values = &m_config.initial_layer_infill_volumetric_flow; break;
+                case erGapFill: flow_values = &m_config.gap_infill_volumetric_flow; break;
+                case erSupportMaterial: flow_values = &m_config.support_volumetric_flow; break;
+                case erSupportMaterialInterface: flow_values = &m_config.support_interface_volumetric_flow; break;
+                default: break;
+            }
+        }
+        // Feature speed options follow the process profile's per-extruder columns.
+        const size_t nozzle_id = get_extruder_id(m_writer.filament()->id());
+        if (flow_values != nullptr && !flow_values->is_nil(nozzle_id)) {
+            const double max_flow = FILAMENT_CONFIG(filament_max_volumetric_speed);
+            const FloatOrPercent configured_flow = flow_values->get_at(nozzle_id);
+            const double requested_flow = configured_flow.percent ? max_flow * configured_flow.value / 100.0 : configured_flow.value;
+            if (requested_flow > 0.0)
+                speed = requested_flow / _mm3_per_mm;
+        }
+    }
     // Override skirt speed if set
     if (path.role() == erSkirt) {
         const double skirt_speed = m_config.get_abs_value("skirt_speed");
@@ -6783,9 +6823,22 @@ std::string GCode::_extrude(const ExtrusionPath &path, std::string description, 
     //        m_config.max_volumetric_speed.value / _mm3_per_mm
     //    );
     //}
-    if (FILAMENT_CONFIG(filament_max_volumetric_speed) > 0) {
+    double path_max_volumetric_speed = FILAMENT_CONFIG(filament_max_volumetric_speed);
+    if (FILAMENT_CONFIG(filament_adaptive_volumetric_speed)) {
+        const double fitted_value = calc_max_volumetric_speed(path.height, path.width, FILAMENT_CONFIG(volumetric_speed_coefficients));
+        path_max_volumetric_speed = std::min(path_max_volumetric_speed, fitted_value);
+    }
+    const bool external_feature = path.role() == erExternalPerimeter || path.role() == erOverhangPerimeter ||
+        path.role() == erBridgeInfill ||
+        (path.role() == erTopSolidInfill && m_config.ironing_type.value == IroningType::NoIroning);
+    if (external_feature && m_print->calib_mode() == CalibMode::Calib_None) {
+        const double max_external = FILAMENT_CONFIG(filament_max_external_volumetric_speed);
+        if (max_external > 0.0)
+            path_max_volumetric_speed = path_max_volumetric_speed > 0.0 ? std::min(path_max_volumetric_speed, max_external) : max_external;
+    }
+    if (path_max_volumetric_speed > 0) {
         // cap speed with max_volumetric_speed anyway (even if user is not using autospeed)
-        speed = std::min(speed, FILAMENT_CONFIG(filament_max_volumetric_speed) / _mm3_per_mm);
+        speed = std::min(speed, path_max_volumetric_speed / _mm3_per_mm);
     }
     // ORCA: resonance‑avoidance on short external perimeters
 {
@@ -6799,10 +6852,10 @@ std::string GCode::_extrude(const ExtrusionPath &path, std::string description, 
         }
 
         // re‑apply volumetric cap
-        if (FILAMENT_CONFIG(filament_max_volumetric_speed) > 0) {
+        if (path_max_volumetric_speed > 0) {
             speed = std::min(
                 speed,
-                FILAMENT_CONFIG(filament_max_volumetric_speed) / _mm3_per_mm
+                path_max_volumetric_speed / _mm3_per_mm
             );
         }
 
@@ -6831,10 +6884,10 @@ std::string GCode::_extrude(const ExtrusionPath &path, std::string description, 
             bool is_external = is_external_perimeter(path.role());
             double ref_speed   = is_external ? m_config.get_abs_value("outer_wall_speed") : m_config.get_abs_value("inner_wall_speed");
             if (ref_speed == 0)
-                ref_speed = FILAMENT_CONFIG(filament_max_volumetric_speed) / _mm3_per_mm;
+                ref_speed = path_max_volumetric_speed / _mm3_per_mm;
 
-            if (FILAMENT_CONFIG(filament_max_volumetric_speed) > 0) {
-                ref_speed = std::min(ref_speed, FILAMENT_CONFIG(filament_max_volumetric_speed) / _mm3_per_mm);
+            if (path_max_volumetric_speed > 0) {
+                ref_speed = std::min(ref_speed, path_max_volumetric_speed / _mm3_per_mm);
             }
             if (sloped) {
                 ref_speed = std::min(ref_speed, m_config.scarf_joint_speed.get_abs_value(ref_speed));

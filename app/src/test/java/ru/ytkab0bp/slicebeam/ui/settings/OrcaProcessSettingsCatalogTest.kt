@@ -196,4 +196,21 @@ class OrcaProcessSettingsCatalogTest {
             "brim_use_efc_outline" in brim.keys)
         assertTrue(OrcaProcessSettingsCatalog.hasUniqueProcessKeys())
     }
+
+    @Test
+    fun volumetricFeatureSpeedsAreExposedWithTheirEnableSwitch() {
+        val categories = OrcaProcessSettingsCatalog.categories()
+        val speed = categories.single { it.title == "Speed" }
+        val speedSection = speed.sections.single { it.title == "Speed" }
+        val flowSection = speed.sections.single { it.title == "Volumetric feature speeds" }
+
+        assertTrue("Feature flows must stay opt-in", "enable_volumetric_speeds" in speedSection.keys)
+        assertTrue(flowSection.keys.containsAll(listOf(
+            "outer_wall_volumetric_flow", "inner_wall_volumetric_flow", "sparse_infill_volumetric_flow",
+            "internal_solid_infill_volumetric_flow", "top_surface_volumetric_flow", "gap_infill_volumetric_flow",
+            "support_volumetric_flow", "support_interface_volumetric_flow", "bridge_volumetric_flow",
+            "internal_bridge_volumetric_flow", "initial_layer_volumetric_flow", "initial_layer_infill_volumetric_flow",
+        )))
+        assertTrue(OrcaProcessSettingsCatalog.hasUniqueProcessKeys())
+    }
 }

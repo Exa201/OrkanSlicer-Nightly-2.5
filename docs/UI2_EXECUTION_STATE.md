@@ -5708,3 +5708,19 @@ Phase 4 — workspace overlay migration is continuing. The model context menu an
 - Screenshots: `docs/images/ui21/honor-nightly-0.8.492-model-150.png` und `docs/images/ui21/honor-nightly-0.8.492-edit-150.png`.
 - APK `OrkanSlicerNightly25_0.8.492-signed.apk`, SHA-256 `60473EFD4DFC77C22E9D23F6A7FB3B2542127F84CD4FD4170D55F62DCC52D7E8`.
 - Noch offen: vollständige Interaktionsabnahme aller 56 Aktionen auf Honor; die Prüfung dieses Schritts deckt die Assetzuordnung und die sichtbaren Modell-/Ändern-Menüs ab.
+
+## Frischer Orca-Upstream-Abgleich — 2026-11-17
+
+- `orcaslicer-upstream/nightly-builds` frisch geholt; aktueller HEAD: `5841f9652d`.
+- `5841f9652d` betrifft optionale CI-Testveröffentlichungen und ist kein Android-App-Fix. `9cdaaedad7` korrigiert Desktop-Messgeometrie nach nichtuniformer Skalierung; die betroffene `GLGizmoMeasure`-Route wird im Android-Workspace nicht verwendet. OrkanSlicers Messmodus misst aktuell zwei GL-Raycast-Punkte direkt, daher wäre ein unveränderter Port dieses Desktop-Gizmos ohne Wirkung.
+- Android-relevanter Upstream-Kandidat: `c49e32c1e7` führt pro Druckfunktion einstellbare volumetrische Geschwindigkeiten ein (mm³/s oder Prozent des Filament-Maximalflusses). Schritt 42 ist in Arbeit: Profiloptionen, G-Code-Ausgabe, Wipe-Tower-Pfade, Invalidierung und Android-Einstellungsgruppen sind inzwischen angebunden; die abschließende Mehrwerkzeug-/Wipe-Tower- und Kalibrierungsabnahme steht noch aus.
+- **Nächster Portkandidat: Schritt 42/100 — Orca-Funktionsgeschwindigkeiten als volumetrischen Fluss übernehmen.** Zuerst Konfigurations-/Profilmodell und die Umrechnung pro Werkzeug abgleichen; anschließend G-Code- und Wipe-Tower-Pfade, Android-Bedienung sowie Regressionen für mm³/s, Prozent, First-Layer, Filamentgrenzen und Kalibrierungsmodus abdecken. Schritt zählt erst nach tatsächlichem Slice-/G-Code-Nachweis.
+- Nightly **0.8.492 / Code 527**, Codebranch `codex/ui-2.1-redesign`, UI-Asset-Commit `5abd0eeb56`; dieser UI-Build ist kein Abschluss oder Fortschrittspunkt des Orca-100er-Zyklus. Orca-Zähler verbleibt **41/100**.
+
+### Schritt 42/100 — volumetrische Funktionsgeschwindigkeiten (in Arbeit)
+
+- Portiert sind die nativen Orca-Optionen für Fluss je Extrusionsfunktion, Prozent-/Absolutwerte, First Layer und `filament_max_external_volumetric_speed`; Profilinvalidierung und Android-Druck-/Filament-Einstellungsgruppen sind angebunden.
+- Der G-Code löst Feature-Fluss auf die jeweilige Pfadgeschwindigkeit auf, berücksichtigt adaptive Filament-Maximalflüsse, begrenzt sichtbare Außenpfade und lässt Kalibrierungspfade von der Außenbegrenzung unberührt. Füllbereiche mit unterschiedlichen Volumenflusswerten bleiben beim Gruppieren getrennt. Beide Wipe-Tower-Generatoren leiten ihre First-Layer-/Infill-/Perimetergeschwindigkeiten aus den entsprechenden Flusswerten ab.
+- Verifikation am API-36-Emulator: `volumetricOuterWallFlowChangesActualGeneratedGcodeSpeed` bestand **1/1** mit echten Slices und prüft Legacy-Geschwindigkeit, 10 % von 20 mm³/s sowie gleichwertige 2 mm³/s Absolutvorgabe. ARM64-NDK-/SliceTest-Instrumentierungsbuild erfolgreich. Gezielte Prozess-/Filament-Katalogtests **19/19**, SliceTest-Kotlin-Kompilierung erfolgreich.
+- Beim C++-Build wurde ein Vergleichsfehler für `FloatOrPercent` entdeckt und behoben; ein Folgelauf entdeckte fehlende Prozent-/Absolut-Konvertierung in den Wipe-Tower-Adaptern. Beides ist korrigiert; der abschließende ARM64-Build und Instrumentierungslauf bestanden.
+- Noch offen: Mehrwerkzeug-/echter Wipe-Tower-G-Code-End-to-End-Test, First-Layer-/Kalibrierungsregression und detaillierter Rollenabgleich zu Orca (u. a. kleine Perimeter/Brim und die Materialzuordnung bei Varianten). Bis diese Abnahme abgeschlossen ist, bleibt der Orca-Zähler bei **41/100**. Kein APK/Release in diesem Schritt.

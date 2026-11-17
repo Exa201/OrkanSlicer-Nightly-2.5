@@ -252,6 +252,11 @@ public:
 
 		// Calculate extrusion flow from desired line width, nozzle diameter, filament diameter and layer_height:
 		m_extrusion_flow = extrusion_flow(layer_height);
+		if (m_first_layer_volumetric_flow > 0.f) {
+			const float mm3_per_mm = m_extrusion_flow * filament_area();
+			if (mm3_per_mm > 0.f)
+				m_first_layer_speed = m_first_layer_volumetric_flow / mm3_per_mm;
+		}
 
         // Advance m_layer_info iterator, making sure we got it right
 		while (!m_plan.empty() && m_layer_info->z < print_z - WT_EPSILON && m_layer_info+1 != m_plan.end())
@@ -437,6 +442,7 @@ private:
     int    m_old_temperature    = -1;   // To keep track of what was the last temp that we set (so we don't issue the command when not neccessary)
     float  m_travel_speed       = 0.f;
     float  m_first_layer_speed  = 0.f;
+    float  m_first_layer_volumetric_flow = 0.f;
     size_t m_first_layer_idx    = size_t(-1);
 
     std::vector<double> m_filaments_change_length;

@@ -34,7 +34,7 @@ object OrcaFilamentSettingsCatalog {
                 section("Filament properties", "filament_type", "filament_soluble", "filament_is_support", "temperature_vitrification", "nozzle_temperature_range_low", "nozzle_temperature_range_high"),
                 section("Pressure advance", "enable_pressure_advance", "pressure_advance", "adaptive_pressure_advance", "adaptive_pressure_advance_model", "adaptive_pressure_advance_overhangs", "adaptive_pressure_advance_bridges"),
                 section("Filament change", "filament_change_length"),
-                section("Print speed override", "filament_max_volumetric_speed"),
+                section("Print speed override", "filament_max_volumetric_speed", "filament_max_external_volumetric_speed"),
                 section("Shrinkage compensation", "filament_shrink", "filament_shrinkage_compensation_z"),
                 section("Wipe tower parameters", "filament_minimal_purge_on_wipe_tower"),
                 section("Toolchange parameters with single extruder MM printers", "filament_loading_speed_start", "filament_loading_speed", "filament_unloading_speed_start", "filament_unloading_speed", "filament_toolchange_delay", "filament_cooling_moves", "filament_cooling_initial_speed", "filament_cooling_final_speed", "filament_stamping_loading_speed", "filament_stamping_distance", "filament_ramming_parameters"),
