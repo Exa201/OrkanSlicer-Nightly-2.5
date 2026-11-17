@@ -24,6 +24,7 @@
 #include "libslic3r/Config.hpp"
 #include "libslic3r/Model.hpp"
 #include "libslic3r/TriangleMesh.hpp"
+#include "libslic3r/Measure.hpp"
 #include "libslic3r/Format/STEP.hpp"
 #include "libslic3r/QuadricEdgeCollapse.hpp"
 #include "libslic3r/TriangleMeshDeal.hpp"
@@ -461,6 +462,32 @@ extern "C" {
         jintArray result = env->NewIntArray(static_cast<jsize>(values.size()));
         if (result != nullptr)
             env->SetIntArrayRegion(result, 0, static_cast<jsize>(values.size()), values.data());
+        return result;
+    }
+
+    // Orca regression: plane normals must use the inverse-transpose under
+    // nonuniform affine transforms so they stay perpendicular to the surface.
+    JNIEXPORT jdoubleArray JNICALL Java_ru_ytkab0bp_slicebeam_slic3r_Native_measure_1nonuniform_1scale_1regression(
+            JNIEnv* env, jclass) {
+        using namespace Slic3r;
+        using namespace Slic3r::Measure;
+        SurfaceFeature plane(SurfaceFeatureType::Plane, Vec3d(1., 0., 1.).normalized(), Vec3d::Zero());
+        Transform3d transform = Transform3d::Identity();
+        transform.linear() << 2., 0., 1.,
+                              0., 3., 0.,
+                              0., 0., 4.;
+        plane.translate(transform);
+        const Vec3d normal = std::get<1>(plane.get_plane());
+        const Vec3d tangent_a = transform.linear() * Vec3d(1., 0., -1.);
+        const Vec3d tangent_b = transform.linear() * Vec3d(0., 1., 0.);
+        const std::array<jdouble, 3> values{
+            std::abs(normal.dot(tangent_a.normalized())),
+            std::abs(normal.dot(tangent_b.normalized())),
+            normal.norm(),
+        };
+        jdoubleArray result = env->NewDoubleArray(static_cast<jsize>(values.size()));
+        if (result != nullptr)
+            env->SetDoubleArrayRegion(result, 0, static_cast<jsize>(values.size()), values.data());
         return result;
     }
 

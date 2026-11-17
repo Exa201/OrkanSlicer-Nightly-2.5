@@ -1,4 +1,4 @@
-# Aktueller Stand — Nightly 0.8.492; Orca-Upgrade-Zyklus: 43/100 — 2026-11-17
+# Aktueller Stand — Nightly 0.8.492; Orca-Upgrade-Zyklus: 44/100 — 2026-11-17
 
 ## Upstream-Abgleich — 2026-11-17
 
@@ -22,7 +22,7 @@
 9. Ergebnisse, bekannte Geräteblockaden und Commit im Ausführungsstand festhalten; nur verifizierte Android-relevante Änderungen erhöhen den 100er-Zähler.
 10. Erst bei 100/100 die vollständige Abschlussverifikation, APK-Erstellung, SHA-256, GitHub-Prerelease und aktualisierte Release-Dokumentation durchführen.
 
-Der bestätigte Orca-Upgrade-Zähler beträgt **43/100**. Die erneute API-36-Ausführung von `NativeSliceDeviceTest#legacyBedExcludeAreaKeepsCompoundPathsAndRejectsCrossings` bestand **1/1**. Nächster Schritt: im bestehenden Feature-Backlog die nächste nicht implementierte Orca-Funktion nach Android-Abhängigkeiten und Speicher-/Rendererkosten priorisieren; erst nach konkreter Implementierung und Regression zählt sie als Schritt 44.
+Der bestätigte Orca-Upgrade-Zähler beträgt **44/100**. Der aktuelle Orca-`main`-Stand wurde am 17.11.2026 über GitHub API und den Upstream-Remote geprüft: `32f6db87e8`; der aktuelle `nightly-builds`-Tag ist `5841f9652d`. Nächster Schritt: den nächsten Android-erreichbaren, noch fehlenden Orca-Core-Fix aus den nachfolgenden Commits auswählen und zunächst prüfen, ob dessen produktiver Aufrufpfad in der App tatsächlich verwendet wird.
 
 ## Laufender 100-Schritte-Upgrade-Zyklus
 
@@ -1527,3 +1527,10 @@ Der weitere Vergleich am 2026-11-04 prüfte Orca `5fd0edf5cc` (Z-Schrumpfung von
 - Der Nutzer hat ausdrücklich um eine installierbare APK für die aktuelle UI-Korrektur gebeten. Deshalb wurde Nightly 0.8.487 als UI-Wartungsbuild bereitgestellt, obwohl das separate Orca-Upstream-Gate noch offen ist.
 - Diese Veröffentlichung zählt nicht als Orca-Engine-Upgrade und erhöht den 100-Schritte-Zähler nicht. Die nächste Kernänderung folgt weiterhin dem Verifikations- und Testprozess dieses Plans.
 - Release: https://github.com/Exa201/OrkanSlicer-Nightly-2.5/releases/tag/v0.8.487-nightly.1
+
+### Schritt 44/100 — Messflächen-Normalen bei nichtuniformen Transformationen — 2026-11-17
+
+- Portbasis: Orca `9cdaaedad786974743122961e53aaa1301aa47ef` (`Fix Measure geometry after nonuniform scaling`). `SurfaceFeature::translate` transformierte Ebenennormalen zuvor wie Punkte; das ist bei nichtuniformer Skalierung oder Scherung geometrisch falsch. Die Normale nutzt jetzt die inverse transponierte lineare Transformation und bleibt dadurch senkrecht zu den transformierten Flächentangenten.
+- Android-native Regression `NativeSliceDeviceTest#measuredPlaneNormalRemainsPerpendicularAfterNonuniformScaleAndShear` prüft beide Tangenten und die Normierung der Normale. API-36-Emulator: **1/1 bestanden**. ARM64 `externalNativeBuildSliceTest`, SliceTest- und Instrumentierungs-APK-Build sowie Kotlin-Kompilierung erfolgreich.
+- Reichweite: `libslic3r/Measure.cpp` wird in der Nightly-Native-Bibliothek mitgebaut. Die aktuelle Android-Oberfläche zeigt weiterhin nur den bestehenden Punkt-zu-Punkt-Messmodus; dieser Port behauptet keine neu eingeführte Oberflächenmess-UI.
+- Kein Nutzer-APK oder Release bei Schritt 44; das Veröffentlichungsgate bleibt **100/100**. Orca-Upstream bleibt `main` `32f6db87e8` / `nightly-builds` `5841f9652d`.

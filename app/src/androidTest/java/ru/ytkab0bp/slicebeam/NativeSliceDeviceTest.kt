@@ -70,6 +70,15 @@ class NativeSliceDeviceTest {
         assertEquals("The parser should reject it specifically at the amplification guard", 1, result[4])
     }
 
+    @Test
+    fun measuredPlaneNormalRemainsPerpendicularAfterNonuniformScaleAndShear() {
+        val result = Native.measure_nonuniform_scale_regression()
+        assertEquals("normal transform regression result shape", 3, result.size)
+        assertEquals("normal must stay perpendicular to first transformed tangent", 0.0, result[0], 1e-12)
+        assertEquals("normal must stay perpendicular to second transformed tangent", 0.0, result[1], 1e-12)
+        assertEquals("transformed normal must remain normalized", 1.0, result[2], 1e-12)
+    }
+
     private data class TbbWorkerSliceMeasurement(
         val cpuTicks: Map<String, Long>,
         val processorIds: Set<Int>,

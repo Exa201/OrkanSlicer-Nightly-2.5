@@ -30,6 +30,9 @@ class Native {
     /** Verifies the bundled Expat build enables DTD-aware amplification protection. */
     @JvmStatic
     external fun expat_entity_amplification_guard_regression(): IntArray
+    /** Orca regression: plane normals stay perpendicular after nonuniform affine scaling. */
+    @JvmStatic
+    external fun measure_nonuniform_scale_regression(): DoubleArray
     @JvmStatic
     external fun arachne_unrepairable_voronoi_regression(): Int
     /** Long, shallow-notched strip regression for outline simplification overflow in Arachne. */
