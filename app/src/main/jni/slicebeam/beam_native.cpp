@@ -32,6 +32,7 @@
 #include "libslic3r/Emboss.hpp"
 #include "libslic3r/NSVGUtils.hpp"
 #include "libslic3r/Print.hpp"
+#include "libslic3r/Layer.hpp"
 #include "libslic3r/ParameterUtils.hpp"
 #include "libslic3r/CurledExtrusionUtils.hpp"
 #include "libslic3r/ClipperUtils.hpp"
@@ -8049,6 +8050,21 @@ extern "C" {
         config.bed_exclude_area.values = valid;
         const jint valid_area_count = static_cast<jint>(get_bed_excluded_area(config).size());
         config.bed_exclude_area.values = self_intersecting;
+        PrintRegionConfig baseline;
+        baseline.outer_wall_volumetric_flow.values = {FloatOrPercent{10., false}};
+        baseline.inner_wall_volumetric_flow.values = {FloatOrPercent{12., false}};
+        baseline.gap_infill_volumetric_flow.values = {FloatOrPercent{14., false}};
+        const auto compatible_with_changed_flow = [&baseline](const char* key) {
+            PrintRegionConfig changed = baseline;
+            auto* option = changed.option<ConfigOptionFloatsOrPercentsNullable>(key);
+            if (option == nullptr || option->values.empty()) return -1;
+            option->values[0].value += 1.;
+            const PrintRegion first(baseline);
+            const PrintRegion second(changed);
+            return Layer::is_perimeter_compatible(first, second) ? 1 : 0;
+        };
+        const PrintRegion same_first(baseline);
+        const PrintRegion same_second(baseline);
         const jint checks[] = {
             is_valid_bed_exclude_area(valid) ? 1 : 0,
             is_valid_bed_exclude_area(self_intersecting) ? 1 : 0,
@@ -8057,11 +8073,16 @@ extern "C" {
             is_valid_bed_exclude_area(legacy_compound) ? 1 : 0,
             valid_area_count,
             static_cast<jint>(get_bed_excluded_area(config).size()),
-            static_cast<jint>(get_bed_excluded_regions(config).size())
+            static_cast<jint>(get_bed_excluded_regions(config).size()),
+            Layer::is_perimeter_compatible(same_first, same_second) ? 1 : 0,
+            compatible_with_changed_flow("outer_wall_volumetric_flow"),
+            compatible_with_changed_flow("inner_wall_volumetric_flow"),
+            compatible_with_changed_flow("gap_infill_volumetric_flow"),
+            compatible_with_changed_flow("bridge_volumetric_flow")
         };
-        jintArray result = env->NewIntArray(8);
+        jintArray result = env->NewIntArray(13);
         if (result != nullptr)
-            env->SetIntArrayRegion(result, 0, 8, checks);
+            env->SetIntArrayRegion(result, 0, 13, checks);
         return result;
     }
 

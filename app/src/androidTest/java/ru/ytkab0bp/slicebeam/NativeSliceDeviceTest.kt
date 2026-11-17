@@ -2618,7 +2618,8 @@ class NativeSliceDeviceTest {
     @Test
     fun legacyBedExcludeAreaKeepsCompoundPathsAndRejectsCrossings() {
         assertArrayEquals(
-            intArrayOf(1, 0, 0, 0, 1, 1, 0, 0),
+            "Legacy bed paths stay accepted; differing perimeter flows must not merge regions",
+            intArrayOf(1, 0, 0, 0, 1, 1, 0, 0, 1, 0, 0, 0, 1),
             Native.bed_exclude_area_validation_regression(),
         )
     }

@@ -1,4 +1,4 @@
-# Aktueller Stand — Nightly 0.8.492; Orca-Upgrade-Zyklus: 49/100 — 2026-11-17
+# Aktueller Stand — Nightly 0.8.492; Orca-Upgrade-Zyklus: 50/100 — 2026-11-17
 
 ## Upstream-Abgleich — 2026-11-17
 
@@ -22,7 +22,14 @@
 9. Ergebnisse, bekannte Geräteblockaden und Commit im Ausführungsstand festhalten; nur verifizierte Android-relevante Änderungen erhöhen den 100er-Zähler.
 10. Erst bei 100/100 die vollständige Abschlussverifikation, APK-Erstellung, SHA-256, GitHub-Prerelease und aktualisierte Release-Dokumentation durchführen.
 
-Der bestätigte Orca-Upgrade-Zähler beträgt **49/100**. Der aktuelle Orca-`main`-Stand wurde am 17.11.2026 über GitHub API und den Upstream-Remote geprüft: `32f6db87e8`; der aktuelle `nightly-builds`-Tag ist `5841f9652d`. Nächster Schritt: den nächsten Android-erreichbaren, noch fehlenden Orca-Core-Fix aus den nachfolgenden Commits auswählen und zunächst prüfen, ob dessen produktiver Aufrufpfad in der App tatsächlich verwendet wird.
+Der bestätigte Orca-Upgrade-Zähler beträgt **50/100**. Der aktuelle Orca-`main`-Stand wurde am 17.11.2026 über GitHub API und den Upstream-Remote geprüft: `32f6db87e8`; der aktuelle `nightly-builds`-Tag ist `5841f9652d`. Nächster Schritt: den nächsten Android-erreichbaren, noch fehlenden Orca-Core-Fix aus den nachfolgenden Commits auswählen und zunächst prüfen, ob dessen produktiver Aufrufpfad in der App tatsächlich verwendet wird.
+
+### Schritt 50/100 — volumetrische Flüsse bei der Perimeter-Regionsgruppierung berücksichtigen — 2026-11-17
+
+- Orca `c49e32c1e7` verhindert, dass Regionen mit unterschiedlichen Außenwand-, Innenwand- oder Gap-Fill-Flüssen gemeinsam für Perimeter verarbeitet werden. In der Android-Portierung fehlten genau diese drei Vergleiche in `Layer::is_perimeter_compatible`; gemeinsame Verarbeitung konnte damit bei importierten Mehrregionen-Projekten den Flusswert der zuerst gewählten Region auf weitere Regionen anwenden.
+- Die drei Flussoptionen werden jetzt beim Regionsvergleich berücksichtigt. Gleiche Flüsse bleiben kompatibel; unterschiedliche Werte trennen die Regionen. Der Bridge-Fluss bleibt davon unabhängig, wie in Orca.
+- `NativeSliceDeviceTest#legacyBedExcludeAreaKeepsCompoundPathsAndRejectsCrossings` erweitert die native Regression um dieselben Regions-Kompatibilitätsfälle. API-36-Emulator: **1/1 bestanden**.
+- ARM64 SliceTest-Native-Build sowie SliceTest- und Instrumentierungs-APK-Build erfolgreich. Xiaomi-Installation wurde durch Android mit `INSTALL_FAILED_USER_RESTRICTED` verweigert; Honor war nicht verbunden. Kein Nutzer-APK und kein Release; Veröffentlichung bleibt bis **100/100** gesperrt.
 
 ### Schritt 49/100 — Kühlzeit bei Resonanzvermeidung der Außenwände erhalten — 2026-11-17
 

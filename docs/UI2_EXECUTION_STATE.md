@@ -1,8 +1,8 @@
 # Aktueller Arbeitsstand — Nightly 0.8.492 — 2026-11-17
 
-- Der Orca-Portierzyklus steht bei **49/100**. Schritt 49 korrigiert den Port von Orca `8b8d573a85`: nach dem Festhalten von Außenwand-Geschwindigkeiten außerhalb des Resonanzbands wird die verbleibende Kühlzeit erneut mit dem beschleunigungsbewussten Layer-Solver berechnet.
-- Verifikation: ARM64 SliceTest-Native-Build und SliceTest-/Instrumentierungs-APK-Build erfolgreich; `NativeSliceDeviceTest#layerCoolingKeepsOuterWallsOutsideResonanceAvoidanceRange` auf API-36-Emulator **1/1 bestanden**, einschließlich Kühlzeitvergleich und gleicher Schichtanzahl.
-- Geräte: Xiaomi sichtbar, nicht für diesen Regressionstest benutzt. Honor war bei der aktuellen ADB-Abfrage nicht verbunden. Kein Druckstart, keine Nutzer-APK und kein Release in diesem Schritt.
+- Der Orca-Portierzyklus steht bei **50/100**. Schritt 50 ergänzt den Orca-Port `c49e32c1e7`: Außenwand-, Innenwand- und Gap-Fill-Flüsse fließen nun in die Perimeter-Regionskompatibilität ein, damit unterschiedlich konfigurierte Regionen nicht mit einer gemeinsamen Flusskonfiguration erzeugt werden.
+- Verifikation: ARM64 SliceTest-Native-Build und SliceTest-/Instrumentierungs-APK-Build erfolgreich; `NativeSliceDeviceTest#legacyBedExcludeAreaKeepsCompoundPathsAndRejectsCrossings` auf API-36-Emulator **1/1 bestanden**, einschließlich unveränderter Legacy-Ausschlussflächenfälle und neuer Flow-Kompatibilitätsprüfungen.
+- Geräte: Xiaomi sichtbar, Installation vom Gerät mit `INSTALL_FAILED_USER_RESTRICTED` verweigert. Honor war bei der aktuellen ADB-Abfrage nicht verbunden. Kein Druckstart, keine Nutzer-APK und kein Release in diesem Schritt.
 - Branch `codex/ui-2.1-redesign`; der veröffentlichte Nightly bleibt unverändert. Das Veröffentlichungsgate bleibt **100/100**.
 - Nächster konkreter Schritt: Orca-Upstream auf einen weiteren noch fehlenden Android-Core-Fix prüfen, den produktiven Nightly-Aufrufpfad verifizieren und einen gezielten Regressionstest ergänzen.
 

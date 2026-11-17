@@ -157,6 +157,11 @@ bool Layer::is_perimeter_compatible(const PrintRegion& a, const PrintRegion& b)
 		&& config.outer_wall_speed    == other_config.outer_wall_speed
 		&& config.small_perimeter_speed    == other_config.small_perimeter_speed
         && config.gap_infill_speed.value == other_config.gap_infill_speed.value
+        // Volumetric speed values affect generated perimeter and gap-fill paths just like
+        // their linear-speed counterparts. Do not merge regions that need different flows.
+        && config.inner_wall_volumetric_flow == other_config.inner_wall_volumetric_flow
+        && config.outer_wall_volumetric_flow == other_config.outer_wall_volumetric_flow
+        && config.gap_infill_volumetric_flow == other_config.gap_infill_volumetric_flow
         && config.filter_out_gap_fill.value == other_config.filter_out_gap_fill.value
 		&& config.detect_overhang_wall                   == other_config.detect_overhang_wall
 		&& config.overhang_reverse                       == other_config.overhang_reverse
