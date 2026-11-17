@@ -516,10 +516,23 @@ static std::vector<Vec2d> get_path_of_change_filament(const Print& print)
         return Point(scale_(wipe_tower_pt.x() - gcodegen.origin()(0)), scale_(wipe_tower_pt.y() - gcodegen.origin()(1)));
     }
 
-    // set volumetric speed of outer wall ,ignore per obejct & region ,just use default setting
+    // Set the outer-wall flow exposed to custom G-code. Match Orca's feature-flow
+    // mode and external-filament cap as well as the legacy linear-speed behavior.
     static float get_outer_wall_volumetric_speed(const FullPrintConfig& config, const Print& print, int filament_id, int extruder_id) {
         float outer_wall_volumetric_speed = 0;
         float filament_max_volumetric_speed = config.filament_max_volumetric_speed.get_at(filament_id);
+        const bool calibrating = print.calib_mode() != CalibMode::Calib_None;
+        float max_volumetric_speed = filament_max_volumetric_speed;
+        const float max_external = float(config.filament_max_external_volumetric_speed.get_at(filament_id));
+        if (max_external > 0 && !calibrating)
+            max_volumetric_speed = std::min(max_volumetric_speed, max_external);
+        if (config.enable_volumetric_speeds && !calibrating) {
+            const FloatOrPercent configured_flow = print.default_region_config().outer_wall_volumetric_flow.get_at(extruder_id);
+            const float configured_flow_value = float(configured_flow.percent
+                                                           ? filament_max_volumetric_speed * configured_flow.value / 100.0
+                                                           : configured_flow.value);
+            return std::min(configured_flow_value, max_volumetric_speed);
+        }
         const double filament_diameter = config.filament_diameter.get_at(filament_id);
         float outer_wall_line_width = print.default_region_config().get_abs_value("outer_wall_line_width", filament_diameter);
         if (outer_wall_line_width == 0.0) {
@@ -529,8 +542,8 @@ static std::vector<Vec2d> get_path_of_change_filament(const Print& print)
         Flow outer_wall_flow = Flow(outer_wall_line_width, config.layer_height, config.nozzle_diameter.get_at(extruder_id));
         float outer_wall_speed = print.default_region_config().outer_wall_speed.value;
         outer_wall_volumetric_speed = outer_wall_speed * outer_wall_flow.mm3_per_mm();
-        if (outer_wall_volumetric_speed > filament_max_volumetric_speed)
-            outer_wall_volumetric_speed = filament_max_volumetric_speed;
+        if (outer_wall_volumetric_speed > max_volumetric_speed)
+            outer_wall_volumetric_speed = max_volumetric_speed;
         return outer_wall_volumetric_speed;
     }
 

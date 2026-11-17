@@ -1534,3 +1534,9 @@ Der weitere Vergleich am 2026-11-04 prüfte Orca `5fd0edf5cc` (Z-Schrumpfung von
 - Android-native Regression `NativeSliceDeviceTest#measuredPlaneNormalRemainsPerpendicularAfterNonuniformScaleAndShear` prüft beide Tangenten und die Normierung der Normale. API-36-Emulator: **1/1 bestanden**. ARM64 `externalNativeBuildSliceTest`, SliceTest- und Instrumentierungs-APK-Build sowie Kotlin-Kompilierung erfolgreich.
 - Reichweite: `libslic3r/Measure.cpp` wird in der Nightly-Native-Bibliothek mitgebaut. Die aktuelle Android-Oberfläche zeigt weiterhin nur den bestehenden Punkt-zu-Punkt-Messmodus; dieser Port behauptet keine neu eingeführte Oberflächenmess-UI.
 - Kein Nutzer-APK oder Release bei Schritt 44; das Veröffentlichungsgate bleibt **100/100**. Orca-Upstream bleibt `main` `32f6db87e8` / `nightly-builds` `5841f9652d`.
+
+### Nächster Kandidat — effektiver Außenwandfluss im Start-G-Code — in Arbeit
+
+- Orca `c49e32c1e7` verwendet bei aktiviertem Volumenstrommodus den effektiven Außenwandfluss statt der linearen Geschwindigkeitsberechnung und begrenzt ihn zusätzlich mit `filament_max_external_volumetric_speed`. Der Nightly-Helfer berechnete den Platzhalter `[outer_wall_volumetric_speed]` noch ausschließlich aus der linearen Geschwindigkeit und der normalen Filamentgrenze.
+- Der produktive Platzhalterpfad wurde angepasst; eine NativeSlice-Regression prüft Prozentfluss, Absolutfluss und externe Flussbegrenzung anhand eines echten generierten Start-G-Codes. ARM64-Native-Build und Instrumentierungs-Kotlin-Kompilierung bestanden.
+- Der Test wurde noch nicht ausgeführt: Android blockierte die Xiaomi-Testinstallation mit `INSTALL_FAILED_USER_RESTRICTED`; der Emulator war offline. Daher bleibt der verifizierte Zähler **44/100**. Nächste konkrete Aktion: den gezielten Slice-Test auf einem freigegebenen Android-Gerät ausführen; erst nach bestandenem Test als Schritt 45 zählen.

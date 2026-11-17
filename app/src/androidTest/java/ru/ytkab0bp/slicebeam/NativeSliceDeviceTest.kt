@@ -1148,23 +1148,28 @@ class NativeSliceDeviceTest {
         val context = InstrumentationRegistry.getInstrumentation().targetContext
         val process = requireNotNull(SliceBeam.CONFIG?.findPrint("0.16mm Standard"))
         val filament = requireNotNull(SliceBeam.CONFIG?.findFilament("Anycubic Generic PLA"))
+        val printer = requireNotNull(SliceBeam.CONFIG?.findPrinter("Anycubic Kobra 3 0.4 nozzle"))
         val keys = listOf(
             "enable_volumetric_speeds", "outer_wall_speed", "outer_wall_volumetric_flow",
             "initial_layer_volumetric_flow", "initial_layer_infill_volumetric_flow",
         )
         val previous = keys.associateWith { key -> process[key] }
         val previousMaxFlow = filament["filament_max_volumetric_speed"]
+        val previousExternalMaxFlow = filament["filament_max_external_volumetric_speed"]
+        val previousStartGcode = printer["machine_start_gcode"]
         val source = createThinCubeFixture("volumetric-feature-speed.stl", 20.0, 20.0, 12.0)
         val output = File(context.cacheDir, "volumetric-feature-speed.gcode")
         val model = Model(source).also { it.ensureOnBed(0) }
 
-        fun slice(enable: Boolean, outerWallFlow: String): List<Double> {
+        fun slice(enable: Boolean, outerWallFlow: String, externalMaxFlow: String = "0"): List<Double> {
             process.put("enable_volumetric_speeds", if (enable) "1" else "0")
             process.put("outer_wall_speed", "80")
             process.put("outer_wall_volumetric_flow", outerWallFlow)
             process.put("initial_layer_volumetric_flow", "25%")
             process.put("initial_layer_infill_volumetric_flow", "25%")
+            printer.put("machine_start_gcode", "; OUTER_WALL_FLOW=[outer_wall_volumetric_speed]")
             filament.put("filament_max_volumetric_speed", "20")
+            filament.put("filament_max_external_volumetric_speed", externalMaxFlow)
             SliceBeam.genCurrentConfig(model)
             val config = SliceBeam.getCurrentConfigFile()
             val serialized = config.readText()
@@ -1179,6 +1184,17 @@ class NativeSliceDeviceTest {
             try {
                 assertTrue("both modes must produce a G-code artifact", output.isFile && output.length() > 0L)
                 val text = output.readText()
+                val expectedStartFlow = if (enable) minOf(
+                    if (outerWallFlow.endsWith("%")) 20.0 * outerWallFlow.removeSuffix("%").toDouble() / 100.0 else outerWallFlow.toDouble(),
+                    20.0,
+                    externalMaxFlow.toDouble().takeIf { it > 0.0 } ?: Double.POSITIVE_INFINITY,
+                ) else null
+                if (expectedStartFlow != null) {
+                    assertTrue(
+                        "the generated start G-code must use the configured outer-wall volumetric flow",
+                        Regex("(?m)^; OUTER_WALL_FLOW=${expectedStartFlow}(?:\\.0+)?$").containsMatchIn(text),
+                    )
+                }
                 val feedRate = Regex("\\bF([0-9]+(?:\\.[0-9]+)?)")
                 val speeds = mutableListOf<Double>()
                 var outerWall = false
@@ -1204,9 +1220,11 @@ class NativeSliceDeviceTest {
             val legacySpeeds = slice(enable = false, outerWallFlow = "10%")
             val volumetricSpeeds = slice(enable = true, outerWallFlow = "10%")
             val absoluteFlowSpeeds = slice(enable = true, outerWallFlow = "2")
+            val externalCapSpeeds = slice(enable = true, outerWallFlow = "10%", externalMaxFlow = "1")
             val legacyMinimum = legacySpeeds.minOrNull() ?: error("legacy outer-wall speed sample is empty")
             val volumetricMinimum = volumetricSpeeds.minOrNull() ?: error("volumetric outer-wall speed sample is empty")
             val absoluteMinimum = absoluteFlowSpeeds.minOrNull() ?: error("absolute-flow outer-wall speed sample is empty")
+            assertTrue("the external volumetric cap must still allow a real outer-wall slice", externalCapSpeeds.isNotEmpty())
             assertTrue(
                 "10% of a 20 mm³/s filament max flow must lower at least the slowest outer-wall G-code feed rate (legacy=$legacyMinimum/${legacySpeeds.size}/${legacySpeeds.distinct().sorted()}, volumetric=$volumetricMinimum/${volumetricSpeeds.size}/${volumetricSpeeds.distinct().sorted()})",
                 volumetricMinimum < legacyMinimum * 0.8,
@@ -1218,6 +1236,9 @@ class NativeSliceDeviceTest {
         } finally {
             keys.forEach { key -> process.put(key, previous[key]) }
             filament.put("filament_max_volumetric_speed", previousMaxFlow)
+            filament.put("filament_max_external_volumetric_speed", previousExternalMaxFlow)
+            if (previousStartGcode == null) printer.values.remove("machine_start_gcode")
+            else printer.put("machine_start_gcode", previousStartGcode)
             model.release()
             source.delete()
             output.delete()
