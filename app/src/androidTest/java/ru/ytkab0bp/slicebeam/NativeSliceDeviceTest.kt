@@ -5000,6 +5000,33 @@ class NativeSliceDeviceTest {
         }
     }
 
+    @Test(timeout = 120_000)
+    fun physicalExtruderMapOutsidePlaceholderTableDoesNotCrashGcodeExport() = withToolChangerProfile {
+        val context = InstrumentationRegistry.getInstrumentation().targetContext
+        val config = requireNotNull(SliceBeam.CONFIG)
+        val printer = requireNotNull(config.findPrinter("MyToolChanger 0.4 nozzle"))
+        // A firmware tool number can exceed the number of first-use slots in the placeholder table.
+        printer.put("physical_extruder_map", "9,0,0,0,0")
+
+        val source = copyCube(context, "physical-extruder-map-out-of-range.stl")
+        val output = File(context.cacheDir, "physical-extruder-map-out-of-range.gcode")
+        val model = Model(source)
+        var result: GCodeProcessorResult? = null
+        try {
+            model.setUniformFilament(0, 1)
+            SliceBeam.genCurrentConfig(model)
+            result = model.slice(SliceBeam.getCurrentConfigFile().absolutePath, output.absolutePath, null)
+            val gcode = output.readText()
+            assertHasExtrusion(gcode)
+        } finally {
+            result?.release()
+            model.release()
+            source.delete()
+            output.delete()
+            SliceBeam.getCurrentConfigFile().delete()
+        }
+    }
+
     @Test
     fun temperatureTowerTargetsTheAssignedToolOnEveryLayer() = withToolChangerProfile {
         val context = InstrumentationRegistry.getInstrumentation().targetContext
