@@ -45,7 +45,7 @@ fun WorkspaceHeader(
             Image(
                 painter = painterResource(appIcon),
                 contentDescription = appName,
-                modifier = Modifier.size(38.dp),
+                modifier = Modifier.size(49.dp),
             )
             Column(
                 modifier = Modifier

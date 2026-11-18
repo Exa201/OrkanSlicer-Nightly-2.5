@@ -62,6 +62,12 @@ fun OwnFilamentSlotBar(profileTitle: String?, onSelect: (Int) -> Unit) {
         ) {
             Column(Modifier.fillMaxWidth().padding(start = 8.dp, top = 4.dp, end = 4.dp, bottom = 8.dp)) {
                 Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                    Icon(
+                        painterResource(R.drawable.ic_filamentslot),
+                        contentDescription = null,
+                        modifier = Modifier.size(31.dp),
+                        tint = Color.Unspecified,
+                    )
                     Text(
                         text = stringResource(R.string.SlotFilamentConfig),
                         modifier = Modifier.weight(1f).padding(start = 8.dp),
@@ -69,7 +75,11 @@ fun OwnFilamentSlotBar(profileTitle: String?, onSelect: (Int) -> Unit) {
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                     IconButton(onClick = { helpExpanded = !helpExpanded }, modifier = Modifier.heightIn(min = 48.dp).size(48.dp)) {
-                        Icon(painterResource(R.drawable.info_outline_28), contentDescription = stringResource(R.string.OwnFilamentSlotHelp), tint = MaterialTheme.colorScheme.primary)
+                        Icon(
+                            painterResource(R.drawable.ic_info),
+                            contentDescription = stringResource(R.string.OwnFilamentSlotHelp),
+                            tint = Color.Unspecified,
+                        )
                     }
                 }
                 FlowRow(

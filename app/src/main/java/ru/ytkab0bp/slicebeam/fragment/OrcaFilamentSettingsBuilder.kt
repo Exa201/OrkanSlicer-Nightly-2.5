@@ -9,7 +9,7 @@ import ru.ytkab0bp.slicebeam.slic3r.Slic3rLocalization
 import ru.ytkab0bp.slicebeam.ui.settings.OrcaFilamentSettingsCatalog
 import ru.ytkab0bp.slicebeam.ui.settings.OrcaProfileGroupLocalizer
 import ru.ytkab0bp.slicebeam.ui.settings.OrcaSettingsCategory
-import ru.ytkab0bp.slicebeam.ui.settings.ProfileCategoryAssets
+import ru.ytkab0bp.slicebeam.ui.settings.FilamentProfileCategoryAssets
 import ru.ytkab0bp.slicebeam.utils.ViewUtils
 
 /** Creates filament-profile rows from Orca metadata and the shared Kotlin catalog. */
@@ -33,7 +33,7 @@ object OrcaFilamentSettingsBuilder {
         items: MutableList<ProfileOptionElement>,
         category: OrcaSettingsCategory,
     ) {
-        val categoryIcon = ProfileCategoryAssets.iconFor(category.title, category.iconResId)
+        val categoryIcon = FilamentProfileCategoryAssets.iconFor(category.title, category.iconResId)
         items.add(ProfileOptionElement(categoryIcon, Slic3rLocalization.getString(category.title)).apply {
             noTint = categoryIcon != category.iconResId
         })

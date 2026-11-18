@@ -4,6 +4,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -31,7 +32,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalDensity
@@ -111,14 +114,23 @@ internal fun PlateTabs(
         // touch target, but let the control grow vertically instead of clipping `/count`.
         modifier = Modifier.width(OrkanUiTokens.plateCounterWidth)
             .heightIn(min = counterMinHeight)
+            .testTag("workspace-plate-counter")
             .semantics { contentDescription = label }
             .clickable(role = Role.Button) { open = true; onOpen() },
         shape = RoundedCornerShape(OrkanUiTokens.cornerRadius),
         color = MaterialTheme.colorScheme.surfaceVariant,
     ) {
-        Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
-            Text(stringResource(R.string.PlatePickerCounterLabel), style = MaterialTheme.typography.labelSmall,
-                maxLines = 1)
+        Row(
+            horizontalArrangement = Arrangement.spacedBy(2.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Image(
+                painter = painterResource(
+                    if (open) R.drawable.ic_druckplattenanzahl_active else R.drawable.ic_druckplattenanzahl,
+                ),
+                contentDescription = null,
+                modifier = Modifier.size(26.dp),
+            )
             Text("${selectedIndex + 1}/$plateCount", fontWeight = FontWeight.Bold,
                 style = MaterialTheme.typography.labelMedium, maxLines = 1)
         }

@@ -1,5 +1,63 @@
 # Changelog
 
+## 0.8.503 — App-Branding — 2026-11-18
+
+- Das App-Symbol verwendet jetzt das neue OrkanSlicer-Branding als adaptives Android-Icon mit passendem statischem Fallback für ältere Android-Versionen.
+- Der Android-Startbildschirm nutzt die neue dunkelblaue Markenfarbe; der Setup-/Info-Hintergrund verwendet das bereitgestellte Hochformat-Artwork.
+- GitHub-README und Dokumentation zeigen das Feature-Banner und die Branding-Vorschau. Bestehende Slicer-Funktionen und Zustandslogik bleiben unberührt.
+- Qidi-Q2/Q2C-Start-G-Code behält das Filament-Slot-Mapping; Wanhao D12 500 PRO M2 Druckermodellzuordnung korrigiert.\n- Verifiziert: Debug- und SliceTest-Unit-Suiten jeweils **851/851**, Debug-APK-Build erfolgreich. Honor-Installation wartet auf eine aktive Wireless-ADB-Verbindung.\n- Versionscode **538**.
+
+## 0.8.502 — Malen per Wischgeste — 2026-11-18
+
+- Paint-Modi für Farbe, Naht, Stützen, Fuzzy Skin und variable Schichthöhe bleiben in einem kompakten Dock am Bildschirmrand; die Druckplatte bleibt währenddessen sichtbar und direkt bedienbar.
+- Ein-Finger-Striche reservieren die Touchfolge gegen übergeordnete Gesten. Variable Schichthöhen werden entlang zusammengefasster schneller Bewegungen abgetastet, statt Zwischenpunkte zu verlieren.
+- Versionscode **537**. Verifikation läuft.
+
+## 0.8.501 — Maker- und Slicing-Icons — 2026-11-17
+
+- Maker und Slicing verwenden die neuen mehrfarbigen Icons aus den bereitgestellten Packs; bestehende Aktionen, Beschriftungen und Handler bleiben unverändert.
+- Slicing-Icons zeigen passende Normal-, Aktiv- und Deaktiviert-Zustände. Maker-Gruppen nutzen ihre Aktivvariante beim Aufklappen.
+- Versionscode **536**. Gezielter Artwork-Test **1/1**, Kotlin-Compile, Debug-Build und Honor-Installation.
+
+## 0.8.500 — App-Einstellungs-Icons — 2026-11-17
+
+- Die App-Einstellungsseite verwendet das neue Iconpack für Einstellungen, Maker, Benutzeroberfläche, Druckerprofile, Konverter-Speicher, Ansicht, App-Informationen und Zurücksetzen.
+- Farben der PNG-Assets bleiben erhalten; alle bestehenden Aktionshandler und Einstellungswerte sind unverändert.
+- Versionscode **535**. Verifiziert: `AppSettingsIconAssetsTest` **2/2**, Kotlin-Kompilierung, Debug-Build und Honor-Installation.
+
+## 0.8.499 — Druckerprofil-Icons — 2026-11-17
+
+- Druckerprofil-Kopf, Auswahl, Suche, Kategorien, Host-Verbindung, Speichern und Zurücksetzen verwenden jetzt die eigenen mehrfarbigen Assets des Druckerprofil-Pakets.
+- Ressourcennamen bleiben vom Filament- und Druckprofil getrennt; Profilwerte, Navigation und Handler wurden nicht geändert.
+- Versionscode **534**. Verifiziert: Druckerprofil-Assettests **2/2**, Druckerprofil-Auswahl-/Lösch-Interaktion auf API-36-Emulator **1/1**, Debug-Build. Honor-Installation offen, da das Gerät während des Installationsversuchs die ADB-Verbindung verlor.
+
+## 0.8.498 — Filamentprofil-Icons — 2026-11-17
+
+- Die Filamentprofil-Seite und ihre Gruppen verwenden das neue Filament-Iconpack mit Normal-/Aktivzuständen; Speichern, Zurücksetzen und Slot-Hilfe zeigen passende Filament-Assets.
+- Druckprofil- und Druckerprofil-Icons sowie alle bestehenden Handler bleiben getrennt und unverändert.
+- Versionscode **533**. Verifiziert: Filament-Icon-Zuordnung **2/2**, Filament-Profilbearbeitung auf Honor **1/1**, Debug-Build und Installation.
+
+## 0.8.497 — Druckerprofile und passende Prozessprofile — 2026-11-17
+
+- Druck- und Filamentprofile werden erst nach Auswahl eines Druckerprofils angeboten und anhand dieses Druckers gefiltert.
+- Fehler behoben, durch den „Drucker hinzufügen“ bei angemeldetem Cloud-Konto die ausgewählten Drucker-, Druck- und Filamentprofile nicht in die vorhandene Konfiguration übernommen hat.
+- Versionscode **532**. Verifiziert: Profil-Kompatibilitäts- und Auswahltests; Debug-Build und Honor-Prüfung.
+
+## 0.8.495 — Druckprofile nach Druckereinrichtung laden — 2026-11-17
+
+- Die Orca-Profil-Datenbank wird nicht mehr als aktuell markiert, wenn beim Start noch kein Druckerprofil eingerichtet ist.
+- Nach dem Hinzufügen eines Druckers kann der nächste App-Start deshalb dessen Drucker- und Druckprofile nachladen, statt bei einer leeren Profilliste stehenzubleiben.
+- Auf dem Honor wurde als Ursache eine gespeicherte Datenbankrevision bei 0 Druckerprofilen und nur 1 generischem Druckprofil nachgewiesen.
+- Verifiziert: Datenbank-Revisions- und Profilkompatibilitätstests bestanden.
+
+## 0.8.494 — Drucker- und Profilzuordnung — 2026-11-17
+
+- Drucker-, Druck- und Filamentprofile bleiben beim Auswählen getrennt und werden anhand des gewählten Druckers gefiltert.
+- Ohne eingerichtetes Druckerprofil zeigen die Profilbereiche einen klaren Hinweis und führen direkt zum Drucker-Setup, statt fremde Filament- und Druckprofile anzubieten.
+- Der Profil-Listen-Cache wird bei Druck- und Filamentwechsel erneuert, damit die gerade ausgewählten Profile sofort angezeigt werden.
+- Versionsstand 0.8.493 / Code 528 wurde am installierten Nightly bestätigt; dieser Korrekturbuild ist 0.8.494 / Code 529.
+- Verifiziert: Profil-Kompatibilitätstests und Druck-/Filament-/Druckerprofil-Auswahltests bestanden.
+
 ## 0.8.493 — Querformat-Aktionsleiste — 2026-11-17
 
 - Im Querformat klappt das Aktionsfeld beim Menüwechsel und beim Drehen des Geräts ein; Tippen auf das aktive Menü öffnet es bei Bedarf.

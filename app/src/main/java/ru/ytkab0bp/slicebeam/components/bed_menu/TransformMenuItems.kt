@@ -1,11 +1,15 @@
 package ru.ytkab0bp.slicebeam.components.bed_menu
 
 import android.view.View
+import android.widget.Toast
 import ru.ytkab0bp.slicebeam.R
 import ru.ytkab0bp.slicebeam.SliceBeam
 import ru.ytkab0bp.slicebeam.events.NeedSnackbarEvent
 import ru.ytkab0bp.slicebeam.fragment.BedFragment
 import ru.ytkab0bp.slicebeam.render.GLRenderer
+import ru.ytkab0bp.slicebeam.render.MODEL_EDIT_STALE_SELECTION
+import ru.ytkab0bp.slicebeam.render.MODEL_EDIT_UNSUPPORTED_BUILD_VOLUME
+import ru.ytkab0bp.slicebeam.utils.ViewUtils
 import ru.ytkab0bp.slicebeam.render.ModelSelectionSnapshot
 import java.util.function.Consumer
 import kotlin.math.max
@@ -53,6 +57,27 @@ internal class TransformMenuItems(
             },
             selectionAction(R.string.MenuTransformScale, R.drawable.menu_scale_28, availability) {
                 showScaleMenu.accept(it)
+            },
+            selectionAction(R.string.ModelScaleToBuildVolume, R.drawable.arrow_up_right_corner_outline_24, availability) { anchor ->
+                val activeGlView = fragment.glView ?: return@selectionAction
+                if (activeGlView.renderer?.bed?.supportsScaleToFit() != true) return@selectionAction
+                activeGlView.queueEvent {
+                    val snapshot = activeGlView.renderer.captureSelectionSnapshot() ?: return@queueEvent
+                    ViewUtils.postOnMainThread {
+                        activeGlView.scaleSelectedObjectToBuildVolume(snapshot) { result ->
+                            when (result) {
+                                1 -> {
+                                    fragment.updateModel()
+                                    Toast.makeText(anchor.context, R.string.ModelScaleToBuildVolumeDone, Toast.LENGTH_SHORT).show()
+                                }
+                                MODEL_EDIT_STALE_SELECTION ->
+                                    SliceBeam.EVENT_BUS.fireEvent(NeedSnackbarEvent(R.string.ModelSelectionChanged))
+                                MODEL_EDIT_UNSUPPORTED_BUILD_VOLUME ->
+                                    SliceBeam.EVENT_BUS.fireEvent(NeedSnackbarEvent(R.string.ModelScaleToBuildVolumeUnsupported))
+                            }
+                        }
+                    }
+                }
             },
             selectionAction(R.string.ModelSimplify, R.drawable.vk_magic_wand_outline_24, availability, ::showSimplifyDialog),
             selectionAction(R.string.ModelSmoothMesh, R.drawable.vk_brush_outline_24, availability, ::showSmoothMeshDialog),

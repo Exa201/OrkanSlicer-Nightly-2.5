@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -22,7 +23,12 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.graphicsLayer
@@ -47,6 +53,14 @@ internal fun SetupPrinterSelectionScreen(
     onToggle: (String, Boolean) -> Unit,
     onContinue: () -> Unit,
 ) {
+    var printerQuery by remember { mutableStateOf("") }
+    val visibleSections = sections.mapNotNull { section ->
+        val matching = section.options.filter { option ->
+            printerQuery.isBlank() || option.title.contains(printerQuery.trim(), ignoreCase = true) ||
+                section.title.contains(printerQuery.trim(), ignoreCase = true)
+        }
+        section.takeIf { matching.isNotEmpty() }?.copy(options = matching)
+    }
     Box(modifier = Modifier.fillMaxSize()) {
         if (loading) {
             CircularProgressIndicator(modifier = Modifier.align(Alignment.Center))
@@ -73,12 +87,23 @@ internal fun SetupPrinterSelectionScreen(
                         )
                     }
                 }
+                if (!useCustomProfile) {
+                    item(key = "printer_search") {
+                        OutlinedTextField(
+                            value = printerQuery,
+                            onValueChange = { printerQuery = it },
+                            modifier = Modifier.fillMaxWidth(),
+                            singleLine = true,
+                            label = { Text(stringResource(R.string.SetupSearchPrinter)) },
+                        )
+                    }
+                }
                 if (useCustomProfile) {
                     item(key = "custom_profile") {
                         SetupCustomProfileCard()
                     }
                 } else {
-                    sections.forEach { section ->
+                    visibleSections.forEach { section ->
                         item(key = "printer_vendor_${section.key}") {
                             SetupSectionHeading(section.title)
                         }
@@ -90,11 +115,20 @@ internal fun SetupPrinterSelectionScreen(
                             )
                         }
                     }
+                    if (visibleSections.isEmpty()) {
+                        item(key = "printer_search_empty") {
+                            Text(
+                                text = stringResource(R.string.SetupSearchPrinterEmpty),
+                                modifier = Modifier.padding(vertical = 16.dp),
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
+                    }
                 }
             }
             Button(
                 onClick = onContinue,
-                modifier = Modifier.align(Alignment.BottomCenter).fillMaxWidth().padding(horizontal = 16.dp, vertical = 16.dp).heightIn(min = 52.dp),
+                modifier = Modifier.align(Alignment.BottomCenter).fillMaxWidth().navigationBarsPadding().padding(horizontal = 16.dp, vertical = 16.dp).heightIn(min = 52.dp),
                 shape = RoundedCornerShape(16.dp),
             ) {
                 Text(text = stringResource(R.string.IntroNext), fontSize = 16.sp)
@@ -172,7 +206,7 @@ internal fun SetupFilamentSelectionScreen(
         }
         Button(
             onClick = onContinue,
-            modifier = Modifier.align(Alignment.BottomCenter).fillMaxWidth().padding(horizontal = 16.dp, vertical = 16.dp).heightIn(min = 52.dp),
+            modifier = Modifier.align(Alignment.BottomCenter).fillMaxWidth().navigationBarsPadding().padding(horizontal = 16.dp, vertical = 16.dp).heightIn(min = 52.dp),
             shape = RoundedCornerShape(16.dp),
         ) {
             Text(text = stringResource(R.string.IntroNext), fontSize = 16.sp)
@@ -205,7 +239,7 @@ private fun SetupCustomProfileCard() {
                 painter = painterResource(R.drawable.printer_outline_28),
                 contentDescription = null,
                 tint = MaterialTheme.colorScheme.primary,
-                modifier = Modifier.size(36.dp),
+                modifier = Modifier.size(47.dp),
             )
             Text(
                 text = stringResource(R.string.IntroCustomProfileName),
@@ -246,7 +280,7 @@ private fun SetupProfileOptionRow(
                     painter = painterResource(iconRes),
                     contentDescription = null,
                     tint = MaterialTheme.colorScheme.primary,
-                    modifier = Modifier.size(36.dp),
+                    modifier = Modifier.size(47.dp),
                 )
             } else {
                 Image(

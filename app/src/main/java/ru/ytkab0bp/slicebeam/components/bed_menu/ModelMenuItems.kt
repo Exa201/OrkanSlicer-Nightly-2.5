@@ -11,7 +11,6 @@ import ru.ytkab0bp.slicebeam.render.ModelAlignmentAxis
 import ru.ytkab0bp.slicebeam.render.ModelAlignmentCoordinateSystem
 import ru.ytkab0bp.slicebeam.render.ModelSelectionSnapshot
 import ru.ytkab0bp.slicebeam.render.MODEL_EDIT_STALE_SELECTION
-import ru.ytkab0bp.slicebeam.render.MODEL_EDIT_UNSUPPORTED_BUILD_VOLUME
 import ru.ytkab0bp.slicebeam.render.MODEL_EDIT_SURFACE_NEEDS_SIMPLIFICATION
 import ru.ytkab0bp.slicebeam.render.MODEL_EDIT_OPERATION_FAILED
 import ru.ytkab0bp.slicebeam.render.MODEL_EDIT_ROLLBACK_FAILED
@@ -76,23 +75,6 @@ internal class ModelMenuItems(
                     }
                 }
             }, enabled = availability.hasSelectedObject),
-            BedComposeMenuAction(R.string.ModelScaleToBuildVolume, R.drawable.arrow_up_right_corner_outline_24, { anchor ->
-                val activeGlView = fragment.glView ?: return@BedComposeMenuAction
-                captureSelectionSnapshot(activeGlView) { snapshot ->
-                    activeGlView.scaleSelectedObjectToBuildVolume(snapshot) { result ->
-                        when (result) {
-                            1 -> {
-                                fragment.updateModel()
-                                Toast.makeText(anchor.context, R.string.ModelScaleToBuildVolumeDone, Toast.LENGTH_SHORT).show()
-                            }
-                            MODEL_EDIT_STALE_SELECTION ->
-                                SliceBeam.EVENT_BUS.fireEvent(NeedSnackbarEvent(R.string.ModelSelectionChanged))
-                            MODEL_EDIT_UNSUPPORTED_BUILD_VOLUME ->
-                                SliceBeam.EVENT_BUS.fireEvent(NeedSnackbarEvent(R.string.ModelScaleToBuildVolumeUnsupported))
-                        }
-                    }
-                }
-            }, enabled = availability.hasSelectedObject && renderer?.bed?.supportsScaleToFit() == true),
             BedComposeMenuAction(R.string.ModelMenuPlaceGroupOnBed, R.drawable.vk_cube_box_outline_24, { anchor ->
                 val activeGlView = fragment.glView ?: return@BedComposeMenuAction
                 captureSelectionSnapshot(activeGlView) { snapshot ->

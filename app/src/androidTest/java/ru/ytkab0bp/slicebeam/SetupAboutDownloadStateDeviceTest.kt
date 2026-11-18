@@ -41,7 +41,6 @@ class SetupAboutDownloadStateDeviceTest {
                     updateStatus = "",
                     downloadState = state.value,
                     onCheckUpdate = {},
-                    onCheckPreviousVersion = {},
                     onInstallUpdate = { installRequested = true },
                     onRefreshDownload = { refreshed = true },
                     onClose = {},

@@ -29,13 +29,13 @@ internal fun WorkspacePrintToolActions(
 ) {
     Row(horizontalArrangement = Arrangement.spacedBy(2.dp)) {
         DashboardPrintToolButton(
-            icon = R.drawable.menu3d_prime_tower,
+            icon = R.drawable.ic_top_reinigungsturm_standard,
             label = stringResource(R.string.PrimeTowerPositionShort),
             testTag = "workspace-header-prime-tower",
             onClick = onPrimeTower,
         )
         DashboardPrintToolButton(
-            icon = R.drawable.menu3d_purge_volume,
+            icon = R.drawable.ic_top_spuelvolumen_standard,
             label = stringResource(R.string.FlushVolumes),
             testTag = "workspace-header-flush-volumes",
             onClick = onFlushVolumes,
@@ -63,7 +63,7 @@ private fun DashboardPrintToolButton(
         color = MaterialTheme.colorScheme.surfaceVariant,
     ) {
         Box(contentAlignment = androidx.compose.ui.Alignment.Center) {
-            Image(painter = painterResource(icon), contentDescription = null, modifier = Modifier.size(36.dp))
+            Image(painter = painterResource(icon), contentDescription = null, modifier = Modifier.size(47.dp))
         }
     }
 }

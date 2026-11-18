@@ -701,6 +701,14 @@
     <string name="MenuFileOpenMultipleMeshProgress">Netz %1$d von %2$d wird geladen …</string>
     <string name="MenuFileOpenMultipleMeshComplete">%1$d von %2$d Netzdateien wurden als einzelne Objekte geladen.</string>
     <string name="MenuFileOpenMultipleMeshFailed">%1$d von %2$d Netzdateien konnten nicht geladen werden.</string>
+    <string name="MenuFileImportPlacementTitle">Importierte Modelle anordnen</string>
+    <string name="MenuFileImportPlacementDescription">Wähle, wie diese %1$d Modelle auf der Druckplatte platziert werden.</string>
+    <string name="MenuFileImportPlacementCompact">Orkan-Nesting: platzsparend anordnen</string>
+    <string name="MenuFileImportPlacementSpacing">Einen festen Abstand zwischen den Modellen halten</string>
+    <string name="MenuFileImportPlacementDistanceLabel">Mindestabstand der Objekte (mm)</string>
+    <string name="MenuFileImportPlacementDistanceHint">Zum Beispiel: 6</string>
+    <string name="MenuFileImportPlacementDistanceError">Gib einen Abstand von 0,5 bis 50 mm ein.</string>
+    <string name="MenuFileImportPlacementContinue">Importieren und anordnen</string>
     <string name="MenuFileDelete">Modell entfernen</string>
     <string name="MenuFileObjects">Geladene Objekte</string>
     <string name="MenuFileObjectActions">Objektaktionen</string>
@@ -1055,6 +1063,8 @@
     <string name="IntroFilamentsNone">Keine gebündelten Filamente für die ausgewählten Drucker — generische Profile werden verwendet.</string>
     <string name="SetupSelectPrintersTitle">Drucker auswählen</string>
     <string name="SetupSelectPrintersSubtitle">Wähle alle Drucker aus, die du verwenden möchtest. Du kannst die Auswahl später ändern.</string>
+    <string name="SetupSearchPrinter">Druckermodell suchen</string>
+    <string name="SetupSearchPrinterEmpty">Keine Druckermodelle für diese Suche gefunden.</string>
     <string name="IntroConfigured">Alles ist eingerichtet.\nTippe auf „Fertig“.</string>
     <string name="IntroFinish">Fertig</string>
     <string name="IntroEarlyAccess">Vorabversion</string>
@@ -1452,6 +1462,7 @@
     <string name="CalibrationIncrement">Zuwachs</string>
     <string name="CalibrationInvalidParameters">Die Werte sind ungültig oder würden einen übermäßig großen Test erzeugen.</string>
     <string name="CalibrationPrepare">Test vorbereiten</string>
+    <string name="CalibrationFilament">Testfilament</string>
     <string name="CalibrationRecordResult">Messwert speichern</string>
     <string name="CalibrationRecordResultDescription">Trage den nach Bewertung des gedruckten Tests gewählten Wert ein. Er wird zur Prüfung im aktiven Profil vorgemerkt.</string>
     <string name="CalibrationMeasuredValue">Messwert</string>
@@ -1491,6 +1502,8 @@
     <string name="SmartSliceNoModel">Lade zuerst ein Modell, bevor du Smart Expert Slice startest.</string>
     <string name="PrinterProfileLoading">Druckerprofil wird geladen …</string>
     <string name="PrinterProfileLoaded">Druckerprofil geladen.</string>
+    <string name="PrinterProfileMissing">Kein Druckerprofil ausgewählt</string>
+    <string name="PrinterProfileMissingHint">Noch kein Druckerprofil eingerichtet. Füge einen Drucker hinzu, damit seine passenden Druck- und Filamentprofile angezeigt werden.</string>
     <string name="CalibrationPressureAdvanceReady">Der Druckvorlauf-Test ist bereit. Öffne zum Fortfahren den Tab „Slicen“.</string>
     <string name="PrintConfigFlushVolumesInvalid">Gib für jede Spülmenge eine gültige Zahl ab 0 ein.</string>
     <string name="PrintConfigFlushVolumesUpdated">Spülmengen aktualisiert.</string>
@@ -1505,9 +1518,7 @@
     <string name="ProfileNumericToggleSign">Vorzeichen der Zahl wechseln</string>
     <string name="ProfileNumericAsAbsolute">Absoluter Wert</string>
     <string name="ProfileNumericAsPercent">Prozentwert</string>
-    <string name="LineWidthAutoHint">In diesem Profil automatisch. Eine Änderung setzt die Linienbreite relativ zur Düse.</string>
     <string name="LineWidthApply">Übernehmen</string>
-    <string name="LineWidthAutomatic">Automatisch (0)</string>
     <string name="PrinterHostOctoPrint">OctoPrint</string>
     <string name="PrinterHostMoonraker">Moonraker / Klipper</string>
     <string name="ProfileVectorInputLabel">Werte</string>

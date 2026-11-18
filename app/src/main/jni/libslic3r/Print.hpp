@@ -764,6 +764,7 @@ struct WipeTowerData
     std::unique_ptr<std::vector<WipeTower::ToolChangeResult>> priming;
     std::vector<std::vector<WipeTower::ToolChangeResult>> tool_changes;
     std::unique_ptr<WipeTower::ToolChangeResult>          final_purge;
+    bool                                                  final_purge_required { true };
     std::vector<float>                                    used_filament;
     int                                                   number_of_toolchanges;
 
@@ -779,6 +780,7 @@ struct WipeTowerData
         priming.reset(nullptr);
         tool_changes.clear();
         final_purge.reset(nullptr);
+        final_purge_required = true;
         used_filament.clear();
         number_of_toolchanges = -1;
         depth = 0.f;

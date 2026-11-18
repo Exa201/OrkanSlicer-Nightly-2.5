@@ -34,6 +34,7 @@ class OrientationMenu : ListBedMenu() {
             items.invalidateSelectionState()
             composeActions.value = items.createItems()
         }
+        androidx.compose.runtime.SideEffect { bed.updateWorkspaceMenuActionCount(composeActions.value.size) }
         BedMenuActionsContent(composeActions.value, portrait)
     }
 

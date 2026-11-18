@@ -84,6 +84,9 @@ class FileMenu : ListBedMenu() {
     override fun WorkspaceContent(portrait: Boolean) {
         wasPortrait = portrait
         LaunchedEffect(this, portrait) { refreshComposeActions() }
+        androidx.compose.runtime.SideEffect {
+            fragment?.updateWorkspaceMenuActionCount(composeActions.value.size)
+        }
         CustomizableBedMenuActionsContent("project", composeActions.value, portrait)
     }
 
@@ -571,7 +574,7 @@ private fun AIGeneratorActionRow(icon: Int, title: String, testTag: String, onCl
                 painter = painterResource(icon),
                 contentDescription = null,
                 colorFilter = androidx.compose.ui.graphics.ColorFilter.tint(MaterialTheme.colorScheme.onSurfaceVariant),
-                modifier = Modifier.size(28.dp),
+                modifier = Modifier.size(36.dp),
             )
             Text(
                 text = title,

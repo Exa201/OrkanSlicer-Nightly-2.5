@@ -310,7 +310,8 @@ template<typename GenerateFn>
 static void generate_smoothed_path(InfillPolylineOutput &output, const FillParams &params,
                                    const double resolution, GenerateFn generate)
 {
-    const CornerSmoothing smoothing{ params.smooth_factor, resolution };
+    const double unit = unscaled(output.scale_out());
+    const CornerSmoothing smoothing{ params.smooth_factor, corner_smoothing_tolerance(resolution * unit) / unit };
     auto run = [&smoothing, &generate](auto &out) {
         if (sanitize_smooth_factor(smoothing.factor) == 0.) generate(out);
         else {

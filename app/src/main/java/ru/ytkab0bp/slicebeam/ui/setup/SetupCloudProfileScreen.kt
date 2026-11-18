@@ -121,7 +121,7 @@ internal fun SetupCloudProfileScreen(
             shape = RoundedCornerShape(16.dp),
         ) {
             if (!loggedIn && loggingIn) {
-                CircularProgressIndicator(modifier = Modifier.size(22.dp), strokeWidth = 2.dp)
+                CircularProgressIndicator(modifier = Modifier.size(29.dp), strokeWidth = 2.dp)
             } else {
                 Text(
                     text = stringResource(
@@ -199,7 +199,7 @@ private fun SetupCloudLevelCard(
                         else R.drawable.cloud_plus_outline_28,
                     ),
                     contentDescription = null,
-                    modifier = Modifier.size(28.dp),
+                    modifier = Modifier.size(36.dp),
                 )
                 Text(
                     text = level.title,

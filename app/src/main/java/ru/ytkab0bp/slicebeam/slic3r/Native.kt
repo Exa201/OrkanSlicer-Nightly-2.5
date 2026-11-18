@@ -157,6 +157,9 @@ class Native {
     /** Verifies face flattening rotates multipart volumes together without changing their relative layout. */
     @JvmStatic
     external fun flatten_keeps_multipart_layout_regression(): IntArray
+    /** Verifies flatten face candidates are checked against source geometry in object coordinates. */
+    @JvmStatic
+    external fun flatten_candidate_support_transform_regression(): IntArray
     /** Loads a short-filament multi-tool project, checks paired arrays, then overwrites all tray slots. */
     @JvmStatic
     external fun short_project_filament_arrays_regression(): IntArray
@@ -408,6 +411,8 @@ class Native {
     @JvmStatic
     external fun model_translate_global(ptr: Long, x: Double, y: Double, z: Double): Unit
     @JvmStatic
+    external fun model_rotate_and_center_objects(ptr: Long, angleZ: Double): Unit
+    @JvmStatic
     external fun model_ensure_on_bed(ptr: Long, i: Int): Unit
     @JvmStatic
     external fun model_scale(ptr: Long, i: Int, x: Double, y: Double, z: Double): Unit
@@ -541,7 +546,7 @@ class Native {
     external fun model_paint_max_filament(modelPtr: Long, objIdx: Int): Int
     @JvmStatic
     @Throws(Slic3rRuntimeError::class)
-    external fun model_slice(ptr: Long, configPath: String, path: String, listener: SliceListener?, numFilaments: Int, filamentColors: IntArray?, calibMode: Int, calibStart: Double, calibEnd: Double, calibStep: Double): Long
+    external fun model_slice(ptr: Long, configPath: String, path: String, listener: SliceListener?, numFilaments: Int, filamentColors: IntArray?, calibMode: Int, calibStart: Double, calibEnd: Double, calibStep: Double, calibFilament: Int): Long
     @JvmStatic
     @Throws(Slic3rRuntimeError::class)
     external fun model_export_3mf(ptr: Long, configPath: String, path: String): Unit

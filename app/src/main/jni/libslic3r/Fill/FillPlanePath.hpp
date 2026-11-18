@@ -23,6 +23,7 @@ public:
     virtual bool    clips() const { return false; }
     // The output grid used to discard rounded points that collapse to the same coordinate.
     const Point     scaled(const Vec2d& fpt) const { return { coord_t(floor(fpt.x() * m_scale_out + 0.5)), coord_t(floor(fpt.y() * m_scale_out + 0.5)) }; }
+    double          scale_out() const { return m_scale_out; }
 
 protected:
     // Output polyline.

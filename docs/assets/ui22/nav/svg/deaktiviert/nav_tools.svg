@@ -1,0 +1,34 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="256" height="256" viewBox="0 0 256 256" role="img" aria-label="Tools"><defs>
+<linearGradient id="orange" x1=".08" y1="0" x2=".92" y2="1" gradientUnits="objectBoundingBox"><stop stop-color="#ffde6b"/><stop offset=".42" stop-color="#ffb827"/><stop offset="1" stop-color="#e78003"/></linearGradient>
+<linearGradient id="amberSide" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#da8305"/><stop offset="1" stop-color="#9c5308"/></linearGradient>
+<linearGradient id="cyan" x1=".1" y1="0" x2=".8" y2="1"><stop stop-color="#89faff"/><stop offset=".35" stop-color="#31dafe"/><stop offset="1" stop-color="#0989d6"/></linearGradient>
+<linearGradient id="blueLeft" x1="0" y1="0" x2=".8" y2="1"><stop stop-color="#15bdeb"/><stop offset="1" stop-color="#1477bf"/></linearGradient>
+<linearGradient id="blueRight" x1="0" y1="0" x2=".8" y2="1"><stop stop-color="#168be1"/><stop offset="1" stop-color="#07578d"/></linearGradient>
+<linearGradient id="green" x1="0" y1="0" x2=".7" y2="1"><stop stop-color="#88f5ac"/><stop offset="1" stop-color="#1ca773"/></linearGradient>
+<linearGradient id="greenShade" x1="0" y1="0" x2=".9" y2="1"><stop stop-color="#24b98f"/><stop offset="1" stop-color="#096859"/></linearGradient>
+<linearGradient id="purple" x1="0" y1="0" x2=".8" y2="1"><stop stop-color="#e1b4ff"/><stop offset="1" stop-color="#9664db"/></linearGradient>
+<linearGradient id="purpleSide" x1="0" y1="0" x2=".8" y2="1"><stop stop-color="#9457ca"/><stop offset="1" stop-color="#603d9d"/></linearGradient>
+<linearGradient id="steel" x1="0" y1="0" x2=".8" y2="1"><stop stop-color="#fff"/><stop offset=".38" stop-color="#cce2f5"/><stop offset=".78" stop-color="#8da7c5"/><stop offset="1" stop-color="#6e849e"/></linearGradient>
+<linearGradient id="steelDark" x1="0" y1="0" x2=".7" y2="1"><stop stop-color="#879bb4"/><stop offset="1" stop-color="#3f536f"/></linearGradient>
+<linearGradient id="navy" x1="0" y1="0" x2=".9" y2="1"><stop stop-color="#335a80"/><stop offset="1" stop-color="#102a51"/></linearGradient>
+<linearGradient id="lightBlue" x1="0" y1="0" x2=".7" y2="1"><stop stop-color="#9feaff"/><stop offset="1" stop-color="#3fb5ff"/></linearGradient>
+<linearGradient id="paper" x1="0" y1="0" x2=".8" y2="1"><stop stop-color="#fff"/><stop offset="1" stop-color="#d1deee"/></linearGradient>
+<filter id="shadow" x="-40%" y="-40%" width="180%" height="190%"><feGaussianBlur in="SourceAlpha" stdDeviation="4" result="blur"/><feOffset in="blur" dy="5" dx="0" result="offset"/><feComponentTransfer in="offset" result="shadowAlpha"><feFuncA type="linear" slope=".38"/></feComponentTransfer><feMerge><feMergeNode in="shadowAlpha"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+<filter id="glow" x="-50%" y="-50%" width="200%" height="200%"><feGaussianBlur stdDeviation="5" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+<filter id="gray"><feColorMatrix type="saturate" values="0"/></filter>
+</defs><g><g filter="url(#gray)" opacity=".43">
+<g filter="url(#shadow)">
+<g transform="rotate(45 128 128)">
+<rect x="117" y="81" width="24" height="136" rx="10" fill="url(#amberSide)" stroke="#fdcd63" stroke-width="2"/>
+<rect x="106" y="107" width="46" height="107" rx="12" fill="url(#orange)" stroke="#ffe189" stroke-width="3"/>
+<path d="M118 122 V194" stroke="#fff1a0" stroke-width="4" opacity=".75" stroke-linecap="round"/>
+<path d="M121 43 L134 43 L134 109 L121 109Z" fill="url(#steel)" stroke="#e1f1ff" stroke-width="2"/>
+<path d="M97 44 L159 44 L159 69 Q159 80 147 80 H109 Q97 80 97 68Z" fill="url(#steel)" stroke="#f2f8ff" stroke-width="2.4"/>
+</g>
+<g transform="rotate(-42 128 128)">
+<rect x="113" y="86" width="30" height="143" rx="12" fill="url(#steelDark)" stroke="#cbdff2" stroke-width="3"/>
+<rect x="119" y="91" width="14" height="126" rx="6" fill="url(#steel)" opacity=".94"/>
+<path d="M111 89 C87 82 73 60 76 40 C78 27 86 17 98 11 L102 42 L125 52 L149 42 L152 11 C169 22 178 41 173 61 C169 77 157 89 144 92 L143 119 H112Z" fill="url(#steel)" stroke="#f3fbff" stroke-width="3" stroke-linejoin="round"/>
+<path d="M97 36 L107 60 L142 60 L153 36" fill="none" stroke="#58728d" stroke-width="3" opacity=".65"/>
+</g>
+</g></g></g></svg>

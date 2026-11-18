@@ -761,7 +761,7 @@ internal fun ModelObjectsDialog(
                                                 Icon(
                                                     painter = painterResource(R.drawable.bed_menu_more_24),
                                                     contentDescription = "${part.label}: $partActionsLabel",
-                                                    modifier = Modifier.size(24.dp),
+                                                    modifier = Modifier.size(31.dp),
                                                 )
                                             }
                                             DropdownMenu(

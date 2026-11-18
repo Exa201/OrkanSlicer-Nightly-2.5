@@ -22,6 +22,9 @@ class OptionsMenu : ListBedMenu() {
         // after changing the hosted fragment. Otherwise a landscape recreation can
         // retain the previous action snapshot and make still-valid actions appear disabled.
         LaunchedEffect(this, fragment, portrait) { refreshActions() }
+        androidx.compose.runtime.SideEffect {
+            fragment?.updateWorkspaceMenuActionCount(composeActions.value.size)
+        }
         CustomizableBedMenuActionsContent("tools", composeActions.value, portrait)
     }
 

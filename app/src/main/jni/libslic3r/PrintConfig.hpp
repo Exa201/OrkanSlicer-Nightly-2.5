@@ -195,6 +195,34 @@ enum SupportMaterialInterfacePattern {
 // Print direction used by center-based surface infill patterns.
 enum class SurfaceFillOrder { Default, Outward, Inward, Count };
 
+// Orca: choose whether supported sparse-infill paths cross or turn back at intersections.
+enum class InfillStrategy {
+    Default,
+    Crossing,
+    NonCrossing,
+};
+
+inline bool has_infill_strategy(InfillPattern pattern)
+{
+    switch (pattern) {
+    case ipGrid:
+    case ipTriangles:
+    case ipStars:
+    case ipCubic:
+    case ipQuarterCubic:
+    case ipAdaptiveCubic:
+    case ipSupportCubic:
+        return true;
+    default:
+        return false;
+    }
+}
+
+inline bool is_non_crossing_strategy(InfillStrategy strategy, int multiline)
+{
+    return strategy == InfillStrategy::Default ? multiline > 1 : strategy == InfillStrategy::NonCrossing;
+}
+
 // BBS
 enum SupportType {
     stNormalAuto, stTreeAuto, stNormal, stTree
@@ -572,6 +600,7 @@ CONFIG_OPTION_ENUM_DECLARE_STATIC_MAPS(PowerLossRecoveryMode)
 CONFIG_OPTION_ENUM_DECLARE_STATIC_MAPS(ArcFittingMode)
 CONFIG_OPTION_ENUM_DECLARE_STATIC_MAPS(BedExcludeVolumeMode)
 CONFIG_OPTION_ENUM_DECLARE_STATIC_MAPS(SurfaceFillOrder)
+CONFIG_OPTION_ENUM_DECLARE_STATIC_MAPS(InfillStrategy)
 
 #undef CONFIG_OPTION_ENUM_DECLARE_STATIC_MAPS
 
@@ -1139,6 +1168,7 @@ PRINT_CONFIG_CLASS_DEFINE(
     ((ConfigOptionString,               sparse_infill_rotate_template))
     ((ConfigOptionPercent,              sparse_infill_density))
     ((ConfigOptionEnum<InfillPattern>,  sparse_infill_pattern))
+    ((ConfigOptionEnum<InfillStrategy>, sparse_infill_strategy))
     ((ConfigOptionPercent,             sparse_infill_smooth_factor))
     ((ConfigOptionFloat,                lateral_lattice_angle_1))
     ((ConfigOptionFloat,                lateral_lattice_angle_2))

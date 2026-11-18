@@ -13,3 +13,11 @@ internal object ProfileListRefreshPolicy {
     ): Boolean =
         profileChanged(renderedTitle, activeTitle) || renderedConfigUid != currentConfigUid
 }
+
+/** Cache identity for compatibility-filtered preset lists. Active selections matter when no printer is configured. */
+internal data class ProfileCompatibilityCacheKey(
+    val printer: String?,
+    val process: String?,
+    val filament: String?,
+    val configUid: Int,
+)

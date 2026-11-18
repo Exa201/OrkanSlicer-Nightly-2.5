@@ -28,17 +28,16 @@ import org.junit.Assert.assertEquals
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
-import ru.ytkab0bp.slicebeam.ui.workspace.observeMenuPointerEvents
 import java.util.concurrent.atomic.AtomicInteger
 
-/** Protects the GL viewport from gestures in transparent workspace-menu gaps. */
+/** Ensures menu gestures stay with their scrollables and transparent gaps remain pass-through. */
 @RunWith(AndroidJUnit4::class)
 class WorkspaceMenuTouchShieldDeviceTest {
     @get:Rule
     val compose = createComposeRule()
 
     @Test
-    fun menuScrollRemainsResponsiveAndUnclaimedTouchesStayAboveRenderer() {
+    fun menuScrollRemainsResponsiveAndTransparentTouchesReachRenderer() {
         val rendererTouchEvents = AtomicInteger()
         val menuClicks = AtomicInteger()
         val menuScroll = java.util.concurrent.atomic.AtomicReference<ScrollState>()
@@ -62,7 +61,6 @@ class WorkspaceMenuTouchShieldDeviceTest {
                 )
                 Box(
                     modifier = Modifier.fillMaxSize()
-                        .observeMenuPointerEvents()
                         .testTag("workspace-menu-touch-shield"),
                 ) {
                     Button(
@@ -92,7 +90,7 @@ class WorkspaceMenuTouchShieldDeviceTest {
             up()
         }
         compose.runOnIdle {
-            assertEquals("an unclaimed gesture in menu padding must not reach the renderer", 0,
+            assertEquals("an overlay without a pointer handler must not intercept outside touches", 0,
                 rendererTouchEvents.get())
         }
 

@@ -43,6 +43,7 @@ class AdaptiveWorkspaceNavigationDeviceTest {
                 slot = destination.ordinal,
                 label = context.getString(destination.navigationTitleRes),
                 icon = destination.iconRes,
+                selectedIcon = destination.selectedIconRes,
                 accessibilityLabel = context.getString(destination.navigationTitleRes),
             )
         }
@@ -81,6 +82,7 @@ class AdaptiveWorkspaceNavigationDeviceTest {
                 slot = destination.ordinal,
                 label = context.getString(destination.navigationTitleRes),
                 icon = destination.iconRes,
+                selectedIcon = destination.selectedIconRes,
                 accessibilityLabel = context.getString(destination.navigationTitleRes),
                 compactLabel = context.getString(
                     if (destination == WorkspaceDestination.TOOLS) R.string.MenuOptionsCompact
@@ -177,6 +179,7 @@ class AdaptiveWorkspaceNavigationDeviceTest {
                 slot = destination.ordinal,
                 label = context.getString(destination.navigationTitleRes),
                 icon = destination.iconRes,
+                selectedIcon = destination.selectedIconRes,
                 accessibilityLabel = context.getString(destination.navigationTitleRes),
             )
         }

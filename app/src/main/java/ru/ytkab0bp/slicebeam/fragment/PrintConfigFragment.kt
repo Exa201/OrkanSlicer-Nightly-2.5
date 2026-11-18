@@ -5,15 +5,14 @@ import ru.ytkab0bp.slicebeam.R
 import ru.ytkab0bp.slicebeam.SliceBeam
 import ru.ytkab0bp.slicebeam.config.ConfigObject
 import ru.ytkab0bp.slicebeam.config.ProfileSettingsRepository
+import ru.ytkab0bp.slicebeam.config.ProfileCompatibility
 import ru.ytkab0bp.slicebeam.config.ProcessExtruderVariantPolicy
 import ru.ytkab0bp.slicebeam.slic3r.PrintConfigDef
-import ru.ytkab0bp.slicebeam.slic3r.Slic3rUtils
 
 /** Process-profile screen with printer filtering and purge controls. Filament routing lives in the workspace palette. */
 class PrintConfigFragment : ProfileListFragment() {
     private var compatItems: List<ProfileListItem>? = null
-    private var lastPrinter: String? = null
-    private var lastUid = 0
+    private var compatibilityCacheKey: ProfileCompatibilityCacheKey? = null
     private var currentConfig: ConfigObject? = null
     private var selectedToolColumnIndex: Int = -1
 
@@ -40,47 +39,20 @@ class PrintConfigFragment : ProfileListFragment() {
         val profiles = SliceBeam.requireConfig().printConfigs
         if (!filter) return profiles.map { it as ProfileListItem }
 
-        val printer = SliceBeam.requireConfig().presets!!.get("printer")
-        if (lastPrinter == printer && compatItems != null && lastUid == SliceBeam.CONFIG_UID) {
+        val config = SliceBeam.requireConfig()
+        val cacheKey = ProfileCompatibilityCacheKey(
+            printer = config.presets?.get("printer"),
+            process = config.presets?.get("print"),
+            filament = null,
+            configUid = SliceBeam.CONFIG_UID,
+        )
+        if (compatibilityCacheKey == cacheKey && compatItems != null) {
             return compatItems.orEmpty()
         }
-
-        val printerConfig = SliceBeam.requireConfig().findPrinter(printer)
-        val model = printerConfig?.get("printer_model")
-        var nozzle = printerConfig?.get("printer_variant")
-        if (printerConfig != null && nozzle == null) {
-            nozzle = Slic3rUtils.firstNozzleDiameter(printerConfig.get("nozzle_diameter"))
-        }
-        val checker = printerConfig?.let { Slic3rUtils.ConfigChecker(it.serialize()) }
-        val seenTitles = HashSet<String>()
-        val compatible = ArrayList<ProfileListItem>(profiles.size)
-
-        try {
-            for (profile in profiles) {
-                if (Slic3rUtils.isPrinterCompatible(
-                        profile.title,
-                        profile.get("compatible_printers").orEmpty(),
-                        profile.get("compatible_printers_condition").orEmpty(),
-                        printer,
-                        model,
-                        nozzle,
-                        checker,
-                    ) && Slic3rUtils.layerHeightFitsNozzle(profile.get("layer_height"), nozzle)
-                    && Slic3rUtils.lineWidthFitsNozzle(profile.get("line_width"), nozzle)
-                    && seenTitles.add(profile.title.orEmpty())
-                ) {
-                    // Bundled profiles can be duplicated for every printer; show each name once.
-                    compatible.add(profile)
-                }
-            }
-        } finally {
-            checker?.release()
-        }
-
-        lastPrinter = printer
-        lastUid = SliceBeam.CONFIG_UID
+        val compatible = ProfileCompatibility.processes(config)
+        compatibilityCacheKey = cacheKey
         compatItems = compatible
-        return compatible
+        return compatible.map { it as ProfileListItem }
     }
 
     override fun getConfigItems(): List<ProfileOptionElement> =

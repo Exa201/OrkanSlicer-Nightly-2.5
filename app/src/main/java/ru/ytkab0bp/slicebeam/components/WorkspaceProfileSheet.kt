@@ -1,6 +1,7 @@
 package ru.ytkab0bp.slicebeam.components
 
 import android.content.Context
+import android.content.Intent
 import android.widget.Toast
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
@@ -37,7 +38,9 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import ru.ytkab0bp.slicebeam.R
 import ru.ytkab0bp.slicebeam.SliceBeam
+import ru.ytkab0bp.slicebeam.SetupActivity
 import ru.ytkab0bp.slicebeam.config.TemporaryProjectSettings
+import ru.ytkab0bp.slicebeam.config.ProfileCompatibility
 import ru.ytkab0bp.slicebeam.components.bed_menu.SliceChoiceField
 import ru.ytkab0bp.slicebeam.ui.BeamComposeTheme
 import ru.ytkab0bp.slicebeam.ui.OrkanUiTokens
@@ -47,11 +50,9 @@ class WorkspaceProfileSheet(private val context: Context, private val onProfiles
     private val config = SliceBeam.requireConfig()
     private val presets = requireNotNull(config.presets)
     private val printers = config.printerConfigs.filter { it.title != null }
-    private val filaments = config.filamentConfigs.filter { it.title != null }
-    private val processes = config.printConfigs.filter { it.title != null }
     private val printerNames = printers.mapNotNull { it.title }
-    private val filamentNames = filaments.mapNotNull { it.title }
-    private val processNames = processes.mapNotNull { it.title }
+    private var filamentNames by mutableStateOf(ProfileCompatibility.filaments(config).mapNotNull { it.title })
+    private var processNames by mutableStateOf(ProfileCompatibility.processes(config).mapNotNull { it.title })
     private val selectedPrinter = mutableIntStateOf(WorkspaceProfileSelectionLogic.selectedIndex(printerNames, presets["printer"]))
     private val selectedFilament = mutableIntStateOf(WorkspaceProfileSelectionLogic.selectedIndex(filamentNames, presets["filament"]))
     private val selectedProcess = mutableIntStateOf(WorkspaceProfileSelectionLogic.selectedIndex(processNames, presets["print"]))
@@ -76,12 +77,13 @@ class WorkspaceProfileSheet(private val context: Context, private val onProfiles
                     selectedProcess = selectedProcess.intValue,
                     onPrinterSelected = ::selectPrinter,
                     onFilamentSelected = { selectedFilament.intValue = it; filamentChosen = true },
-                    onProcessSelected = {
-                        selectedProcess.intValue = it
-                        processChosen = true
-                        // Preview the selected process on top of the active printer and
-                        // filament values without committing the preset selection.
-                        settingsSummary = createSettingsSummary(context, processNames.getOrNull(it))
+                    onProcessSelected = ::selectProcess,
+                    onAddPrinter = {
+                        onDismiss()
+                        context.startActivity(
+                            Intent(context, SetupActivity::class.java)
+                                .putExtra(SetupActivity.EXTRA_ADD_PRINTER, true),
+                        )
                     },
                     onApply = { applySelection(onDismiss) },
                 )
@@ -126,12 +128,23 @@ class WorkspaceProfileSheet(private val context: Context, private val onProfiles
         }
 
         selectedPrinter.intValue = index
+        processNames = ProfileCompatibility.processes(config).mapNotNull { it.title }
+        filamentNames = ProfileCompatibility.filaments(config).mapNotNull { it.title }
         selectedFilament.intValue = WorkspaceProfileSelectionLogic.selectedIndex(filamentNames, presets["filament"])
         selectedProcess.intValue = WorkspaceProfileSelectionLogic.selectedIndex(processNames, presets["print"])
         filamentChosen = false
         processChosen = false
         settingsSummary = createSettingsSummary(context)
         onProfilesChanged?.run()
+    }
+
+    private fun selectProcess(index: Int) {
+        val process = processNames.getOrNull(index) ?: return
+        selectedProcess.intValue = index
+        processChosen = true
+        filamentNames = ProfileCompatibility.filaments(config, selectedProcess = process).mapNotNull { it.title }
+        selectedFilament.intValue = WorkspaceProfileSelectionLogic.selectedIndex(filamentNames, presets["filament"])
+        settingsSummary = createSettingsSummary(context, process)
     }
 
     private fun createSettingsSummary(context: Context, processName: String? = null): String {
@@ -171,6 +184,7 @@ private fun WorkspaceProfileSheetContent(
     onPrinterSelected: (Int) -> Unit,
     onFilamentSelected: (Int) -> Unit,
     onProcessSelected: (Int) -> Unit,
+    onAddPrinter: () -> Unit,
     onApply: () -> Unit,
 ) {
     val maxHeight = LocalConfiguration.current.screenHeightDp.dp * OrkanUiTokens.sheetMaxHeightFraction
@@ -223,23 +237,41 @@ private fun WorkspaceProfileSheetContent(
                     )
                 }
             }
-            SliceChoiceField(
-                label = stringResource(R.string.WorkspaceProfilePrinter),
-                selectedIndex = selectedPrinter,
-                options = printerNames,
-                onSelected = onPrinterSelected,
+            val sections = WorkspaceProfileSelectionLogic.visibleSections(
+                printerNames = printerNames,
+                filamentNames = filamentNames,
+                processNames = processNames,
             )
-            SliceChoiceField(
-                label = stringResource(R.string.WorkspaceProfileFilament),
-                selectedIndex = selectedFilament,
-                options = filamentNames,
-                onSelected = onFilamentSelected,
-            )
-            SliceChoiceField(
+            if (sections.showMissingPrinterNotice) {
+                Text(
+                    text = stringResource(R.string.PrinterProfileMissingHint),
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    fontSize = 13.sp,
+                    lineHeight = 18.sp,
+                )
+                Button(onClick = onAddPrinter, modifier = Modifier.fillMaxWidth()) {
+                    Text(stringResource(R.string.SettingsAddPrinter))
+                }
+            }
+            if (sections.showPrinter) {
+                SliceChoiceField(
+                    label = stringResource(R.string.WorkspaceProfilePrinter),
+                    selectedIndex = selectedPrinter,
+                    options = printerNames,
+                    onSelected = onPrinterSelected,
+                )
+            }
+            if (sections.showPrinter && sections.showProcess) SliceChoiceField(
                 label = stringResource(R.string.WorkspaceProfileProcess),
                 selectedIndex = selectedProcess,
                 options = processNames,
                 onSelected = onProcessSelected,
+            )
+            if (sections.showPrinter && sections.showFilament) SliceChoiceField(
+                label = stringResource(R.string.WorkspaceProfileFilament),
+                selectedIndex = selectedFilament,
+                options = filamentNames,
+                onSelected = onFilamentSelected,
             )
             Spacer(modifier = Modifier.height(2.dp))
         }
@@ -264,6 +296,24 @@ internal data class WorkspaceProfileSelection(
 
 /** Keeps picker fallback, selected profile names and change detection independent of Android views. */
 internal object WorkspaceProfileSelectionLogic {
+    internal data class VisibleSections(
+        val showMissingPrinterNotice: Boolean,
+        val showPrinter: Boolean,
+        val showFilament: Boolean,
+        val showProcess: Boolean,
+    )
+
+    fun visibleSections(
+        printerNames: List<String>,
+        filamentNames: List<String>,
+        processNames: List<String>,
+    ): VisibleSections = VisibleSections(
+        showMissingPrinterNotice = printerNames.isEmpty(),
+        showPrinter = printerNames.isNotEmpty(),
+        showFilament = printerNames.isNotEmpty() && filamentNames.isNotEmpty(),
+        showProcess = printerNames.isNotEmpty() && processNames.isNotEmpty(),
+    )
+
     fun selectedIndex(options: List<String>, selected: String?): Int =
         options.indexOf(selected).takeIf { it >= 0 } ?: 0
 

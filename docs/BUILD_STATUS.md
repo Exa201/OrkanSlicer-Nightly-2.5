@@ -1,3 +1,10 @@
+## OrkanSlicer Nightly 2.5 — App-Branding und aktualisierte Profile — 2026-11-18 — 0.8.503
+
+- Branch `codex/ui-2.1-redesign`, Paket `com.exa201.orkanslicer.nightly25`, Version **0.8.503 / Code 538**. Das neue Branding-Pack liefert adaptives App-Icon, Launcher-Fallback, Splash-Hintergrund und Cover-/Vorschaubilder für die GitHub-Projektseite.
+- OrcaSlicer-Druckerprofile wurden aktualisiert; Qidi-Q2/Q2C-Mapping im Start-G-Code erhalten und Wanhao-Druckermodellzuordnung berichtigt. Debug- und SliceTest-Unit-Suiten jeweils **851/851** bestanden; Debug-APK-Build erfolgreich.
+- APK: `app/build/outputs/apk/debug/OrkanSlicerNightly25_41f84dffce.apk`, **283,264,118 Bytes**, SHA-256 `51F62784434210A88C101F2DD3C9C86C9D5A0006626B7A0A10BBD7F31BB4890D`.
+- Das HONOR Magic7 Pro war beim Installationsversuch nicht per ADB erreichbar (nur `emulator-5554` offline); Installation und Gerätetest stehen daher aus. Es wurde kein Druck gestartet.
+- Nightly-Prerelease wird nach dem Commit verlinkt. Stable-Projekt bleibt unberührt.
 ## OrkanSlicer Nightly 2.5 — Profilfilter 200%-Lesbarkeit — 2026-11-15 — 0.8.470
 
 - Branch `codex/ui-2.1-redesign`, Code 505, Paket `com.exa201.orkanslicer.nightly25`. Filtertitel und Ebenenauswahl umbrechen auf kleinen Displays bei vergrößerter Schrift vollständig, statt abgeschnitten zu werden.
@@ -784,3 +791,20 @@ Die am 2026-11-15 ausgeführte Nightly-Version war 0.8.472 / Code 507 (`com.exa2
 Die fünf aktuellen Screenshots sind unter `docs/images/ui21/honor-nightly-0.8.472-{workspace,print,filament,printer,app}-480dp-150.png` abgelegt. APK wurde nicht neu gebaut, weil dieser Durchgang keine Produktcodeänderung enthielt; installiert wurde der vorhandene APK mit SHA-256 `622cbb036418d6071186cc70611f1e334c28cdda2925503406a9e653b4fc1225`.
 - Ergänzender Test am HONOR PTP-N49 / Android 16 / 480 dp / 150 %: `SettingsAccessibilityDeviceTest#interfaceSectionAnnouncesExpansionAndKeepsSettingsActionsReachable` bestanden (1/1, 0 Fehler). Gradle meldete nur beim `onAfterAll`-ADB-Cleanup einen Timeout; XML-Report bestätigt den Test als erfolgreich.
 - Honor-Nachlauf: Profilwechsel über die Druckprofil-Auswahl (druckerspezifische aktive Kopie) und Filamentprofiländerung mit explizitem Speichern bestanden, je 1/1 bei 480 dp/150 %. Der Speichertest stellt den Fixture-Durchmesser wieder her.
+## Stable-Build vorläufig geschlossen — 2026-11-17
+
+- Die lokale Stable-Arbeitskopie `arbeite-am-github-repository-exa201-orkanslicer` wurde auf Wunsch entfernt. Stable-Entwicklung ist bis auf Weiteres geschlossen; die Nightly-Entwicklung wird unter `OrkanSlicer-Nightly-2.5-current` fortgeführt.
+- Das Nightly-Verzeichnis und dessen Dateien wurden bei dieser Bereinigung nicht verändert.
+
+## Stable-Build vorläufig geschlossen — 2026-11-17
+
+- Stable-Entwicklung ist bis auf Weiteres geschlossen. Weitergearbeitet wird ausschließlich im separaten Ordner `OrkanSlicer-Nightly-2.5-current`.
+- Die Stable-Arbeitskopie blieb erhalten, weil die automatische Sicherheitsprüfung das rekursive Löschen des aktiven Desktop-Workspace abgewiesen hat.
+
+## OrkanSlicer Nightly 2.5 — App-Branding — 2026-11-18 — 0.8.503
+
+- Branch `codex/ui-2.1-redesign`, Code 538, Paket `com.exa201.orkanslicer.nightly25`.
+- Neue adaptive Launcher-Icons (API 26+) und Density-Fallbacks, dunkelblaue Android-Splashfarbe sowie neues Setup-Hintergrundbild aus dem Branding-Pack. GitHub-README nutzt Feature-Banner und Vorschau.
+- Debug-Build, APK-Hash, Installation/Start auf HONOR und GitHub-Veröffentlichung werden nach Abschluss eingetragen.
+- Branding-Assets: [Feature-Banner](images/branding/orkanslicer_feature_graphic.png), [App-Branding-Vorschau](images/branding/orkanslicer_branding_preview.png).
+

@@ -28,6 +28,9 @@ class SliceMenu : ListBedMenu() {
     @Composable
     override fun WorkspaceContent(portrait: Boolean) {
         LaunchedEffect(this, portrait) { refreshItems(portrait) }
+        androidx.compose.runtime.SideEffect {
+            fragment?.updateWorkspaceMenuActionCount(composeActions.value.size)
+        }
         CustomizableBedMenuActionsContent("slice", composeActions.value, portrait)
     }
 

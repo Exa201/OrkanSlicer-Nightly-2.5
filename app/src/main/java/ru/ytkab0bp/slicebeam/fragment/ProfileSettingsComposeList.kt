@@ -94,7 +94,7 @@ class ProfileSettingsComposeList(
     private var listOverlayAlpha by mutableFloatStateOf(1f)
 
     @Composable
-    fun Content(modifier: Modifier = Modifier) {
+    fun Content(modifier: Modifier = Modifier, headerContent: (@Composable () -> Unit)? = null) {
         val currentRows = rows
         val listState = rememberLazyListState()
         var editingRowIndex by rememberSaveable { mutableIntStateOf(-1) }
@@ -111,7 +111,9 @@ class ProfileSettingsComposeList(
             configuration.screenWidthDp,
             configuration.screenHeightDp,
         ) {
-            if (editingRowIndex in currentRows.indices) listState.scrollToItem(editingRowIndex)
+            if (editingRowIndex in currentRows.indices) {
+                listState.scrollToItem(editingRowIndex + if (headerContent != null) 1 else 0)
+            }
         }
         val onEditorStateChanged: (Int, Boolean) -> Unit = { index, open ->
             if (open && index in currentRows.indices && editingRowIndex != index) {
@@ -120,7 +122,7 @@ class ProfileSettingsComposeList(
                     savedScrollOffset = listState.firstVisibleItemScrollOffset
                 }
                 editingRowIndex = index
-                scope.launch { listState.scrollToItem(index) }
+                scope.launch { listState.scrollToItem(index + if (headerContent != null) 1 else 0) }
             } else if (!open && editingRowIndex == index) {
                 editingRowIndex = -1
                 val restoreIndex = savedScrollIndex
@@ -144,6 +146,7 @@ class ProfileSettingsComposeList(
             unfolded = unfolded,
             categoryRowsUpdater = categoryRowsUpdater,
             onEditorStateChanged = onEditorStateChanged,
+            headerContent = headerContent,
             onCategorySelected = { title ->
                 if (editingRowIndex != -1) {
                     editingRowIndex = -1
@@ -199,6 +202,7 @@ private fun ProfileSettingsListContent(
     categoryRowsUpdater: ProfileCategoryRowsUpdater,
     onEditorStateChanged: (Int, Boolean) -> Unit,
     onCategorySelected: (String) -> Boolean,
+    headerContent: (@Composable () -> Unit)?,
 ) {
     val configuration = LocalConfiguration.current
     val categoryPane = ProfileSettingsMenuLayoutPolicy.usesCategoryPane(
@@ -254,6 +258,7 @@ private fun ProfileSettingsListContent(
                 unfolded = unfolded,
                 categoryRowsUpdater = categoryRowsUpdater,
                 onEditorStateChanged = onEditorStateChanged,
+                headerContent = headerContent,
             )
         }
         LaunchedEffect(selectedCategoryTitle) {
@@ -272,6 +277,7 @@ private fun ProfileSettingsListContent(
             unfolded = unfolded,
             categoryRowsUpdater = categoryRowsUpdater,
             onEditorStateChanged = onEditorStateChanged,
+            headerContent = headerContent,
         )
     }
 }
@@ -337,6 +343,7 @@ private fun ProfileSettingsRowsContent(
     unfolded: SparseBooleanArray,
     categoryRowsUpdater: ProfileCategoryRowsUpdater,
     onEditorStateChanged: (Int, Boolean) -> Unit,
+    headerContent: (@Composable () -> Unit)?,
 ) {
     Box(modifier = modifier.fillMaxSize()) {
         LazyColumn(
@@ -345,6 +352,11 @@ private fun ProfileSettingsRowsContent(
                 .testTag("profile-settings-options-list")
                 .profileListFade(listState, overlayAlpha),
         ) {
+            if (headerContent != null) {
+                item(key = "profile-settings-scroll-header") {
+                    headerContent()
+                }
+            }
             itemsIndexed(rows, key = { _, entry ->
                 ProfileSettingsRowSaveableKey.create(entry.index, entry.value)
             }) { visibleIndex, entry ->

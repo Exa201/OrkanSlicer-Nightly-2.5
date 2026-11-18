@@ -63,6 +63,9 @@ fun ComposeProfileCategoryRow(
     // Keep category titles at the theme's full text contrast; color is reserved for
     // badges and accents so section-specific hues never make labels hard to read.
     val textColor = MaterialTheme.colorScheme.onSurface
+    val resolvedIcon = if (noIconTint) {
+        PrinterProfileCategoryAssets.stateIconFor(iconResource, active = expanded)
+    } else iconResource
     val iconTint = if (noIconTint) Color.Unspecified else {
         accentColor?.let(::Color) ?: MaterialTheme.colorScheme.onSurfaceVariant
     }
@@ -84,17 +87,17 @@ fun ComposeProfileCategoryRow(
     ) {
         if (noIconTint) {
             Icon(
-                painter = painterResource(iconResource),
+                painter = painterResource(resolvedIcon),
                 contentDescription = null,
-                modifier = Modifier.size(30.dp),
+                modifier = Modifier.size(51.dp),
                 tint = iconTint,
             )
         } else {
-            OrkanIconBadge(iconResource, size = 32.dp)
+            OrkanIconBadge(iconResource, size = 42.dp)
         }
         Text(
             text = localizedTitle,
-            modifier = Modifier.weight(1f),
+            modifier = Modifier.weight(1f).align(Alignment.CenterVertically),
             color = textColor,
             fontSize = 15.sp,
             lineHeight = 19.sp,
@@ -104,7 +107,7 @@ fun ComposeProfileCategoryRow(
             Icon(
                 painter = painterResource(R.drawable.dropdown_24),
                 contentDescription = null,
-                modifier = Modifier.size(20.dp).rotate(rotation),
+                modifier = Modifier.size(26.dp).rotate(rotation),
                 tint = textColor,
             )
         }

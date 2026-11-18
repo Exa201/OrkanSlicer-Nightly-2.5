@@ -21,7 +21,7 @@ object OrkanUiTokens {
     val errorCoral = Color(0xFFFF6574)
 
     val touchTarget = 48.dp
-    val plateCounterWidth = 56.dp
+    val plateCounterWidth = 72.dp
     val cornerRadius = 18.dp
     val compactCornerRadius = 14.dp
     val dialogCornerRadius = 20.dp
@@ -35,9 +35,11 @@ object OrkanUiTokens {
     val sheetMaxHeightFraction = 0.82f
     val workspaceSidePanelWidth = 420.dp
     val filamentRowHeight = 56.dp
-    val menuIconSize = 20.dp
+    // Asset glyphs were visually undersized inside their existing controls.
+    // Increase glyph bounds by ~30% without changing button hit areas.
+    val menuIconSize = 34.dp
     val menuLabelSize = 13.sp
     val menuTileHeight = 62.dp
-    val navigationIconSize = 23.dp
+    val navigationIconSize = 39.dp
     val navigationLabelSize = 12.sp
 }

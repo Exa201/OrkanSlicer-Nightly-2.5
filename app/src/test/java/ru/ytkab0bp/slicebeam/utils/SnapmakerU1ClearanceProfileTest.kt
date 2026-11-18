@@ -19,7 +19,7 @@ class SnapmakerU1ClearanceProfileTest {
     @Test
     fun allBundledU1NozzleVariantsUseTheCadRodClearance() {
         val profiles = u1Profiles()
-        assertEquals("The bundled U1 profile has three nozzle variants", 3, profiles.size)
+        assertEquals("The latest bundled U1 profile has five nozzle variants", 5, profiles.size)
         profiles.forEach { section ->
             val name = section.lineSequence().first()
             val values = section.lineSequence()

@@ -45,7 +45,7 @@ object QuickSliceDialog {
         val context = anchor.context
         val config = SliceBeam.requireConfig()
         val presets = config.presets ?: return
-        val printerNames = config.printerConfigs.map { it.title.orEmpty() }
+        val printerNames = config.printerConfigs.mapNotNull { it.title }
         val projectFilaments = TemporaryProjectSettings.slots()
         val filamentNames = if (projectFilaments != null) emptyList()
             else config.filamentConfigs.map { it.title.orEmpty() }

@@ -18,4 +18,18 @@ class ModelBatchImportPolicyTest {
             assertFalse("Expected $it to stay on its specialized import route", ModelBatchImportPolicy.supports(it))
         }
     }
+
+    @Test
+    fun importPlacementDefaultsToCompactAndValidatesExplicitClearance() {
+        val compact = ModelBatchImportPlacement()
+        assertFalse(compact.usesPerObjectDistance)
+        assertTrue(compact.validatedDistanceMm() == null)
+
+        val spaced = ModelBatchImportPlacement(6.0)
+        assertTrue(spaced.usesPerObjectDistance)
+        assertTrue(spaced.validatedDistanceMm() == 6.0)
+        listOf(0.0, -1.0, 50.1, Double.NaN, Double.POSITIVE_INFINITY).forEach {
+            assertTrue("invalid clearance $it should be rejected", ModelBatchImportPlacement(it).validatedDistanceMm() == null)
+        }
+    }
 }

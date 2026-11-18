@@ -114,11 +114,11 @@ internal object BedMenuActionTileWidthPolicy {
         else -> 1f
     }
 
-    /** The supplied multicolor artwork needs to read clearly inside the unchanged tile size. */
+    /** Supplied multicolor artwork enlarged by 30%, while preserving four columns. */
     fun colorfulIconSizeDp(fontScale: Float): Int = when {
-        fontScale >= 1.5f -> 40
-        fontScale >= 1.3f -> 46
-        else -> 54
+        fontScale >= 1.5f -> 68
+        fontScale >= 1.3f -> 78
+        else -> 91
     }
 
     /** Up to four actions use one row; later rows are revealed only by vertical scrolling. */
@@ -179,8 +179,11 @@ internal fun BedMenuActionsContent(
                     delay(16)
                 }
             }
-            val gridTileHeight = BedMenuActionTileWidthPolicy
-                .reducedTileHeightDp(if (fontScale >= 1.15f) 112 else 94).dp
+            // Keep enough vertical room for the larger artwork and the full Orca label.
+            // The tile width and four-column layout stay unchanged.
+            val gridTileHeight = BedMenuActionTileWidthPolicy.reducedTileHeightDp(
+                if (fontScale >= 1.5f) 150 else if (fontScale >= 1.3f) 160 else 165,
+            ).dp
             val gridHeight = minOf(
                 maxHeight,
                 gridTileHeight * visibleRows + 2.dp * (visibleRows - 1),
@@ -243,7 +246,7 @@ internal fun BedMenuActionsContent(
             val gridState = rememberLazyGridState()
             // Keep wrapped Orca labels readable at large system font sizes while
             // retaining the compact two-row landscape strip.
-            val tileHeight = if (fontScale >= 1.3f) 72.dp else 60.dp
+            val tileHeight = if (fontScale >= 1.5f) 100.dp else if (fontScale >= 1.3f) 124.dp else 132.dp
             val visibleRows = BedMenuActionTileWidthPolicy.visibleRowsForActionCount(actions.size)
             val targetHeight = tileHeight * visibleRows + 2.dp * (visibleRows - 1)
             val gridHeight = minOf(maxHeight, targetHeight)
@@ -318,7 +321,7 @@ private fun BedMenuActionTile(
     val iconTint = (if (action.selected) MaterialTheme.colorScheme.onPrimary
         else MaterialTheme.colorScheme.onPrimaryContainer)
         .copy(alpha = if (action.enabled) 1f else 0.55f)
-    val colorfulIcon = menuActionArtwork(action.titleRes)
+    val colorfulIcon = menuActionArtwork(action.titleRes, action.selected, action.enabled)
     val iconRes = colorfulIcon ?: action.iconRes
     val iconColorFilter = if (colorfulIcon != null) null else ColorFilter.tint(iconTint)
     // At large system font sizes, keep enough tile height for the two-line Orca
@@ -330,8 +333,9 @@ private fun BedMenuActionTile(
     val tileLabelLineHeight = 16.sp * tileLabelScale
     val iconSize = when {
         colorfulIcon != null -> BedMenuActionTileWidthPolicy.colorfulIconSizeDp(displayFontScale).dp
-        displayFontScale >= 1.3f -> 24.dp
-        else -> 30.dp
+        displayFontScale >= 1.5f -> 40.dp
+        displayFontScale >= 1.3f -> 40.dp
+        else -> 51.dp
     }
     val interaction = if (action.toggleable) {
         Modifier.toggleable(

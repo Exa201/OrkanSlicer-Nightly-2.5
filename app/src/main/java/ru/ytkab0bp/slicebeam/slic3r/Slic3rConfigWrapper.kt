@@ -363,6 +363,7 @@ open class Slic3rConfigWrapper {
                 "printhost_cafile",
                 "single_extruder_multi_material",
                 "physical_extruder_map",
+                "file_start_gcode",
                 "start_gcode",
                 "end_gcode",
                 "before_layer_gcode",

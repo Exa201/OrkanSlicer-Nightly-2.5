@@ -51,6 +51,7 @@ import androidx.compose.ui.unit.sp
 import ru.ytkab0bp.slicebeam.R
 import ru.ytkab0bp.slicebeam.SliceBeam
 import ru.ytkab0bp.slicebeam.config.ConfigObject
+import ru.ytkab0bp.slicebeam.config.ProfileStringVectorCodec
 import ru.ytkab0bp.slicebeam.config.ProfileSettingsRepository
 import ru.ytkab0bp.slicebeam.events.NeedSnackbarEvent
 import ru.ytkab0bp.slicebeam.events.ObjectsListChangedEvent
@@ -111,10 +112,11 @@ private fun CalibrationWorkspaceDialog(bed: BedFragment, dismissWorkspace: () ->
             when {
                 selectedPreset != null -> CalibrationConfigurationContent(
                     preset = selectedPreset!!,
-                    onStart = { start, endOrStep, step ->
+                    requiredFilamentCount = bed.currentModel?.requiredFilamentCount ?: 1,
+                    onStart = { start, endOrStep, step, filamentId ->
                         val preset = selectedPreset ?: return@CalibrationConfigurationContent
                         selectedPreset = null
-                        startCalibration(context, bed, preset, start, endOrStep, step, dismissWorkspace)
+                        startCalibration(context, bed, preset, start, endOrStep, step, filamentId, dismissWorkspace)
                     },
                 )
                 page == CalibrationWorkspacePage.RESULT -> CalibrationResultContent(
@@ -184,6 +186,7 @@ private fun startCalibration(
     start: Double,
     endOrStep: Double,
     step: Double?,
+    filamentId: Int,
     dismissWorkspace: () -> Unit,
 ) {
     val bedGeometry = bed.glView?.renderer?.bed
@@ -195,6 +198,7 @@ private fun startCalibration(
     SliceBeam.PENDING_CALIB_START = start
     SliceBeam.PENDING_CALIB_END = if (preset.inputMode != CalibrationInputMode.START_AND_STEP) endOrStep else 0.0
     SliceBeam.PENDING_CALIB_STEP = step ?: preset.step ?: endOrStep
+    SliceBeam.PENDING_CALIB_FILAMENT = filamentId
     // The plate model is committed to BedFragment before the renderer has finished its GL
     // handoff. Prefer that authoritative plate state and use the renderer as a fallback for
     // edits which have not yet been committed back to the plate list.
@@ -222,6 +226,7 @@ private fun clearPendingCalibration() {
     SliceBeam.PENDING_CALIB_START = 0.0
     SliceBeam.PENDING_CALIB_END = 0.0
     SliceBeam.PENDING_CALIB_STEP = 0.0
+    SliceBeam.PENDING_CALIB_FILAMENT = 0
 }
 
 private fun ensureCalibrationPlaceholderModel(bed: BedFragment, onLoaded: () -> Unit) {
@@ -356,7 +361,8 @@ private fun CalibrationActionsContent(
 @Composable
 private fun CalibrationConfigurationContent(
     preset: CalibrationPreset,
-    onStart: (Double, Double, Double?) -> Unit,
+    requiredFilamentCount: Int,
+    onStart: (Double, Double, Double?, Int) -> Unit,
 ) {
     val config = remember(preset.mode) { SliceBeam.buildCurrentConfigObject() }
     val profileTemp = config["nozzle_temperature"]?.substringBefore(';')?.toDoubleOrNull()
@@ -368,6 +374,12 @@ private fun CalibrationConfigurationContent(
     var endOrStep by remember(preset.mode) { mutableStateOf(initialEnd.toString()) }
     var step by remember(preset.mode) { mutableStateOf((preset.step ?: 0.0).toString()) }
     var invalid by remember(preset.mode) { mutableStateOf(false) }
+    val filamentTypes = remember(config) { ProfileStringVectorCodec.parse(config["filament_type"].orEmpty()).orEmpty() }
+    val filamentCount = remember(config, preset.mode) {
+        CalibrationFilamentSelectionLogic.count(config.values, requiredFilamentCount)
+    }
+    var selectedFilament by remember(preset.mode) { mutableStateOf(0) }
+    var filamentMenuExpanded by remember { mutableStateOf(false) }
 
     Column(
         modifier = Modifier.fillMaxWidth().heightIn(max = 440.dp).verticalScroll(rememberScrollState()),
@@ -378,6 +390,26 @@ private fun CalibrationConfigurationContent(
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             fontSize = 13.sp,
         )
+        if (filamentCount > 1) {
+            Text(stringResource(R.string.CalibrationFilament), color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Box {
+                TextButton(
+                    onClick = { filamentMenuExpanded = true },
+                    modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp).testTag("calibration-filament-selector"),
+                ) {
+                    val material = filamentTypes.getOrNull(selectedFilament).orEmpty().ifBlank { "PLA" }
+                    Text("T$selectedFilament · $material", maxLines = 1, overflow = TextOverflow.Ellipsis)
+                }
+                DropdownMenu(expanded = filamentMenuExpanded, onDismissRequest = { filamentMenuExpanded = false }) {
+                    (0 until filamentCount).forEach { index ->
+                        DropdownMenuItem(
+                            text = { Text("T$index · ${filamentTypes.getOrNull(index).orEmpty().ifBlank { "PLA" }}") },
+                            onClick = { selectedFilament = index; filamentMenuExpanded = false },
+                        )
+                    }
+                }
+            }
+        }
         CalibrationNumberField(stringResource(R.string.CalibrationStart), start, { start = it; invalid = false })
         if (preset.inputMode != CalibrationInputMode.START_AND_STEP) {
             CalibrationNumberField(stringResource(R.string.CalibrationEnd), endOrStep, { endOrStep = it; invalid = false })
@@ -397,7 +429,7 @@ private fun CalibrationConfigurationContent(
                     (preset.inputMode == CalibrationInputMode.RANGE_AND_STEP && stepValue == null) ||
                     !CalibrationPresets.validate(preset, startValue, endValue, stepValue)) {
                     invalid = true
-                } else onStart(startValue, endValue, stepValue)
+                } else onStart(startValue, endValue, stepValue, selectedFilament)
             },
             modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp).testTag("calibration-prepare"),
         ) { Text(stringResource(R.string.CalibrationPrepare)) }
@@ -500,7 +532,7 @@ internal fun CalibrationActionRow(
                 painter = painterResource(icon),
                 contentDescription = null,
                 colorFilter = ColorFilter.tint(MaterialTheme.colorScheme.onSurfaceVariant),
-                modifier = Modifier.size(24.dp),
+                modifier = Modifier.size(31.dp),
             )
             Column(modifier = Modifier.weight(1f)) {
                 Text(
@@ -545,7 +577,7 @@ private fun CalibrationModelsContent(models: List<CalibrationModel>, onSelect: (
                     Image(
                         painter = painterResource(model.icon),
                         contentDescription = model.title,
-                        modifier = Modifier.size(24.dp).clip(RoundedCornerShape(8.dp)),
+                        modifier = Modifier.size(31.dp).clip(RoundedCornerShape(8.dp)),
                     )
                     Text(
                         text = model.title,

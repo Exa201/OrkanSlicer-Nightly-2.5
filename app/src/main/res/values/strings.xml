@@ -718,6 +718,14 @@
     <string name="MenuFileOpenMultipleMeshProgress">Loading mesh %1$d of %2$d…</string>
     <string name="MenuFileOpenMultipleMeshComplete">Loaded %1$d of %2$d mesh files as separate objects.</string>
     <string name="MenuFileOpenMultipleMeshFailed">Could not load %1$d of %2$d mesh files.</string>
+    <string name="MenuFileImportPlacementTitle">Arrange imported models</string>
+    <string name="MenuFileImportPlacementDescription">Choose how to place these %1$d models on the build plate.</string>
+    <string name="MenuFileImportPlacementCompact">Orkan compact nesting (uses available space)</string>
+    <string name="MenuFileImportPlacementSpacing">Keep a fixed clearance between each model</string>
+    <string name="MenuFileImportPlacementDistanceLabel">Minimum object clearance (mm)</string>
+    <string name="MenuFileImportPlacementDistanceHint">For example: 6</string>
+    <string name="MenuFileImportPlacementDistanceError">Enter a clearance from 0.5 to 50 mm.</string>
+    <string name="MenuFileImportPlacementContinue">Import and arrange</string>
     <string name="MenuFileDelete">Remove model</string>
     <string name="MenuFileObjects">Loaded objects</string>
     <string name="MenuFileObjectActions">Object actions</string>
@@ -1076,6 +1084,8 @@
     <string name="IntroFilamentsNone">No bundled filaments for the selected printers — generic profiles will be used.</string>
     <string name="SetupSelectPrintersTitle">Choose your printer</string>
     <string name="SetupSelectPrintersSubtitle">Select every printer you want to use. You can change this later.</string>
+    <string name="SetupSearchPrinter">Search printer model</string>
+    <string name="SetupSearchPrinterEmpty">No printer models match this search.</string>
     <string name="IntroConfigured">All seems to be configured.\nJust tap finish!</string>
     <string name="IntroFinish">Finish</string>
     <string name="IntroEarlyAccess">Early access</string>
@@ -1477,6 +1487,7 @@
     <string name="CalibrationIncrement">Increment</string>
     <string name="CalibrationInvalidParameters">These values are invalid or would create an excessively large test.</string>
     <string name="CalibrationPrepare">Prepare test</string>
+    <string name="CalibrationFilament">Test filament</string>
     <string name="CalibrationRecordResult">Save measured result</string>
     <string name="CalibrationRecordResultDescription">Enter the value you selected after evaluating the printed test. It will be staged in the active profile for review.</string>
     <string name="CalibrationMeasuredValue">Measured value</string>
@@ -1531,6 +1542,8 @@
     <string name="MmuAssignmentDuplicateGateError">Each distinct model color must use a different loaded ACE gate. Change the assignments before slicing.</string>
     <string name="PrinterProfileLoading">Loading printer profile…</string>
     <string name="PrinterProfileLoaded">Printer profile loaded.</string>
+    <string name="PrinterProfileMissing">No printer profile selected</string>
+    <string name="PrinterProfileMissingHint">No printer profile is configured yet. Add one to show its compatible process and filament profiles.</string>
     <string name="CalibrationPressureAdvanceReady">Pressure Advance test is ready. Open the Slice tab to continue.</string>
     <string name="PrintConfigFlushVolumesInvalid">Enter a valid non-negative number for each flush volume.</string>
     <string name="PrintConfigFlushVolumesUpdated">Flush volumes updated.</string>
@@ -1545,9 +1558,7 @@
     <string name="ProfileNumericToggleSign">Toggle the sign of the number</string>
     <string name="ProfileNumericAsAbsolute">Absolute value</string>
     <string name="ProfileNumericAsPercent">Percentage value</string>
-    <string name="LineWidthAutoHint">Auto in this preset. Editing either value sets a nozzle-relative line width.</string>
     <string name="LineWidthApply">Apply</string>
-    <string name="LineWidthAutomatic">Auto (0)</string>
     <string name="PrinterHostOctoPrint">OctoPrint</string>
     <string name="PrinterHostMoonraker">Moonraker / Klipper</string>
     <string name="ProfileVectorInputLabel">Values</string>

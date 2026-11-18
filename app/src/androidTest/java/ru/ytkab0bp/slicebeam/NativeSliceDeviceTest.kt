@@ -18,7 +18,6 @@ import org.junit.runner.RunWith
 import ru.ytkab0bp.slicebeam.config.ConfigObject
 import ru.ytkab0bp.slicebeam.config.AdaptivePAModelValidator
 import ru.ytkab0bp.slicebeam.config.Kobra3V2ProfileMigration
-import ru.ytkab0bp.slicebeam.config.QidiXSmart5ProfileBundle
 import ru.ytkab0bp.slicebeam.slic3r.GCodeProcessorResult
 import ru.ytkab0bp.slicebeam.slic3r.GCodeViewer
 import ru.ytkab0bp.slicebeam.slic3r.BooleanOperation
@@ -774,6 +773,15 @@ class NativeSliceDeviceTest {
             "Flattening must rotate a multipart assembly as one rigid object and align its selected face to the bed",
             intArrayOf(1, 1, 1, 1, 1),
             Native.flatten_keeps_multipart_layout_regression(),
+        )
+    }
+
+    @Test
+    fun flattenCandidateSupportUsesObjectCoordinatesAfterInstanceTransform() {
+        assertArrayEquals(
+            "A face on a rotated/scaled/translated instance must remain a valid placement candidate",
+            intArrayOf(1, 1),
+            Native.flatten_candidate_support_transform_regression(),
         )
     }
 
@@ -1786,11 +1794,11 @@ class NativeSliceDeviceTest {
     }
 
     @Test(timeout = 180_000)
-    fun layerCoolingTargetsPreviewLayerTimeWhenAccelerationLimitsShortMoves() = withKobraProfile {
+    fun layerCoolingTargetsPreviewLayerTimeWhenAccelerationLimitsShortMoves() = withKobraBaseProfile {
         val context = InstrumentationRegistry.getInstrumentation().targetContext
         val printer = requireNotNull(SliceBeam.CONFIG?.findPrinter("Anycubic Kobra 3 0.4 nozzle"))
-        val process = requireNotNull(SliceBeam.CONFIG?.findPrint("0.16mm Standard"))
-        val filament = requireNotNull(SliceBeam.CONFIG?.findFilament("Anycubic Generic PLA"))
+        val process = requireNotNull(SliceBeam.CONFIG?.findPrint("0.16mm Optimal @Anycubic Kobra 3 0.4 nozzle"))
+        val filament = requireNotNull(SliceBeam.CONFIG?.findFilament("Anycubic PLA @Anycubic Kobra 3 0.4 nozzle"))
         val printerKeys = listOf("machine_max_acceleration_extruding")
         val processKeys = listOf(
             "layer_height", "initial_layer_print_height", "outer_wall_speed", "inner_wall_speed",
@@ -1842,7 +1850,7 @@ class NativeSliceDeviceTest {
                     assertTrue("Layer $layer should reach the 8s preview target (was ${slowed[layer]}s)", slowed[layer] in 7.92f..8.24f)
                 } else {
                     val tolerance = maxOf(0.01f, unslowed[layer] * 0.001f)
-                    assertTrue("Already-long layer $layer should remain unchanged", kotlin.math.abs(slowed[layer] - unslowed[layer]) <= tolerance)
+                    assertTrue("Already-long layer $layer should remain unchanged (unslowed=${unslowed[layer]}s, slowed=${slowed[layer]}s)", kotlin.math.abs(slowed[layer] - unslowed[layer]) <= tolerance)
                 }
             }
         } finally {
@@ -1866,9 +1874,11 @@ class NativeSliceDeviceTest {
     }
 
     @Test(timeout = 120_000)
-    fun supportedSparseInfillSmoothingChangesOnlyHilbertAndOctagramToolpaths() = withKobraProfile {
+    fun supportedSparseInfillSmoothingChangesOnlyHilbertAndOctagramToolpaths() = withKobraBaseProfile {
         val context = InstrumentationRegistry.getInstrumentation().targetContext
-        val process = requireNotNull(SliceBeam.CONFIG?.findPrint("0.16mm Standard"))
+        val configObject = requireNotNull(SliceBeam.CONFIG)
+        val process = requireNotNull(configObject.findPrint("0.16mm Standard @Anycubic Kobra 3 V2 0.4 nozzle"))
+        requireNotNull(configObject.presets).put("print", process.title)
         val source = createThinCubeFixture("sparse-infill-smooth-factor.stl", 20.0, 20.0, 12.0)
         val output = File(context.cacheDir, "sparse-infill-smooth-factor.gcode")
         val model = Model(source).also { it.ensureOnBed(0) }
@@ -2889,6 +2899,182 @@ class NativeSliceDeviceTest {
         }
     }
 
+    @Test(timeout = 60_000)
+    fun classicOnlyOneWallTopDoesNotLeaveInnerWallsUnderTopFill() = withKobraBaseProfile {
+        val context = InstrumentationRegistry.getInstrumentation().targetContext
+        val config = requireNotNull(SliceBeam.CONFIG)
+        val process = requireNotNull(config.findPrint(requireNotNull(config.presets).get("print")))
+        process.put("wall_generator", "classic")
+        process.put("wall_loops", "3")
+        process.put("layer_height", "0.2")
+        process.put("initial_layer_print_height", "0.2")
+        process.put("top_shell_layers", "3")
+        process.put("top_surface_density", "100%")
+        val source = createTopShelfStl(context, "classic-only-one-wall-top.stl")
+        val disabledOutput = File(context.cacheDir, "classic-only-one-wall-top-disabled.gcode")
+        val enabledOutput = File(context.cacheDir, "classic-only-one-wall-top-enabled.gcode")
+
+        fun slice(enabled: Boolean, output: File): Double {
+            process.put("only_one_wall_top", if (enabled) "1" else "0")
+            var model: Model? = null
+            var result: GCodeProcessorResult? = null
+            try {
+                model = Model(source)
+                model.ensureOnBed(0)
+                SliceBeam.genCurrentConfig(model)
+                result = model.slice(SliceBeam.getCurrentConfigFile().absolutePath, output.absolutePath, null)
+                val gcode = output.readText()
+                assertTrue("the generated G-code must contain top surface paths", gcode.contains(";TYPE:Top surface"))
+                return innerWallLength(gcode)
+            } finally {
+                result?.release()
+                model?.release()
+                SliceBeam.getCurrentConfigFile().delete()
+            }
+        }
+
+        try {
+            val innerWallLengthWithoutFeature = slice(false, disabledOutput)
+            val innerWallLengthWithFeature = slice(true, enabledOutput)
+            assertTrue("test shape must exercise inner walls under a top ledge", innerWallLengthWithoutFeature > 0.0)
+            assertTrue(
+                "top-fill replacement should remove inner-wall paths crossing the ledge: " +
+                    "disabled=$innerWallLengthWithoutFeature mm, enabled=$innerWallLengthWithFeature mm",
+                innerWallLengthWithFeature < innerWallLengthWithoutFeature,
+            )
+        } finally {
+            source.delete()
+            disabledOutput.delete()
+            enabledOutput.delete()
+            SliceBeam.getCurrentConfigFile().delete()
+        }
+    }
+
+    @Test(timeout = 60_000)
+    fun arachneOnlyOneWallTopDoesNotLeaveInnerWallsUnderTopFill() = withKobraBaseProfile {
+        val context = InstrumentationRegistry.getInstrumentation().targetContext
+        val config = requireNotNull(SliceBeam.CONFIG)
+        val process = requireNotNull(config.findPrint(requireNotNull(config.presets).get("print")))
+        process.put("wall_generator", "arachne")
+        process.put("wall_loops", "3")
+        process.put("layer_height", "0.2")
+        process.put("initial_layer_print_height", "0.2")
+        process.put("top_shell_layers", "3")
+        process.put("top_surface_density", "100%")
+        val source = createTopShelfStl(context, "arachne-only-one-wall-top.stl")
+        val disabledOutput = File(context.cacheDir, "arachne-only-one-wall-top-disabled.gcode")
+        val enabledOutput = File(context.cacheDir, "arachne-only-one-wall-top-enabled.gcode")
+
+        fun slice(enabled: Boolean, output: File): Double {
+            process.put("only_one_wall_top", if (enabled) "1" else "0")
+            var model: Model? = null
+            var result: GCodeProcessorResult? = null
+            try {
+                model = Model(source)
+                model.ensureOnBed(0)
+                SliceBeam.genCurrentConfig(model)
+                val nativeConfig = SliceBeam.getCurrentConfigFile().readText()
+                assertTrue(nativeConfig.contains("wall_generator = arachne"))
+                assertTrue(nativeConfig.contains("only_one_wall_top = ${if (enabled) 1 else 0}"))
+                result = model.slice(SliceBeam.getCurrentConfigFile().absolutePath, output.absolutePath, null)
+                val gcode = output.readText()
+                assertTrue("the generated G-code must contain top surface paths", gcode.contains(";TYPE:Top surface"))
+                return innerWallLength(gcode)
+            } finally {
+                result?.release()
+                model?.release()
+                SliceBeam.getCurrentConfigFile().delete()
+            }
+        }
+
+        try {
+            val innerWallLengthWithoutFeature = slice(false, disabledOutput)
+            val innerWallLengthWithFeature = slice(true, enabledOutput)
+            assertTrue("test shape must exercise inner walls under a top ledge", innerWallLengthWithoutFeature > 0.0)
+            assertTrue(
+                "Arachne top-fill replacement should reduce inner walls crossing the ledge: " +
+                    "disabled=$innerWallLengthWithoutFeature mm, enabled=$innerWallLengthWithFeature mm",
+                innerWallLengthWithFeature < innerWallLengthWithoutFeature,
+            )
+        } finally {
+            source.delete()
+            disabledOutput.delete()
+            enabledOutput.delete()
+            SliceBeam.getCurrentConfigFile().delete()
+        }
+    }
+
+    private fun innerWallLength(gcode: String): Double {
+        var inInnerWall = false
+        var previousX: Double? = null
+        var previousY: Double? = null
+        var length = 0.0
+        val coordinate = Regex("([XY])([-+]?(?:\\d+(?:\\.\\d*)?|\\.\\d+))")
+        gcode.lineSequence().forEach { line ->
+            if (line.startsWith(";TYPE:")) inInnerWall = line == ";TYPE:Inner wall"
+            if (!inInnerWall || !line.startsWith("G1 ") || !line.contains('E')) return@forEach
+            var x = previousX
+            var y = previousY
+            coordinate.findAll(line).forEach { match ->
+                val value = match.groupValues[2].toDouble()
+                when (match.groupValues[1]) {
+                    "X" -> x = value
+                    "Y" -> y = value
+                }
+            }
+            if (x != null && y != null && previousX != null && previousY != null)
+                length += kotlin.math.hypot(x!! - previousX!!, y!! - previousY!!)
+            previousX = x
+            previousY = y
+        }
+        return length
+    }
+
+    private fun createTopShelfStl(context: Context, name: String): File {
+        val boxes = listOf(
+            doubleArrayOf(0.0, 0.0, 0.0, 40.0, 40.0, 5.0),
+            doubleArrayOf(0.0, 0.0, 0.0, 10.0, 10.0, 10.0),
+            doubleArrayOf(30.0, 0.0, 0.0, 40.0, 10.0, 10.0),
+            doubleArrayOf(0.0, 30.0, 0.0, 10.0, 40.0, 10.0),
+            doubleArrayOf(30.0, 30.0, 0.0, 40.0, 40.0, 10.0),
+        )
+        val vertices = listOf(
+            intArrayOf(0, 2, 1), intArrayOf(0, 3, 2), intArrayOf(4, 5, 6), intArrayOf(4, 6, 7),
+            intArrayOf(0, 1, 5), intArrayOf(0, 5, 4), intArrayOf(1, 2, 6), intArrayOf(1, 6, 5),
+            intArrayOf(2, 3, 7), intArrayOf(2, 7, 6), intArrayOf(3, 0, 4), intArrayOf(3, 4, 7),
+        )
+        val output = File(context.cacheDir, name)
+        output.bufferedWriter().use { writer ->
+            writer.appendLine("solid top_shelf")
+            boxes.forEach { box ->
+                val x0 = box[0]
+                val y0 = box[1]
+                val z0 = box[2]
+                val x1 = box[3]
+                val y1 = box[4]
+                val z1 = box[5]
+                val points = arrayOf(
+                    doubleArrayOf(x0, y0, z0), doubleArrayOf(x1, y0, z0),
+                    doubleArrayOf(x1, y1, z0), doubleArrayOf(x0, y1, z0),
+                    doubleArrayOf(x0, y0, z1), doubleArrayOf(x1, y0, z1),
+                    doubleArrayOf(x1, y1, z1), doubleArrayOf(x0, y1, z1),
+                )
+                vertices.forEach { face ->
+                    writer.appendLine(" facet normal 0 0 0")
+                    writer.appendLine("  outer loop")
+                    face.forEach { index ->
+                        val point = points[index]
+                        writer.appendLine("   vertex ${point[0]} ${point[1]} ${point[2]}")
+                    }
+                    writer.appendLine("  endloop")
+                    writer.appendLine(" endfacet")
+                }
+            }
+            writer.appendLine("endsolid top_shelf")
+        }
+        return output
+    }
+
     @Test
     fun orcaOpenEyePeacockV2ProfilesUseMoonrakerAndSlice() {
         val context = InstrumentationRegistry.getInstrumentation().targetContext
@@ -3336,7 +3522,10 @@ class NativeSliceDeviceTest {
             }
             val config = requireNotNull(SliceBeam.CONFIG)
             assertEquals("all M5/M5 All-Metal/M5C profiles use Orca's total-time header", 12,
-                config.printerConfigs.count { it["file_start_gcode"] == ";TIME:{print_time_total_sec}" })
+                config.printerConfigs.count { printer ->
+                    printer.title?.startsWith("Anker M5") == true &&
+                        printer["file_start_gcode"]?.startsWith(";TIME:{print_time_total_sec}") == true
+                })
             val activeModel = Model(source)
             model = activeModel
             activeModel.ensureOnBed(0)
@@ -4098,9 +4287,10 @@ class NativeSliceDeviceTest {
     }
 
     @Test(timeout = 180_000)
-    fun variableLayerGapKeepsTopSupportInterfaceUnderBothSidesOfAnOverhang() = withKobraProfile {
+    fun variableLayerGapKeepsTopSupportInterfaceUnderBothSidesOfAnOverhang() = withKobraBaseProfile {
         val context = InstrumentationRegistry.getInstrumentation().targetContext
-        val process = requireNotNull(SliceBeam.CONFIG?.findPrint("0.16mm Standard"))
+        val config = requireNotNull(SliceBeam.CONFIG)
+        val process = requireNotNull(config.findPrint(requireNotNull(config.presets).get("print")))
         process.put("layer_height", "0.2")
         process.put("initial_layer_print_height", "0.2")
         process.put("enable_support", "1")
@@ -4376,9 +4566,11 @@ class NativeSliceDeviceTest {
     }
 
     @Test(timeout = 180_000)
-    fun treeSupportBottomContactCachePreservesInterfaceToolpaths() = withKobraProfile {
+    fun treeSupportBottomContactCachePreservesInterfaceToolpaths() = withKobraBaseProfile {
         val context = InstrumentationRegistry.getInstrumentation().targetContext
-        val process = requireNotNull(SliceBeam.CONFIG?.findPrint("0.16mm Standard"))
+        val config = requireNotNull(SliceBeam.CONFIG)
+        val process = requireNotNull(config.findPrint("0.16mm Standard @Anycubic Kobra 3 V2 0.4 nozzle"))
+        requireNotNull(config.presets).put("print", process.title)
         process.put("enable_support", "1")
         process.put("support_type", "tree(auto)")
         process.put("support_style", "tree_slim")
@@ -4409,7 +4601,7 @@ class NativeSliceDeviceTest {
                     val interfaceSegments = supportExtrusionSegments(gcode).filter { it.type.contains("support interface") }
                     val bottomContactZs = interfaceSegments.map { it.z }.filter { it > 3.0 && it < 4.5 }
                         .map { kotlin.math.round(it * 1000.0).toLong() }.distinct().sorted()
-                    assertEquals("tree support must retain exactly the configured two bottom-contact interface layers (walls=$wallCount run=$run)",
+                    assertEquals("tree support must retain exactly the configured two bottom-contact interface layers (walls=$wallCount run=$run z=$bottomContactZs)",
                         2, bottomContactZs.size)
                     result?.release()
                     result = null
@@ -6273,6 +6465,44 @@ class NativeSliceDeviceTest {
 
             val gcode = sliceToGcode(context, model, "distributed-group-slice.gcode")
             assertHasExtrusion(gcode)
+        } finally {
+            model.release()
+            modelFile.delete()
+        }
+    }
+
+    @Test
+    fun preferredImportOrientationRotatesMultipleObjectsAsOneLayout() {
+        val context = InstrumentationRegistry.getInstrumentation().targetContext
+        val modelFile = copyCube(context, "preferred-import-orientation.stl")
+        val model = Model(modelFile)
+        try {
+            model.addObject(model, 0)
+            model.translate(1, 30.0, 10.0, 0.0)
+            val min = Vec3d()
+            val max = Vec3d()
+            val before = (0..1).map { index ->
+                model.getBoundingBoxExact(index, min, max)
+                doubleArrayOf(min.x, min.y, min.z, max.x, max.y, max.z)
+            }
+            val groupCenterX = (before.minOf { it[0] } + before.maxOf { it[3] }) / 2.0
+            val groupCenterY = (before.minOf { it[1] } + before.maxOf { it[4] }) / 2.0
+
+            model.rotateAndCenterObjects(Math.PI / 2.0)
+
+            for (index in 0..1) {
+                model.getBoundingBoxExact(index, min, max)
+                val old = before[index]
+                val oldCenterX = (old[0] + old[3]) / 2.0
+                val oldCenterY = (old[1] + old[4]) / 2.0
+                val expectedCenterX = groupCenterX - (oldCenterY - groupCenterY)
+                val expectedCenterY = groupCenterY + (oldCenterX - groupCenterX)
+                assertEquals("object $index rotates around the shared layout center", expectedCenterX, (min.x + max.x) / 2.0, 1e-5)
+                assertEquals("object $index rotates around the shared layout center", expectedCenterY, (min.y + max.y) / 2.0, 1e-5)
+                assertEquals("Z placement is unchanged", old[2], min.z, 1e-5)
+                assertEquals("the rotated footprint swaps X/Y dimensions", old[4] - old[1], max.x - min.x, 1e-5)
+                assertEquals("the rotated footprint swaps X/Y dimensions", old[3] - old[0], max.y - min.y, 1e-5)
+            }
         } finally {
             model.release()
             modelFile.delete()
@@ -9123,15 +9353,12 @@ class NativeSliceDeviceTest {
                 SliceBeam.CONFIG = Slic3rConfigWrapper(it)
             }
             val config = requireNotNull(SliceBeam.CONFIG)
-            val bundle = QidiXSmart5ProfileBundle.load(context.assets)
-
-            assertEquals("all four X-Smart 5 nozzle profiles are bundled", 4,
-                bundle.printerConfigs.count { it.title?.startsWith("Qidi X-Smart 5 ") == true })
-            assertEquals("all Orca X-Smart 5 print presets are bundled", 19, bundle.printConfigs.size)
-            assertEquals("all Orca X-Smart 5 filament presets and parents are bundled", 248,
-                bundle.filamentConfigs.size)
-            assertTrue("the machine model is part of the bundle", QidiXSmart5ProfileBundle.mergeInto(config, bundle))
-            assertTrue("repeat installation is idempotent", !QidiXSmart5ProfileBundle.mergeInto(config, bundle))
+            assertEquals("all four X-Smart 5 nozzle profiles are in Qidi.ini", 4,
+                config.printerConfigs.count { it.title?.startsWith("Qidi X-Smart 5 ") == true })
+            assertEquals("Orca X-Smart 5 process presets are in Qidi.ini", 19,
+                config.printConfigs.count { it.title?.contains("X-Smart 5") == true })
+            assertEquals("Orca X-Smart 5 filament presets are in Qidi.ini", 248,
+                config.filamentConfigs.count { it.title?.contains("@Qidi X-Smart 5 ") == true })
 
             for (nozzle in listOf("0.2", "0.4", "0.6", "0.8")) {
                 val variant = requireNotNull(config.findPrinter("Qidi X-Smart 5 $nozzle nozzle"))
@@ -10323,6 +10550,27 @@ class NativeSliceDeviceTest {
         }
     }
 
+    private inline fun withKobraBaseProfile(block: () -> Unit) {
+        val context = InstrumentationRegistry.getInstrumentation().targetContext
+        val application = context.applicationContext as Application
+        SliceBeam.INSTANCE = application as SliceBeam
+        Prefs.init(application)
+        val previousConfig = SliceBeam.CONFIG
+        try {
+            context.assets.open("orca_profiles/Anycubic.ini").use { SliceBeam.CONFIG = Slic3rConfigWrapper(it) }
+            val config = requireNotNull(SliceBeam.CONFIG)
+            val printer = requireNotNull(config.findPrinter("Anycubic Kobra 3 0.4 nozzle"))
+            config.presets = ConfigObject("presets").apply {
+                put("printer", printer.title)
+                put("print", requireNotNull(config.findPrint("0.16mm Optimal @Anycubic Kobra 3 0.4 nozzle")).title)
+                put("filament", requireNotNull(config.findFilament("Anycubic PLA @Anycubic Kobra 3 0.4 nozzle")).title)
+            }
+            block()
+        } finally {
+            SliceBeam.CONFIG = previousConfig
+        }
+    }
+
     private inline fun withQidiQ2Profile(block: () -> Unit) = withQidiProfile("Qidi Q2 0.4 nozzle", block)
 
     private inline fun withQidiProfile(printerName: String, block: () -> Unit) {
@@ -11278,3 +11526,5 @@ class NativeSliceDeviceTest {
         return idleChanges
     }
 }
+
+

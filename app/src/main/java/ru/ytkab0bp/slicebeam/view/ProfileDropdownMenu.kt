@@ -21,6 +21,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.platform.LocalConfiguration
@@ -57,6 +58,7 @@ internal object ProfileDropdownMenuPolicy {
 @Composable
 internal fun ProfileDropdownContent(
     title: String?,
+    modifier: Modifier = Modifier,
     menu: ProfileDropdownMenuModel,
     menuTitle: Int,
     expanded: Boolean,
@@ -66,9 +68,10 @@ internal fun ProfileDropdownContent(
     onDelete: () -> Unit,
     onClone: () -> Unit,
     canManage: Boolean = true,
+    leadingIconRes: Int? = null,
 ) {
     val compactPhone = LocalConfiguration.current.screenWidthDp <= 480
-    Box(modifier = Modifier.fillMaxWidth()) {
+    Box(modifier = modifier.fillMaxWidth()) {
         Surface(
             modifier = Modifier
                 .fillMaxWidth()
@@ -85,6 +88,14 @@ internal fun ProfileDropdownContent(
                     .padding(start = 20.dp, end = 12.dp, top = 8.dp, bottom = 8.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
+                leadingIconRes?.let { icon ->
+                    Icon(
+                        painter = painterResource(icon),
+                        contentDescription = null,
+                        modifier = Modifier.padding(end = 8.dp).width(28.dp).heightIn(min = 28.dp),
+                        tint = Color.Unspecified,
+                    )
+                }
                 Text(
                     text = title.orEmpty(),
                     modifier = Modifier.weight(1f).testTag("profile-dropdown-selected-title"),

@@ -84,6 +84,7 @@ public:
         const std::vector<WipeTower::ToolChangeResult>              &priming,
         const std::vector<std::vector<WipeTower::ToolChangeResult>> &tool_changes,
         const WipeTower::ToolChangeResult                           &final_purge,
+        bool                                                         final_purge_required,
         const std::vector<unsigned int>                             &slice_used_filaments) :
         m_left(/*float(print_config.wipe_tower_x.value)*/ 0.f),
         m_right(float(/*print_config.wipe_tower_x.value +*/ print_config.prime_tower_width.value)),
@@ -92,6 +93,7 @@ public:
         m_priming(priming),
         m_tool_changes(tool_changes),
         m_final_purge(final_purge),
+        m_final_purge_required(final_purge_required),
         m_layer_idx(-1),
         m_tool_change_idx(0),
         m_plate_origin(plate_origin),
@@ -146,6 +148,7 @@ private:
     const std::vector<WipeTower::ToolChangeResult>              &m_priming;
     const std::vector<std::vector<WipeTower::ToolChangeResult>> &m_tool_changes;
     const WipeTower::ToolChangeResult                           &m_final_purge;
+    bool                                                         m_final_purge_required;
     // Current layer index.
     int                                                          m_layer_idx;
     int                                                          m_tool_change_idx;

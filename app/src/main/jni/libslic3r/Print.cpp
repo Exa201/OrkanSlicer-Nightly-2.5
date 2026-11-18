@@ -3425,6 +3425,12 @@ void Print::_make_wipe_tower()
         // Don't generate any wipe tower.
         return;
 
+    // A short final tower layer only needs a purge/unload for single-extruder MMU printers.
+    // Toolchangers with multitool ramming do not retract or park during that final ram, so
+    // generating it above the physical tower would extrude in mid-air.
+    m_wipe_tower_data.final_purge_required = m_config.single_extruder_multi_material ||
+        m_wipe_tower_data.tool_ordering.back().wipe_tower_partitions > 0;
+
     // If support created the only tool change, layer compatibility could not be
     // known during pre-slice validation. Validate now that the actual tower is known.
     if (!wipe_tower_certain_before_slicing())

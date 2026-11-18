@@ -1,5 +1,7 @@
 # OrkanSlicer Nightly 2.5
 
+<p align="center"><img src="docs/images/branding/orkanslicer_feature_graphic.png" alt="OrkanSlicer Nightly 2.5 — 3D-Druck und Slicing" width="900"></p>
+
 Experimental Android port for the official [OrcaSlicer 2.5](https://github.com/OrcaSlicer/OrcaSlicer) engine. The GitHub repository slug is `OrkanSlicer-Nightly-2.5`; this is an independent Exa201 project, not an official OrcaSlicer release.
 
 The branch starts from OrkanSlicer 0.8.409 and applies reviewed, selective OrcaSlicer 2.5 fixes, including empty-layer guards, 64-bit filament masks, AMS preset preservation, Qidi multi-material filenames, and per-filament travel-lift settings. It is **not yet a complete 2.5 core update**. Current verification and each APK's limitations are recorded in [`docs/BUILD_STATUS.md`](docs/BUILD_STATUS.md); treat Nightly prereleases as test builds, not verified production slicers.

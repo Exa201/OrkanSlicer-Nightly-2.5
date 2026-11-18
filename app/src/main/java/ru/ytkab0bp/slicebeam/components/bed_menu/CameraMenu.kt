@@ -3,6 +3,7 @@ package ru.ytkab0bp.slicebeam.components.bed_menu
 import android.content.Context
 import android.widget.Toast
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -32,6 +33,7 @@ open class CameraMenu : BedMenu(), WorkspaceComposeBedMenu {
     @Composable
     override fun WorkspaceContent(portrait: Boolean) {
         val context = LocalContext.current
+        SideEffect { fragment?.updateWorkspaceMenuActionCount(2) }
         CameraMenuContent(
             portrait = portrait,
             initialOrthoEnabled = Prefs.isOrthoProjectionEnabled(),

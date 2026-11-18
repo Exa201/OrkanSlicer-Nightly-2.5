@@ -42,6 +42,8 @@ import ru.ytkab0bp.slicebeam.R
 import ru.ytkab0bp.slicebeam.ui.LocalOrkanSection
 import ru.ytkab0bp.slicebeam.ui.OrkanSection
 import ru.ytkab0bp.slicebeam.ui.OrkanUiTokens
+import ru.ytkab0bp.slicebeam.ui.settings.PrinterProfileCategoryAssets
+import ru.ytkab0bp.slicebeam.ui.settings.AppSettingsIconAssets
 
 /** Colorful, decorative vector badge; the surrounding label provides the accessible name. */
 @Composable
@@ -53,7 +55,7 @@ fun OrkanIconBadge(
     val section = LocalOrkanSection.current
     val start = if (section == OrkanSection.DEFAULT) MaterialTheme.colorScheme.primary else section.accent
     val end = if (section == OrkanSection.DEFAULT) MaterialTheme.colorScheme.secondary else section.secondary
-    val isometricAsset = when (iconRes) {
+    val isometricAsset = AppSettingsIconAssets.isPackAsset(iconRes) || when (iconRes) {
         R.drawable.menu3d_arrange, R.drawable.menu3d_center, R.drawable.menu3d_combine,
         R.drawable.menu3d_duplicate, R.drawable.menu3d_file_export, R.drawable.menu3d_file_import,
         R.drawable.menu3d_fill_bed, R.drawable.menu3d_layers, R.drawable.menu3d_move,
@@ -62,7 +64,26 @@ fun OrkanIconBadge(
         R.drawable.menu3d_scale, R.drawable.menu3d_smart_slice, R.drawable.menu3d_split,
         R.drawable.menu3d_tools, R.drawable.menu3d_tune, R.drawable.menu3d_prime_tower,
         R.drawable.menu3d_purge_volume, R.drawable.menu3d_spool, R.drawable.menu3d_printer -> true
-        else -> false
+        R.drawable.ic_druckprofil, R.drawable.ic_schichten_und_wandungen,
+        R.drawable.ic_obere_untere_schichten, R.drawable.ic_fuellung,
+        R.drawable.ic_haftung_skirt_brim, R.drawable.ic_stuetzstrukturen,
+        R.drawable.ic_geschwindigkeit, R.drawable.ic_kuehlung,
+        R.drawable.ic_mehrere_extruder, R.drawable.ic_erweitert,
+        R.drawable.ic_ausgabeoptionen -> true
+        R.drawable.ic_filament, R.drawable.ic_filament_active, R.drawable.ic_filament_disabled,
+        R.drawable.ic_filament_kuehlung, R.drawable.ic_filament_kuehlung_active,
+        R.drawable.ic_filament_kuehlung_disabled, R.drawable.ic_filament_erweitert,
+        R.drawable.ic_filament_erweitert_active, R.drawable.ic_filament_erweitert_disabled,
+        R.drawable.ic_filamentkorrekturen, R.drawable.ic_filamentkorrekturen_active,
+        R.drawable.ic_filamentkorrekturen_disabled, R.drawable.ic_filamentprofil,
+        R.drawable.ic_filamentprofil_active, R.drawable.ic_filamentprofil_disabled,
+        R.drawable.ic_filamentslot, R.drawable.ic_filamentslot_active, R.drawable.ic_filamentslot_disabled,
+        R.drawable.ic_info, R.drawable.ic_info_active, R.drawable.ic_info_disabled,
+        R.drawable.ic_profilsuche, R.drawable.ic_profilsuche_active, R.drawable.ic_profilsuche_disabled,
+        R.drawable.ic_speichern, R.drawable.ic_speichern_active, R.drawable.ic_speichern_disabled,
+        R.drawable.ic_zuruecksetzen, R.drawable.ic_zuruecksetzen_active, R.drawable.ic_zuruecksetzen_disabled,
+        R.drawable.ic_materialwarnung, R.drawable.ic_materialwarnung_active, R.drawable.ic_materialwarnung_disabled -> true
+        else -> PrinterProfileCategoryAssets.isPackAsset(iconRes)
     }
     Box(
         modifier = modifier
@@ -76,7 +97,7 @@ fun OrkanIconBadge(
         Icon(
             painter = painterResource(iconRes),
             contentDescription = null,
-            modifier = Modifier.size(size * 0.52f),
+            modifier = Modifier.size(size * 0.879f),
             // Dark, section-specific line art keeps at least 4.5:1 contrast against
             // the saturated accent badge on both light and dark app themes.
             tint = if (isometricAsset) Color.Unspecified
@@ -254,7 +275,7 @@ fun OrkanAccordion(
                 Icon(
                     painter = painterResource(R.drawable.dropdown_24),
                     contentDescription = null,
-                    modifier = Modifier.size(24.dp).rotate(if (expanded) 180f else 0f),
+                    modifier = Modifier.size(31.dp).rotate(if (expanded) 180f else 0f),
                     tint = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }

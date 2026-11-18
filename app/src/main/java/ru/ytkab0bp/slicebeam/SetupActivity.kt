@@ -41,7 +41,6 @@ import java.io.InputStream
 import java.io.InputStreamReader
 import java.util.ArrayList
 import java.util.Arrays
-import java.util.Collections
 import java.util.HashMap
 import java.util.LinkedHashMap
 import java.util.Locale
@@ -53,8 +52,8 @@ import ru.ytkab0bp.eventbus.EventHandler
 import ru.ytkab0bp.slicebeam.cloud.CloudController
 import ru.ytkab0bp.slicebeam.components.CloudManageDialog
 import ru.ytkab0bp.slicebeam.config.ConfigObject
+import ru.ytkab0bp.slicebeam.config.ProfileCompatibility
 import ru.ytkab0bp.slicebeam.config.ProfileConfigSnapshot
-import ru.ytkab0bp.slicebeam.config.QidiXSmart5ProfileBundle
 import ru.ytkab0bp.slicebeam.events.BeamServerDataUpdatedEvent
 import ru.ytkab0bp.slicebeam.events.CloudFeaturesUpdatedEvent
 import ru.ytkab0bp.slicebeam.events.CloudLoginStateUpdatedEvent
@@ -157,6 +156,10 @@ pendingRestoreSetupPage = restoredSetupPage
 } else {
 currentSetupPage = restoredSetupPage
 }
+// The profile editor's "Add printer" action should open directly at the bundled
+// printer picker. Replaying the first-run intro here made users leave the app via
+// the bottom system-navigation area before reaching the actual profile list.
+if (addPrinter) currentSetupPage = PROFILES_INDEX
 setupTitle = if (cloudProfile) getString(R.string.SettingsCloudManageTitle) else ""
 if (SliceBeam.CONFIG != null && !about && !boostyOnly && !cloudProfile && !addPrinter)
 {
@@ -569,76 +572,6 @@ vendorProfiles.add(cfg) })
 catch (e:IOException) {
 Log.w(TAG, "Failed to load local Orca profile asset " + file, e)
 }
-}
-// The Kobra 3 V2 profile is distributed as an Orca/Prusa JSON
- // bundle. Merge it with its Kobra 3 parent so it behaves like a
- // normal built-in profile in the setup wizard.
- var anycubic:Slic3rConfigWrapper? = null
-var kobra3Base:ConfigObject? = null
-for (candidate in vendorProfiles)
-{
-val base = candidate.findPrinter("Anycubic Kobra 3 0.4 nozzle")
-if (base != null)
-{
-anycubic = candidate
-kobra3Base = base
-break
-}
-}
-val selectedAnycubic = anycubic
-val selectedKobra3Base = kobra3Base
-if (selectedAnycubic != null && selectedKobra3Base != null)
-{
-try
-{
-getAssets().open(
-ORCA_ASSET_DIR + "/kobra3v2/printer/Anycubic Kobra 3 v2 0.4 nozzle - Stock.json").use({ `in`->
-val json = JSONObject(IOUtils.readString(`in`))
-val v2 = IOUtils.configJsonToIni(
-json,
-"machine",
-Slic3rConfigWrapper.PRINTER_CONFIG_KEYS,
-Collections.singletonList("Anycubic Kobra 3 v2 0.4 nozzle - Stock"))
-val merged = HashMap<String, String>()
-merged.putAll(selectedKobra3Base.values)
-merged.putAll(v2.values)
-merged.remove("inherits")
-v2.values = merged
-v2.put("printer_model", "Anycubic Kobra 3 V2")
-selectedAnycubic.printerConfigs.add(v2)
-val v2Model = ConfigObject("Anycubic Kobra 3 V2")
-v2Model.put("name", "Anycubic Kobra 3 V2")
-v2Model.put("variants", "0.4")
-var kobra3Model:ConfigObject? = null
-for (model in selectedAnycubic.printerModels)
-{
-if ("Anycubic Kobra 3".equals(model.title))
-{
-kobra3Model = model
-break
-}
-}
-val selectedKobra3Model = kobra3Model
-if (selectedKobra3Model != null && selectedKobra3Model.get("default_materials") != null)
-{
-v2Model.put("default_materials", selectedKobra3Model.get("default_materials"))
-}
-selectedAnycubic.printerModels.add(v2Model) })
-}
-catch (e:Exception) {
-Log.w(TAG, "Failed to load bundled Kobra 3 V2 profile", e)
-}
-}
-try {
-val bundledXSmart5 = QidiXSmart5ProfileBundle.load(assets)
-val qidiVendor = vendorProfiles.firstOrNull { it.vendor?.get("name") == "Qidi" }
-if (qidiVendor == null) {
-    Log.w(TAG, "Qidi profile vendor is missing; built-in X-Smart 5 profiles are not available in setup")
-} else {
-    QidiXSmart5ProfileBundle.mergeInto(qidiVendor, bundledXSmart5)
-}
-} catch (e:Exception) {
-Log.w(TAG, "Failed to load bundled Qidi X-Smart 5 profiles", e)
 }
 }
 ViewUtils.postOnMainThread({ profilesMap.put(repo, vendorProfiles)
@@ -1071,16 +1004,6 @@ SetupAboutScreen(versionName, updateStatus, downloadState, onCheckUpdate = {
             downloadState = ru.ytkab0bp.slicebeam.utils.GitHubUpdater.downloadState(this@SetupActivity)
         }
     }
-}, onCheckPreviousVersion = {
-    if (!updateRunning) {
-        updateRunning = true
-        updateStatus = "Suche nach der vorherigen Nightly-Version …"
-        ru.ytkab0bp.slicebeam.utils.GitHubUpdater.checkPreviousVersion(this@SetupActivity) { message ->
-            updateStatus = message
-            updateRunning = false
-            downloadState = ru.ytkab0bp.slicebeam.utils.GitHubUpdater.downloadState(this@SetupActivity)
-        }
-    }
 }, onInstallUpdate = {
     ru.ytkab0bp.slicebeam.utils.GitHubUpdater.installDownloaded(this@SetupActivity) { message ->
         updateStatus = message
@@ -1265,7 +1188,7 @@ val vendorName = wrapper.vendor?.values?.get("name").orEmpty().ifBlank { getStri
 val options = grouped.getOrPut(vendorName) { ArrayList() }
 for (filament in wrapper.filamentConfigs) {
 val title = filament.title
-if (title.isNullOrBlank() || (title.startsWith("*") && title.endsWith("*"))) continue
+if (!SetupProfileSelectionPolicy.isSelectableFilament(title)) continue
 val optionKey = "filament_${currentFilaments.size}"
 currentFilaments.add(filament)
 filamentByKey[optionKey] = filament
@@ -1277,7 +1200,10 @@ enabledFilaments.clear()
 for (printerModel in enabledPrinters) {
 val defaults = printerModel.get("default_materials") ?: continue
 for (material in defaults.split(';').map(String::trim).filter(String::isNotEmpty)) {
-currentFilaments.firstOrNull { material.equals(it.title, ignoreCase = true) }?.let { filament ->
+val modelName = printerModel.get("name") ?: printerModel.title
+currentFilaments.firstOrNull {
+    SetupProfileSelectionPolicy.matchesDefaultMaterial(material, it.title, modelName)
+}?.let { filament ->
 if (!enabledFilaments.contains(filament)) enabledFilaments.add(filament)
 }
 }
@@ -1376,7 +1302,10 @@ else
 for (printerModel in enabledPrinters)
 {
 val model = printerModel.title
-val variants: List<String> = printerModel.get("variants")?.takeUnless { it.isEmpty() }?.split(";") ?: emptyList()
+val variants = SetupProfileSelectionPolicy.printerVariants(
+    printerModel.get("variants"),
+    printerModel.get("nozzle_diameter"),
+)
 val materials: List<String> = printerModel.get("default_materials")?.takeUnless { it.isEmpty() }?.split(";") ?: emptyList()
 for (rawVariant in variants)
 {
@@ -1415,19 +1344,27 @@ checker.release()
 }
 }
 }
+}
 // Filaments are normally chosen on the wizard's filament page; this
  // default_materials lookup only runs if that page was never built.
  if (enabledFilaments.isEmpty())
 {
-for (rawMat in materials)
+for (printerModelConfig in enabledPrinters)
 {
-val mat = rawMat.trim()
+val printerModelName = printerModelConfig.get("name") ?: printerModelConfig.title
+val modelMaterials = printerModelConfig.get("default_materials")
+    ?.split(';')?.map(String::trim)?.filter(String::isNotEmpty).orEmpty()
+for (mat in modelMaterials)
+{
 for (wrappers in profilesMap.values)
 {
 for (w in wrappers)
 {
-val obj = w.findFilament(mat)
-if (obj != null) cfg.filamentConfigs.add(obj)
+val obj = w.filamentConfigs.firstOrNull {
+    SetupProfileSelectionPolicy.matchesDefaultMaterial(mat, it.title, printerModelName)
+}
+if (obj != null && cfg.findFilament(obj.title) == null) cfg.filamentConfigs.add(obj)
+}
 }
 }
 }
@@ -1462,7 +1399,7 @@ val defPrinter = if (cfg.printerConfigs.isEmpty()) null else cfg.findPrinter(cfg
 if (defPrinter != null)
 {
 val checker = Slic3rUtils.ConfigChecker(defPrinter.serialize())
-if (defPrinter.get("default_print_profile") != null && cfg.findPrint(defPrinter.get("default_print_profile")) != null)
+if (ProfileCompatibility.isSelectableProcess(defPrinter.get("default_print_profile")) && cfg.findPrint(defPrinter.get("default_print_profile")) != null)
 {
 cfg.presets!!.put("print", defPrinter.get("default_print_profile"))
 }
@@ -1473,7 +1410,7 @@ if (!cfg.printConfigs.isEmpty())
 var foundDefault = false
 for (obj in cfg.printConfigs)
 {
-if (obj.get("layer_height") != null && checker.checkCompatibility(obj.get("compatible_printers_condition")) && java.lang.Float.parseFloat(obj.get("layer_height")) == 0.2f)
+if (ProfileCompatibility.isSelectableProcess(obj.title) && obj.get("layer_height") != null && checker.checkCompatibility(obj.get("compatible_printers_condition")) && java.lang.Float.parseFloat(obj.get("layer_height")) == 0.2f)
 {
 foundDefault = true
 cfg.presets!!.put("print", obj.title)
@@ -1482,13 +1419,20 @@ break
 }
 if (!foundDefault && !cfg.printConfigs.isEmpty())
 {
-cfg.presets!!.put("print", cfg.printConfigs.get(0).title)
+cfg.printConfigs.firstOrNull { ProfileCompatibility.isSelectableProcess(it.title) }?.let {
+cfg.presets!!.put("print", it.title)
 }
 }
 }
-if (defPrinter.get("default_filament_profile") != null && cfg.findFilament(defPrinter.get("default_filament_profile")) != null)
+}
+val printerModelName = defPrinter.get("printer_model")
+val printerDefaultFilament = defPrinter.get("default_filament_profile")
+val matchedDefaultFilament = cfg.filamentConfigs.firstOrNull {
+    SetupProfileSelectionPolicy.matchesDefaultMaterial(printerDefaultFilament, it.title, printerModelName)
+}
+if (matchedDefaultFilament != null)
 {
-cfg.presets!!.put("filament", defPrinter.get("default_filament_profile"))
+cfg.presets!!.put("filament", matchedDefaultFilament.title)
 }
 else
 {
@@ -1497,7 +1441,7 @@ if (!cfg.filamentConfigs.isEmpty())
 var foundDefault = false
 for (obj in cfg.filamentConfigs)
 {
-if (obj.title!!.contains("Generic PLA") && checker.checkCompatibility(obj.get("compatible_printers_condition")))
+if (SetupProfileSelectionPolicy.isSelectableFilament(obj.title) && obj.title!!.contains("Generic PLA") && checker.checkCompatibility(obj.get("compatible_printers_condition")))
 { // TODO: Slic3rUtils.checkCompatibility(obj.get("compatible_prints_condition"), serialized)
 foundDefault = true
 cfg.presets!!.put("filament", obj.title)
@@ -1506,12 +1450,13 @@ break
 }
 if (!foundDefault && !cfg.filamentConfigs.isEmpty())
 {
-cfg.presets!!.put("filament", cfg.filamentConfigs.get(0).title)
+cfg.filamentConfigs.firstOrNull { SetupProfileSelectionPolicy.isSelectableFilament(it.title) }?.let {
+    cfg.presets!!.put("filament", it.title)
+}
 }
 }
 }
 checker.release()
-}
 }
 try
 {
@@ -1525,10 +1470,11 @@ SliceBeam.CONFIG = previousConfig
 throw IOException("Could not save the selected printer profiles")
 }
 }
-else if (Prefs.getCloudAPIToken() == null)
+else
 {
 // Re-running setup with an existing config (e.g. "Add printer"): merge the
  // newly selected presets into what the user already has instead of wiping it.
+ // Cloud account state must not suppress this local profile merge.
  val existing = SliceBeam.CONFIG
 val snapshot = ProfileConfigSnapshot(existing!!)
 for (p in cfg.printerConfigs)

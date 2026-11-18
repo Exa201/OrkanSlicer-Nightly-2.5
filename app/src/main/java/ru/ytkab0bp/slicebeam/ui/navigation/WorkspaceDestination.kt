@@ -8,14 +8,15 @@ import ru.ytkab0bp.slicebeam.R
 internal enum class WorkspaceDestination(
     @StringRes val titleRes: Int,
     @DrawableRes val iconRes: Int,
+    @DrawableRes val selectedIconRes: Int = iconRes,
     @StringRes val navigationTitleRes: Int = titleRes,
 ) {
-    PROJECT(R.string.MenuFile, R.drawable.menu3d_file_import),
-    MODEL(R.string.MenuModel, R.drawable.menu3d_objects),
-    CAMERA(R.string.MenuCamera, R.drawable.menu3d_layers),
-    EDIT(R.string.MenuToolbar, R.drawable.menu3d_tune, R.string.MenuToolbarNavigation),
-    TOOLS(R.string.MenuOptions, R.drawable.menu3d_tools),
-    SLICE(R.string.MenuSlice, R.drawable.menu3d_quick_slice),
+    PROJECT(R.string.MenuFile, R.drawable.nav_datei, R.drawable.nav_datei_active),
+    MODEL(R.string.MenuModel, R.drawable.nav_modell, R.drawable.nav_modell_active),
+    CAMERA(R.string.MenuCamera, R.drawable.ui21_plate),
+    EDIT(R.string.MenuToolbar, R.drawable.nav_aendern, R.drawable.nav_aendern_active, R.string.MenuToolbarNavigation),
+    TOOLS(R.string.MenuOptions, R.drawable.nav_tools, R.drawable.nav_tools_active),
+    SLICE(R.string.MenuSlice, R.drawable.nav_slicen, R.drawable.nav_slicen_active),
 
     ;
 

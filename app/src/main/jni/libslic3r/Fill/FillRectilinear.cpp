@@ -3065,7 +3065,7 @@ bool FillRectilinear::fill_surface_trapezoidal(
     Polylines&                                polylines_out,
     int                                       Pattern_type) // 0=grid, 1=triangular, 2=stars, 4=quarter cubic
 {
-    assert(params.multiline > 1);
+    assert(params.non_crossing());
 
     Polylines polylines;
 
@@ -3512,7 +3512,7 @@ Polylines FillGrid::fill_surface(const Surface *surface, const FillParams &param
 {
     Polylines polylines_out;
 
-    if (params.multiline > 1) {
+    if (params.non_crossing()) {
         // Experimental trapezoidal grid
         if (!this->fill_surface_trapezoidal(
                  surface, params,
@@ -3554,7 +3554,7 @@ Polylines FillLateralLattice::fill_surface(const Surface *surface, const FillPar
 
 Polylines FillTriangles::fill_surface(const Surface *surface, const FillParams &params){
     Polylines polylines_out;
-        if (params.multiline > 1) {
+        if (params.non_crossing()) {
         // Experimental trapezoidal grid
         if (!this->fill_surface_trapezoidal(
                  surface, params,
@@ -3576,7 +3576,7 @@ Polylines FillTriangles::fill_surface(const Surface *surface, const FillParams &
 Polylines FillStars::fill_surface(const Surface *surface, const FillParams &params)
 {
     Polylines polylines_out;
-    if (params.multiline > 1) {
+    if (params.non_crossing()) {
         if (!this->fill_surface_trapezoidal(
                  surface, params,
                  {{0.f, 0.f}, {float(M_PI / 3.), 0.f}, {float(2. * M_PI / 3.), float((3. / 2.) * this->spacing * params.multiline / params.density)}},
@@ -3609,7 +3609,7 @@ Polylines FillQuarterCubic::fill_surface(const Surface* surface, const FillParam
     using namespace boost::math::float_constants;
     Polylines polylines_out;
 
-    if (params.multiline > 1) {
+    if (params.non_crossing()) {
         if (!this->fill_surface_trapezoidal(surface, params, {{0.f, 0.f}}, polylines_out, 4))
             BOOST_LOG_TRIVIAL(error) << "FillQuarterCubic::fill_surface_trapezoidal() failed.";
         return polylines_out;

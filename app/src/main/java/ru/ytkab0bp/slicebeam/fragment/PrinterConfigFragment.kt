@@ -1,11 +1,23 @@
 package ru.ytkab0bp.slicebeam.fragment
 
 import android.content.Intent
+import android.app.Activity
 import android.net.Uri
 import android.text.TextUtils
 import android.widget.Toast
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.Button
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
+import androidx.compose.material3.Text
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import ru.ytkab0bp.slicebeam.R
 import ru.ytkab0bp.slicebeam.SliceBeam
 import ru.ytkab0bp.slicebeam.components.PrinterConnectionCard
@@ -38,11 +50,34 @@ class PrinterConfigFragment : ProfileListFragment() {
 
     @Composable
     override fun ProfileHeaderContent(modifier: Modifier) {
-        PrinterConnectionCard(
-            modifier = modifier,
-            configuredHost = currentConfig?.get("print_host"),
-            onOpenWeb = ::openPrinterWebUi,
-        )
+        if (SliceBeam.requireConfig().printerConfigs.isEmpty()) {
+            Surface(
+                modifier = modifier,
+                shape = RoundedCornerShape(14.dp),
+                color = MaterialTheme.colorScheme.surfaceVariant,
+            ) {
+                Column(
+                    modifier = Modifier.fillMaxWidth().padding(12.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    Text(
+                        text = getContext()?.getString(R.string.PrinterProfileMissingHint).orEmpty(),
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        fontSize = 13.sp,
+                    )
+                    Button(onClick = ::openPrinterSetup) {
+                        Text(getContext()?.getString(R.string.SettingsAddPrinter).orEmpty())
+                    }
+                }
+            }
+        } else {
+            PrinterConnectionCard(
+                modifier = modifier,
+                configuredHost = currentConfig?.get("print_host"),
+                onOpenWeb = ::openPrinterWebUi,
+                iconRes = R.drawable.printerprofile_druckerverbindung,
+            )
+        }
     }
 
     fun getConfiguredExtruderCount(): Int = currentConfig?.extruderCount ?: 0
@@ -61,6 +96,14 @@ class PrinterConfigFragment : ProfileListFragment() {
         } catch (_: Exception) {
             Toast.makeText(context, R.string.PrinterWebOpenFailed, Toast.LENGTH_LONG).show()
         }
+    }
+
+    private fun openPrinterSetup() {
+        val activity = getContext() as? Activity ?: return
+        activity.startActivity(
+            Intent(activity, ru.ytkab0bp.slicebeam.SetupActivity::class.java)
+                .putExtra(ru.ytkab0bp.slicebeam.SetupActivity.EXTRA_ADD_PRINTER, true),
+        )
     }
 
     override fun cloneCurrentProfile() {

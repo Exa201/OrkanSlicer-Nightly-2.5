@@ -46,6 +46,8 @@ object ProfileSettingsFooter {
             ComposeProfileSettingsFooter(
                 portrait = portrait,
                 resetEnabled = resetEnabled.value,
+                useFilamentAssets = profileType == ru.ytkab0bp.slicebeam.config.ConfigObject.PROFILE_LIST_FILAMENT,
+                usePrinterAssets = profileType == ru.ytkab0bp.slicebeam.config.ConfigObject.PROFILE_LIST_PRINTER,
                 currentTitle = { currentTitle.get().orEmpty() },
                 pendingSummary = { pendingSummary.get().orEmpty() },
                 onApply = { title -> onApply.accept(title) },

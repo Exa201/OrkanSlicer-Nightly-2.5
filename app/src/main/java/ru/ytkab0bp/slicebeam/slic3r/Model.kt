@@ -170,6 +170,13 @@ open class Model private constructor(@JvmField var pointer: Long) {
         resetBoundingBox()
     }
 
+    /** Rotates the imported object layout as one group around its common bed-plane center. */
+    open fun rotateAndCenterObjects(angleZRadians: Double) {
+        if (pointer == 0L || !angleZRadians.isFinite()) return
+        Native.model_rotate_and_center_objects(pointer, angleZRadians)
+        resetBoundingBox()
+    }
+
     open fun ensureOnBed(i: Int) {
         if (!hasObject(i)) return
         Native.model_ensure_on_bed(pointer, i)
@@ -787,6 +794,7 @@ open class Model private constructor(@JvmField var pointer: Long) {
         calibStart: Double,
         calibEnd: Double,
         calibStep: Double,
+        calibFilament: Int = 0,
     ): GCodeProcessorResult {
         restoreAutoBrimForNative(configPath)
 
@@ -813,7 +821,7 @@ open class Model private constructor(@JvmField var pointer: Long) {
         val nativeListener = listener ?: SliceListener { _, _ -> }
         val resultPointer = Native.model_slice(
             pointer, configPath, gcodePath, nativeListener, numFilaments, colors ?: IntArray(0),
-            calibMode, calibStart, calibEnd, calibStep,
+            calibMode, calibStart, calibEnd, calibStep, calibFilament,
         )
         return GCodeProcessorResult(resultPointer).also { result ->
             // Keep the effective ACE/profile palette with the result so the tool-color

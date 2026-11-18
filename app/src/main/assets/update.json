@@ -1,5 +1,5 @@
 {
-  "de": "OrkanSlicer Nightly 2.5 · 0.8.493\n\n• Im Querformat bleibt die Aktionsleiste geschlossen, bis du das aktive Menü öffnest.\n• Reinigungsturm- und Spülvolumen-Aktionen sind im Dashboard erreichbar und geprüft.\n• Die neuen 3D-Menübilder werden mit den vollständigen OrcaSlicer-Titeln angezeigt.",
-  "en": "OrkanSlicer Nightly 2.5 · 0.8.493\n\n• In landscape, the action panel stays closed until you open the selected menu.\n• Prime tower and flush volume actions are available in the dashboard and tested.\n• New 3D menu artwork is shown with the full OrcaSlicer labels.",
-  "ru": "OrkanSlicer Nightly 2.5 · 0.8.493\n\n• В альбомной ориентации панель действий закрыта, пока вы не откроете выбранное меню.\n• Действия позиции башни и объёма промывки доступны на панели и проверены.\n• Новые 3D-значки меню отображаются с полными названиями OrcaSlicer."
+  "de": "OrkanSlicer Nightly 2.5 · 0.8.503\n\n• Neues OrkanSlicer-App-Branding: adaptives Launcher-Icon, passende Android-Splashfarbe und aktualisiertes Setup-Artwork.\n• Feature-Banner und Branding-Vorschau sind jetzt auch auf der GitHub-Projektseite zu sehen.",
+  "en": "OrkanSlicer Nightly 2.5 · 0.8.503\n\n• Updated OrkanSlicer app branding: adaptive launcher icon, matching Android splash color, and refreshed setup artwork.\n• The GitHub project page now features the feature graphic and branding preview.",
+  "ru": "OrkanSlicer Nightly 2.5 · 0.8.503\n\n• Обновлен фирменный стиль приложения OrkanSlicer: адаптивный значок, цвет заставки Android и оформление экрана настройки.\n• На странице GitHub теперь показаны баннер и предварительный просмотр фирменного стиля."
 }

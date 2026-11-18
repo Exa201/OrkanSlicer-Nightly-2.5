@@ -19,10 +19,14 @@ import android.util.SparseArray
 import android.view.View
 import android.view.ViewGroup
 import android.view.WindowManager
+import android.text.InputType
 import android.widget.Toast
 import android.widget.ArrayAdapter
 import android.widget.CheckBox
+import android.widget.EditText
 import android.widget.LinearLayout
+import android.widget.RadioButton
+import android.widget.RadioGroup
 import android.widget.ScrollView
 import android.widget.Spinner
 import android.widget.TextView
@@ -94,6 +98,7 @@ import ru.ytkab0bp.slicebeam.navigation.MobileNavigationPolicy
 import ru.ytkab0bp.slicebeam.navigation.NavigationDelegate
 import ru.ytkab0bp.slicebeam.slic3r.Model
 import ru.ytkab0bp.slicebeam.slic3r.ModelBatchImportPolicy
+import ru.ytkab0bp.slicebeam.slic3r.ModelBatchImportPlacement
 import ru.ytkab0bp.slicebeam.slic3r.Native
 import ru.ytkab0bp.slicebeam.slic3r.PrintConfigDef
 import ru.ytkab0bp.slicebeam.slic3r.Slic3rConfigWrapper
@@ -278,7 +283,7 @@ private fun handleExternalModelOpen(intent: Intent) {
             getString(R.string.MenuFileOpenMultipleMeshOnly),
         )
     } else {
-        runInWorkspaceBed { loadMultipleMeshFiles(batchFiles) }
+        runInWorkspaceBed { showMultipleMeshImportPlacementDialog(batchFiles) }
     }
 }
 
@@ -537,7 +542,7 @@ showFileOperationError(
 }
 else
 {
-runInWorkspaceBed { loadMultipleMeshFiles(batchFiles) }
+runInWorkspaceBed { showMultipleMeshImportPlacementDialog(batchFiles) }
 }
 }
 else if (!selectedFiles.isEmpty())
@@ -2087,7 +2092,68 @@ private fun probeStepContent(uri:Uri, onResult:(Boolean)->Unit) {
         }
     }
 }
-private fun loadMultipleMeshFiles(files:List<Uri>) {
+private fun showMultipleMeshImportPlacementDialog(files:List<Uri>) {
+    if (files.isEmpty() || isFinishing || isDestroyed) return
+    val content = LinearLayout(this).apply {
+        orientation = LinearLayout.VERTICAL
+        setPadding(ViewUtils.dp(24), ViewUtils.dp(8), ViewUtils.dp(24), ViewUtils.dp(4))
+    }
+    content.addView(TextView(this).apply {
+        text = getString(R.string.MenuFileImportPlacementDescription, files.size)
+        textSize = 15f
+    })
+    val choices = RadioGroup(this).apply { orientation = RadioGroup.VERTICAL }
+    val compactChoice = RadioButton(this).apply {
+        id = View.generateViewId()
+        text = getString(R.string.MenuFileImportPlacementCompact)
+        isChecked = true
+    }
+    val spacingChoice = RadioButton(this).apply {
+        id = View.generateViewId()
+        text = getString(R.string.MenuFileImportPlacementSpacing)
+    }
+    choices.addView(compactChoice)
+    choices.addView(spacingChoice)
+    content.addView(choices)
+    val distanceInput = EditText(this).apply {
+        inputType = InputType.TYPE_CLASS_NUMBER or InputType.TYPE_NUMBER_FLAG_DECIMAL
+        setText("6")
+        setSelectAllOnFocus(true)
+        hint = getString(R.string.MenuFileImportPlacementDistanceHint)
+        isEnabled = false
+    }
+    content.addView(TextView(this).apply {
+        text = getString(R.string.MenuFileImportPlacementDistanceLabel)
+        textSize = 14f
+    })
+    content.addView(distanceInput)
+    choices.setOnCheckedChangeListener { _, checkedId ->
+        distanceInput.isEnabled = checkedId == spacingChoice.id
+    }
+    val dialog = AlertDialog.Builder(this)
+        .setTitle(R.string.MenuFileImportPlacementTitle)
+        .setView(content)
+        .setNegativeButton(android.R.string.cancel, null)
+        .setPositiveButton(R.string.MenuFileImportPlacementContinue, null)
+        .create()
+    dialog.setOnShowListener {
+        dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener {
+            val placement = if (choices.checkedRadioButtonId == spacingChoice.id) {
+                val distance = distanceInput.text.toString().trim().replace(',', '.').toDoubleOrNull()
+                if (distance == null || distance !in ModelBatchImportPlacement.MIN_DISTANCE_MM..ModelBatchImportPlacement.MAX_DISTANCE_MM) {
+                    distanceInput.error = getString(R.string.MenuFileImportPlacementDistanceError)
+                    return@setOnClickListener
+                }
+                ModelBatchImportPlacement(distance)
+            } else ModelBatchImportPlacement()
+            dialog.dismiss()
+            loadMultipleMeshFiles(files, placement)
+        }
+    }
+    dialog.show()
+}
+
+private fun loadMultipleMeshFiles(files:List<Uri>, placement:ModelBatchImportPlacement) {
 if (files.isEmpty()) return
 val tag = UUID.randomUUID().toString()
 SliceBeam.EVENT_BUS.fireEvent(NeedSnackbarEvent(SnackbarsLayout.Type.LOADING,
@@ -2111,13 +2177,16 @@ IOUtils.IO_POOL.submit {
         if (isFinishing || isDestroyed) {
             SliceBeam.EVENT_BUS.fireEvent(NeedDismissSnackbarEvent(tag))
         } else {
-            stageMultipleMeshFiles(orderedFiles, 0, ArrayList(), 0, tag)
+            stageMultipleMeshFiles(orderedFiles, 0, ArrayList(), 0, tag, placement)
         }
     }
 }
 }
 /** Stage the selection, then hand the entire batch to one native packing transaction. */
-private fun stageMultipleMeshFiles(files:List<Uri>, index:Int, cachedFiles:ArrayList<File>, failed:Int, tag:String) {
+private fun stageMultipleMeshFiles(
+    files:List<Uri>, index:Int, cachedFiles:ArrayList<File>, failed:Int, tag:String,
+    placement:ModelBatchImportPlacement,
+) {
     if (isFinishing || isDestroyed) {
         cachedFiles.forEach(File::delete)
         SliceBeam.EVENT_BUS.fireEvent(NeedDismissSnackbarEvent(tag))
@@ -2173,14 +2242,14 @@ private fun stageMultipleMeshFiles(files:List<Uri>, index:Int, cachedFiles:Array
                 cachedFiles.forEach(File::delete)
                 SliceBeam.EVENT_BUS.fireEvent(NeedDismissSnackbarEvent(tag))
             }
-        }, autoOrientImportedModels = true)
+        }, autoOrientImportedModels = true, placement = placement)
         return
     }
 
     val uri = files[index]
     val displayName = IOUtils.getDisplayName(uri)
     if (displayName == null) {
-        stageMultipleMeshFiles(files, index + 1, cachedFiles, failed + 1, tag)
+        stageMultipleMeshFiles(files, index + 1, cachedFiles, failed + 1, tag, placement)
         return
     }
     val extension = displayName.substringAfterLast('.', "stl")
@@ -2201,12 +2270,12 @@ private fun stageMultipleMeshFiles(files:List<Uri>, index:Int, cachedFiles:Array
             } }
             ViewUtils.postOnMainThread {
                 cachedFiles.add(cachedFile)
-                stageMultipleMeshFiles(files, index + 1, cachedFiles, failed, tag)
+                stageMultipleMeshFiles(files, index + 1, cachedFiles, failed, tag, placement)
             }
         } catch (error:Exception) {
             cachedFile.delete()
             Log.e("MainActivity", "Failed to stage selected mesh: $displayName", error)
-            ViewUtils.postOnMainThread { stageMultipleMeshFiles(files, index + 1, cachedFiles, failed + 1, tag) }
+            ViewUtils.postOnMainThread { stageMultipleMeshFiles(files, index + 1, cachedFiles, failed + 1, tag, placement) }
         }
     }
 }

@@ -60,6 +60,12 @@ internal fun CustomizableBedMenuActionsContent(
     val dragState = remember(menuKey) { MenuActionDragState() }
     val actionByKey = remember(actions, actionKeys) { actionKeys.zip(actions).toMap() }
     val visibleActions = order.filterNot { it in hidden }.mapNotNull(actionByKey::get)
+    androidx.compose.runtime.SideEffect {
+        (context as? ru.ytkab0bp.slicebeam.MainActivity)?.let { activity ->
+            val bed = activity.navigationDelegate.getCurrentFragment() as? ru.ytkab0bp.slicebeam.fragment.BedFragment
+            bed?.updateWorkspaceMenuActionCount(visibleActions.size)
+        }
+    }
 
     fun persistOrder(next: List<String>) {
         order = next

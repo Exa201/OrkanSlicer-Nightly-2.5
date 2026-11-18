@@ -3546,6 +3546,26 @@ indexed_triangle_set build_texture_displacement(const indexed_triangle_set      
     return out;
 }
 
+Transform3d texture_displacement_volume_to_world(const ModelVolume &volume)
+{
+    const ModelObject *object = volume.get_object();
+    if (object == nullptr || object->instances.empty() || object->instances.front() == nullptr)
+        return volume.get_matrix();
+    return object->instances.front()->get_matrix() * volume.get_matrix();
+}
+
+indexed_triangle_set build_texture_displacement(const ModelVolume &volume)
+{
+    TextureDisplacementFacetsData facets_data;
+    for (int i = 0; i < int(TEXTURE_DISPLACEMENT_MAX_LAYERS); ++i)
+        facets_data[size_t(i)] = volume.texture_displacement_facet(i).get_data();
+
+    return build_texture_displacement(volume.mesh().its, volume.texture_displacement_layers, facets_data,
+                                      volume.texture_displacement_options, {}, nullptr,
+                                      texture_displacement_volume_to_world(volume), nullptr, nullptr,
+                                      volume.has_texture_uv() ? &volume.texture_uv : nullptr);
+}
+
 void texture_displacement_patch_frame(const indexed_triangle_set &patch, const std::vector<Vec3f> &vertex_normals,
                                       Vec3f &center, Vec3f &axis, Vec3f &average_normal)
 {

@@ -30,9 +30,9 @@ class AdaptiveNavigationPolicyTest {
 
     @Test
     fun bottomNavigationAlwaysRemainsOneRowAndKeepsStableHeight() {
-        assertEquals(56, AdaptiveNavigationPolicy.navigationBarHeightDp(1.3f, 6))
-        assertEquals(56, AdaptiveNavigationPolicy.navigationBarHeightDp(1.5f, 6))
-        assertEquals(56, AdaptiveNavigationPolicy.navigationBarHeightDp(1f, 6))
+        assertEquals(80, AdaptiveNavigationPolicy.navigationBarHeightDp(1.3f, 6))
+        assertEquals(80, AdaptiveNavigationPolicy.navigationBarHeightDp(1.5f, 6))
+        assertEquals(80, AdaptiveNavigationPolicy.navigationBarHeightDp(1f, 6))
     }
 
     @Test

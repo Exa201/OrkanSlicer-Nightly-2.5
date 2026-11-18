@@ -56,8 +56,7 @@ object ProfileOptionComposePresenter {
             val nozzle = LineWidthConversion.nozzle(printer?.get("nozzle_diameter"))
             if (nozzle != null) {
                 ComposeLineWidthOption.Content(optionLabel(def), initialValue, nozzle,
-                    LineWidthConversion.maxPercent(def.key),
-                    if (def.key == "bridge_line_width") localized(def.tooltip) else null, onChanged)
+                    LineWidthConversion.maxPercent(def.key), onChanged)
                 return
             }
         }

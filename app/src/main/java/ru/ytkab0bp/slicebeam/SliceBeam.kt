@@ -24,6 +24,7 @@ import ru.ytkab0bp.slicebeam.boot.TrueTimeTask
 import ru.ytkab0bp.slicebeam.boot.VibrationUtilsTask
 import ru.ytkab0bp.slicebeam.cloud.CloudController
 import ru.ytkab0bp.slicebeam.config.ConfigObject
+import ru.ytkab0bp.slicebeam.config.ProfileCompatibility
 import ru.ytkab0bp.slicebeam.config.TemporaryProjectSettings
 import ru.ytkab0bp.slicebeam.events.TemporaryProjectSettingsChangedEvent
 import ru.ytkab0bp.slicebeam.config.ProfileSettingsRepository
@@ -83,6 +84,9 @@ open class SliceBeam : Application() {
 
         @JvmField
         var PENDING_CALIB_STEP: Double = 0.0
+
+        @JvmField
+        var PENDING_CALIB_FILAMENT: Int = 0
 
         @JvmField
         var SERVER_DATA: BeamServerData? = null
@@ -332,6 +336,7 @@ open class SliceBeam : Application() {
             try {
                 val print = config.findPrint(config.presets!!["print"])
                 val printIsCompatible = print != null &&
+                    ProfileCompatibility.isSelectableProcess(print.title) &&
                     Slic3rUtils.isPrinterCompatible(
                         print.title,
                         print["compatible_printers"],
@@ -344,7 +349,8 @@ open class SliceBeam : Application() {
                     Slic3rUtils.lineWidthFitsNozzle(print["line_width"], nozzle)
                 if (!printIsCompatible) {
                     for (candidate in config.printConfigs) {
-                        if (Slic3rUtils.isPrinterCompatible(
+                        if (ProfileCompatibility.isSelectableProcess(candidate.title) &&
+                            Slic3rUtils.isPrinterCompatible(
                                 candidate.title,
                                 candidate["compatible_printers"],
                                 candidate["compatible_printers_condition"],
@@ -363,7 +369,7 @@ open class SliceBeam : Application() {
                 }
 
                 val filament = config.findFilament(config.presets!!["filament"])
-                val filamentIsCompatible = filament != null && Slic3rUtils.isPrinterCompatible(
+                val filamentIsCompatible = filament != null && ProfileCompatibility.isSelectableFilament(filament.title) && Slic3rUtils.isPrinterCompatible(
                     filament.title,
                     filament["compatible_printers"],
                     filament["compatible_printers_condition"],
@@ -374,7 +380,8 @@ open class SliceBeam : Application() {
                 )
                 if (!filamentIsCompatible) {
                     for (candidate in config.filamentConfigs) {
-                        if (Slic3rUtils.isPrinterCompatible(
+                        if (ProfileCompatibility.isSelectableFilament(candidate.title) &&
+                            Slic3rUtils.isPrinterCompatible(
                                 candidate.title,
                                 candidate["compatible_printers"],
                                 candidate["compatible_printers_condition"],

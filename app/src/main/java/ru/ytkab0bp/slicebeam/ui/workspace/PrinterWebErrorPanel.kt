@@ -39,7 +39,7 @@ internal fun PrinterWebErrorPanel(
         Icon(
             painter = painterResource(R.drawable.globe_cross_outline_28),
             contentDescription = null,
-            modifier = Modifier.size(32.dp),
+            modifier = Modifier.size(42.dp),
             tint = MaterialTheme.colorScheme.onSurfaceVariant,
         )
         Text(

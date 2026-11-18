@@ -243,9 +243,9 @@ std::string CalibPressureAdvance::draw_line(
 {
     if (e_per_mm <= 0.)
         e_per_mm = CalibPressureAdvance::e_per_mm(line_width, layer_height,
-                                                  m_config.option<ConfigOptionFloats>("nozzle_diameter")->get_at(0),
-                                                  m_config.option<ConfigOptionFloats>("filament_diameter")->get_at(0),
-                                                  m_config.option<ConfigOptionFloatsNullable>("filament_flow_ratio")->get_at(0));
+                                                  m_config.option<ConfigOptionFloats>("nozzle_diameter")->get_at(m_extruder_idx),
+                                                  m_config.option<ConfigOptionFloats>("filament_diameter")->get_at(m_filament_idx),
+                                                  m_config.option<ConfigOptionFloatsNullable>("filament_flow_ratio")->get_at(m_filament_idx));
 
     const double length = get_distance(Vec2d(m_last_pos.x(), m_last_pos.y()), to_pt);
     auto         dE     = e_per_mm * length;
@@ -560,6 +560,8 @@ CalibPressureAdvancePattern::CalibPressureAdvancePattern(
     : m_params(params),CalibPressureAdvance(config)
 {
     this->m_draw_digit_mode = DrawDigitMode::Bottom_To_Top;
+    m_filament_idx = std::max(0, params.filament_id);
+    m_extruder_idx = std::max(0, params.extruder_id);
 
     refresh_setup(config, is_bbl_machine, object, origin);
 }
@@ -573,8 +575,8 @@ Vec3d CalibPressureAdvancePattern::handle_pos_offset() const
 
 double CalibPressureAdvancePattern::flow_val() const
 {
-    double flow_mult = m_config.option<ConfigOptionFloats>("filament_flow_ratio")->get_at(0);
-    double nozzle_diameter = m_config.option<ConfigOptionFloats>("nozzle_diameter")->get_at(0);
+    double flow_mult = m_config.option<ConfigOptionFloats>("filament_flow_ratio")->get_at(m_filament_idx);
+    double nozzle_diameter = m_config.option<ConfigOptionFloats>("nozzle_diameter")->get_at(m_extruder_idx);
     double line_width = m_config.get_abs_value("line_width", nozzle_diameter);
     if (line_width <= 0.) line_width = Flow::auto_extrusion_width(frPerimeter, nozzle_diameter);
     double layer_height = m_config.get_abs_value("layer_height");
@@ -615,7 +617,7 @@ CustomGCode::Info CalibPressureAdvancePattern::generate_custom_gcodes(const Dyna
     std::vector<CustomGCode::Item> gcode_items;
     const int                      num_patterns = get_num_patterns(); // "cache" for use in loops
 
-    const double zhop_config_value = m_config.option<ConfigOptionFloats>("z_hop")->get_at(0);
+    const double zhop_config_value = m_config.option<ConfigOptionFloats>("z_hop")->get_at(m_extruder_idx);
     const auto accel = accel_perimeter();
 
     // draw pressure advance pattern
@@ -645,9 +647,9 @@ CustomGCode::Info CalibPressureAdvancePattern::generate_custom_gcodes(const Dyna
             gcode << m_writer.set_pressure_advance(m_params.start);
 
             double number_e_per_mm = e_per_mm(line_width(), height_layer(),
-                                              m_config.option<ConfigOptionFloats>("nozzle_diameter")->get_at(0),
-                                              m_config.option<ConfigOptionFloats>("filament_diameter")->get_at(0),
-                                              m_config.option<ConfigOptionFloats>("filament_flow_ratio")->get_at(0));
+                                              m_config.option<ConfigOptionFloats>("nozzle_diameter")->get_at(m_extruder_idx),
+                                              m_config.option<ConfigOptionFloats>("filament_diameter")->get_at(m_filament_idx),
+                                              m_config.option<ConfigOptionFloats>("filament_flow_ratio")->get_at(m_filament_idx));
 
             // glyph on every other line
             for (int j = 0; j < num_patterns; j += 2) {
@@ -808,8 +810,9 @@ void CalibPressureAdvancePattern::_refresh_writer(bool is_bbl_machine, const Mod
     m_writer.set_is_bbl_machine(is_bbl_machine);
 
     const unsigned int extruder_id = object.volumes.front()->extruder_id();
-    m_writer.set_extruders({extruder_id});
-    m_writer.set_extruder(extruder_id);
+    const unsigned int filament_id = extruder_id > 0 ? extruder_id - 1 : 0;
+    m_writer.set_extruders({filament_id});
+    m_writer.set_extruder(filament_id);
 }
 
 double CalibPressureAdvancePattern::object_size_x() const

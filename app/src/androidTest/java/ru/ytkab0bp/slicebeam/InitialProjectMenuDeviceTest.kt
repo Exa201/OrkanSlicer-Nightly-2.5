@@ -92,6 +92,7 @@ import ru.ytkab0bp.slicebeam.fragment.BedFragment
 import ru.ytkab0bp.slicebeam.slic3r.BooleanOperation
 import ru.ytkab0bp.slicebeam.slic3r.Model
 import ru.ytkab0bp.slicebeam.slic3r.StepImportOptions
+import ru.ytkab0bp.slicebeam.slic3r.ModelBatchImportPlacement
 import ru.ytkab0bp.slicebeam.slic3r.GLModel
 import ru.ytkab0bp.slicebeam.slic3r.PaintSession
 import ru.ytkab0bp.slicebeam.slic3r.ObjectBounds3D
@@ -5552,23 +5553,6 @@ class InitialProjectMenuDeviceTest {
             File(SliceBeam.getModelCacheDir(), secondFile.name),
             File(SliceBeam.getModelCacheDir(), thirdFile.name),
         )
-        val requestCode = MainActivity.REQUEST_CODE_OPEN_FILE
-        val launchersField = MainActivity::class.java.getDeclaredField("activityResultLaunchers")
-            .apply { isAccessible = true }
-        @Suppress("UNCHECKED_CAST")
-        val launchers = launchersField.get(activity) as MutableMap<Int, ActivityResultLauncher<Intent>>
-        val previousLauncher = requireNotNull(launchers[requestCode])
-        val capturedIntent = java.util.concurrent.atomic.AtomicReference<Intent?>()
-        launchers[requestCode] = object : ActivityResultLauncher<Intent>() {
-            override val contract: ActivityResultContract<Intent, *> =
-                ActivityResultContracts.StartActivityForResult()
-
-            override fun launch(input: Intent, options: ActivityOptionsCompat?) {
-                capturedIntent.set(Intent(input))
-            }
-
-            override fun unregister() = Unit
-        }
         @Suppress("DEPRECATION")
         val provider = activity.packageManager.getPackageInfo(
             activity.packageName,
@@ -5604,33 +5588,17 @@ class InitialProjectMenuDeviceTest {
             )
             assertEquals(0, bed.currentModel?.objectsCount ?: 0)
 
-            openWorkspaceMenu(activity, WorkspaceDestination.PROJECT, R.string.MenuProject)
-            compose.waitUntil(timeoutMillis = 5_000) {
-                compose.onAllNodesWithText(activity.getString(R.string.WorkspaceAddModelAction))
-                    .fetchSemanticsNodes().isNotEmpty()
-            }
-            compose.onNodeWithText(activity.getString(R.string.WorkspaceAddModelAction))
-                .assertIsDisplayed().performClick()
-            compose.waitUntil(timeoutMillis = 5_000) { capturedIntent.get() != null }
-            assertTrue(requireNotNull(capturedIntent.get()).getBooleanExtra(Intent.EXTRA_ALLOW_MULTIPLE, false))
-
             val firstUri = FileProvider.getUriForFile(activity, authority, firstFile)
             val secondUri = FileProvider.getUriForFile(activity, authority, secondFile)
-            val clipData = android.content.ClipData.newUri(
-                activity.contentResolver,
-                "selected STL, OBJ, and AMF models",
-                firstUri,
-            ).apply {
-                addItem(android.content.ClipData.Item(secondUri))
-                addItem(android.content.ClipData.Item(FileProvider.getUriForFile(activity, authority, thirdFile)))
-            }
-            val resultIntent = Intent().apply { setClipData(clipData) }
+            val thirdUri = FileProvider.getUriForFile(activity, authority, thirdFile)
             activity.runOnUiThread {
                 MainActivity::class.java.getDeclaredMethod(
-                    "dispatchActivityResult", Int::class.javaPrimitiveType,
-                    Int::class.javaPrimitiveType, Intent::class.java,
-                ).apply { isAccessible = true }
-                    .invoke(activity, requestCode, android.app.Activity.RESULT_OK, resultIntent)
+                    "loadMultipleMeshFiles", List::class.java, ModelBatchImportPlacement::class.java,
+                ).apply { isAccessible = true }.invoke(
+                    activity,
+                    listOf(firstUri, secondUri, thirdUri),
+                    ModelBatchImportPlacement(6.0),
+                )
             }
             compose.waitUntil(timeoutMillis = 60_000) {
                 (bed.currentModel?.objectsCount ?: 0) >= 3
@@ -5641,7 +5609,6 @@ class InitialProjectMenuDeviceTest {
             assertTrue("the batch importer should remove temporary cached meshes after loading",
                 cachedFiles.none(File::exists))
         } finally {
-            launchers[requestCode] = previousLauncher
             firstFile.delete()
             secondFile.delete()
             thirdFile.delete()
@@ -7090,6 +7057,11 @@ class InitialProjectMenuDeviceTest {
                     val planes = planesField.get(renderer) as List<GLModel>
                     check(planes.isNotEmpty()) { "Flatten mode did not produce any face planes" }
                     val sourceModel = requireNotNull(renderer.model)
+                    val meshesField = GLRenderer::class.java.getDeclaredField("glModels")
+                        .apply { isAccessible = true }
+                    @Suppress("UNCHECKED_CAST")
+                    val objectMeshes = meshesField.get(renderer) as List<GLModel>
+                    check(objectMeshes.isNotEmpty()) { "Flatten fixture has no render mesh" }
                     val objectMin = Vec3d()
                     val objectMax = Vec3d()
                     sourceModel.getBoundingBoxExact(0, objectMin, objectMax)
@@ -7109,6 +7081,33 @@ class InitialProjectMenuDeviceTest {
                             "Flatten helper planes drifted from the model on axis $axis: " +
                                 "helper center=$helperCenter, object center=${objectCenter[axis]}"
                         }
+                    }
+                    // The translucent face helpers must sit on the actual model surface.
+                    // A centered helper bounding box alone can hide a detached/offset overlay.
+                    val surfaceHits = ArrayList<GLModel.HitResult>()
+                    val helperHits = ArrayList<GLModel.HitResult>()
+                    var sampledHelperHits = 0
+                    var matchedSurfaceHits = 0
+                    val surfaceMesh = objectMeshes[0]
+                    for (row in -25..25) for (column in -25..25) {
+                        val x = renderer.viewportWidth * (0.5f + column / 100f)
+                        val y = renderer.viewportHeight * (0.5f + row / 100f)
+                        planes[1].raycaster.raycast(renderer, helperHits, x, y)
+                        if (helperHits.isEmpty()) continue
+                        surfaceMesh.raycaster.raycast(renderer, surfaceHits, x, y)
+                        for (helperHit in helperHits) {
+                            sampledHelperHits++
+                            if (surfaceHits.any { it.position.distance(helperHit.position) <= 2.0 }) {
+                                matchedSurfaceHits++
+                            }
+                        }
+                    }
+                    check(sampledHelperHits >= 5) {
+                        "Selected flatten helper had too few measurable surface hits: $sampledHelperHits"
+                    }
+                    check(matchedSurfaceHits * 10 >= sampledHelperHits * 9) {
+                        "Flatten face helper is displaced from the object surface: " +
+                            "$matchedSurfaceHits/$sampledHelperHits hits were within 2 mm"
                     }
                     val hits = ArrayList<GLModel.HitResult>()
                     planes.forEach { plane ->
@@ -7133,6 +7132,9 @@ class InitialProjectMenuDeviceTest {
             assertTrue("GL thread did not finish face-plane hit search", completed.await(30, TimeUnit.SECONDS))
             failure.get()?.let { throw AssertionError("Could not apply flatten rotation", it) }
             assertTrue("applying the angled plane should commit flatten rotation", applied.get())
+            val boundsAfter = readExactBoundsOnGl(glView, 0).single()
+            assertEquals("the selected face must be placed on the build surface after rotation",
+                0.0, boundsAfter[2], 0.02)
             compose.waitUntil(timeoutMillis = 10_000) { readModelHistorySize(bed, "undoHistory") > 0 }
             val rotationAfter = readRotationOnGl(glView, 0)
             assertTrue("flattening should change the native object rotation",
@@ -8166,7 +8168,7 @@ class InitialProjectMenuDeviceTest {
             glView.selectModel(0, Runnable {})
             instrumentationWaitForGlIdle()
 
-            openSelectedObjectMenu(activity)
+            openEditMenu(activity)
             revealMenuAction(activity, R.string.MenuTransformScale)
             compose.onNodeWithContentDescription(activity.getString(R.string.MenuTransformScale))
                 .performScrollTo().assertIsDisplayed().performClick()
@@ -8279,7 +8281,7 @@ class InitialProjectMenuDeviceTest {
             assertEquals("closing the tool must keep the committed scale", original.x * 1.5,
                 readScaleOnGl(glView, 0).x, 0.002)
 
-            openSelectedObjectMenu(activity)
+            openEditMenu(activity)
             revealMenuAction(activity, R.string.ModelContextResetScale)
             compose.onNodeWithContentDescription(activity.getString(R.string.ModelContextResetScale))
                 .performScrollTo().assertIsDisplayed().performClick()
@@ -8326,7 +8328,7 @@ class InitialProjectMenuDeviceTest {
             val original = readScaleOnGl(glView, 0)
             val boundsBefore = readExactBoundsOnGl(glView, 0).single()
 
-            openSelectedObjectMenu(activity)
+            openEditMenu(activity)
             revealMenuAction(activity, R.string.MenuTransformScale)
             compose.onNodeWithContentDescription(activity.getString(R.string.MenuTransformScale))
                 .performScrollTo().assertIsDisplayed().performClick()
@@ -8408,7 +8410,7 @@ class InitialProjectMenuDeviceTest {
             val original = readScaleOnGl(glView, 0)
             val rotatedBoundsBefore = readExactBoundsOnGl(glView, 0).single()
 
-            openSelectedObjectMenu(activity)
+            openEditMenu(activity)
             revealMenuAction(activity, R.string.MenuTransformScale)
             compose.onNodeWithContentDescription(activity.getString(R.string.MenuTransformScale))
                 .performScrollTo().assertIsDisplayed().performClick()
@@ -8463,7 +8465,7 @@ class InitialProjectMenuDeviceTest {
             val originalScale = readScaleOnGl(glView, 0)
             val boundsBefore = readExactBoundsOnGl(glView, 0).single()
 
-            openSelectedObjectMenu(activity)
+            openEditMenu(activity)
             revealMenuAction(activity, R.string.MenuTransformScale)
             compose.onNodeWithContentDescription(activity.getString(R.string.MenuTransformScale))
                 .performScrollTo().assertIsDisplayed().performClick()
@@ -8523,7 +8525,7 @@ class InitialProjectMenuDeviceTest {
             instrumentationWaitForGlIdle()
             val original = readScaleOnGl(glView, 0)
 
-            openSelectedObjectMenu(activity)
+            openEditMenu(activity)
             revealMenuAction(activity, R.string.MenuTransformScale)
             compose.onNodeWithContentDescription(activity.getString(R.string.MenuTransformScale))
                 .performScrollTo().assertIsDisplayed().performClick()
@@ -8599,7 +8601,7 @@ class InitialProjectMenuDeviceTest {
             fun center(bounds: DoubleArray, axis: Int) = (bounds[axis] + bounds[axis + 3]) / 2.0
             val initialCenter = (0..2).map { center(initialBounds, it) }
 
-            openSelectedObjectMenu(activity)
+            openEditMenu(activity)
             revealMenuAction(activity, R.string.MenuTransformScale)
             compose.onNodeWithContentDescription(activity.getString(R.string.MenuTransformScale))
                 .performScrollTo().assertIsDisplayed().performClick()
@@ -8686,7 +8688,7 @@ class InitialProjectMenuDeviceTest {
                 (0..2).map { axis -> (bounds[axis] + bounds[axis + 3]) / 2.0 }
             }
             val initialFilaments = (0..1).map { readUsedFilamentsOnGl(glView, it).toList() }
-            openSelectedObjectMenu(activity)
+            openEditMenu(activity)
             revealMenuAction(activity, R.string.MenuTransformScale)
             compose.onNodeWithContentDescription(activity.getString(R.string.MenuTransformScale))
                 .performScrollTo().assertIsDisplayed().performClick()
@@ -8774,7 +8776,7 @@ class InitialProjectMenuDeviceTest {
             instrumentationWaitForGlIdle()
             val original = readTranslationOnGl(glView, 0)
 
-            openSelectedObjectMenu(activity)
+            openEditMenu(activity)
             revealMenuAction(activity, R.string.MenuToolbarMove)
             compose.onNodeWithContentDescription(activity.getString(R.string.MenuToolbarMove))
                 .assertIsDisplayed().performClick()
@@ -8816,7 +8818,7 @@ class InitialProjectMenuDeviceTest {
             instrumentationWaitForGlIdle()
             val original = readTranslationOnGl(glView, 0)
 
-            openSelectedObjectMenu(activity)
+            openEditMenu(activity)
             revealMenuAction(activity, R.string.MenuToolbarMove)
             compose.onNodeWithContentDescription(activity.getString(R.string.MenuToolbarMove))
                 .assertIsDisplayed().performClick()
@@ -8892,7 +8894,7 @@ class InitialProjectMenuDeviceTest {
             instrumentationWaitForGlIdle()
             val before = (0..1).map { readTranslationOnGl(glView, it) }
 
-            openSelectedObjectMenu(activity)
+            openEditMenu(activity)
             revealMenuAction(activity, R.string.MenuToolbarMove)
             compose.onNodeWithContentDescription(activity.getString(R.string.MenuToolbarMove))
                 .performScrollTo().assertIsDisplayed().assertIsEnabled().performClick()
@@ -9350,7 +9352,7 @@ class InitialProjectMenuDeviceTest {
             instrumentationWaitForGlIdle()
             assertEquals("test object should be selected before rotation", 0, readSelectedObjectOnGl(glView))
 
-            openSelectedObjectMenu(activity)
+            openEditMenu(activity)
             revealMenuAction(activity, R.string.MenuToolbarRotate)
             val rotateAction = compose.onNodeWithContentDescription(activity.getString(R.string.MenuToolbarRotate))
             if (!usesCompactPortraitLayout(activity)) rotateAction.performScrollTo()
@@ -9380,7 +9382,7 @@ class InitialProjectMenuDeviceTest {
             }
             assertEquals("Back should discard the uncommitted rotation preview", 0.0,
                 readRotationOnGl(glView, 0).x, 0.002)
-            openSelectedObjectMenu(activity)
+            openEditMenu(activity)
             revealMenuAction(activity, R.string.MenuToolbarRotate)
             val applyRotateAction = compose.onNodeWithContentDescription(activity.getString(R.string.MenuToolbarRotate))
             if (!usesCompactPortraitLayout(activity)) applyRotateAction.performScrollTo()
@@ -9417,7 +9419,7 @@ class InitialProjectMenuDeviceTest {
             assertEquals("test object should remain selected before reset", 0, readSelectedObjectOnGl(glView))
             assertEquals("history actions should leave no active tool", null,
                 workspaceController.javaClass.getMethod("getActiveToolId").invoke(workspaceController))
-            openSelectedObjectMenu(activity)
+            openEditMenu(activity)
             val snackbarControllerField = BedFragment::class.java.getDeclaredField("snackbarController")
                 .apply { isAccessible = true }
             val snackbarController = snackbarControllerField.get(bed)
@@ -9552,7 +9554,7 @@ class InitialProjectMenuDeviceTest {
             val beforeDx = center(before[1], 0) - center(before[0], 0)
             val beforeDy = center(before[1], 1) - center(before[0], 1)
 
-            openSelectedObjectMenu(activity)
+            openEditMenu(activity)
             revealMenuAction(activity, R.string.MenuToolbarRotate)
             compose.onNodeWithContentDescription(activity.getString(R.string.MenuToolbarRotate))
                 .performScrollTo().assertIsDisplayed().performClick()
@@ -9617,7 +9619,7 @@ class InitialProjectMenuDeviceTest {
             assertTrue("fixture should begin larger than the build volume",
                 before[3] - before[0] > bedBounds[3] - bedBounds[0])
 
-            openSelectedObjectMenu(activity)
+            openEditMenu(activity)
             revealMenuAction(activity, R.string.ModelScaleToBuildVolume)
             compose.onNodeWithContentDescription(activity.getString(R.string.ModelScaleToBuildVolume))
                 .performScrollTo().assertIsDisplayed().assertIsEnabled().performClick()
@@ -9691,7 +9693,7 @@ class InitialProjectMenuDeviceTest {
                 ((before[1][0] + before[1][3]) - (before[0][0] + before[0][3])) / 2.0,
             )
 
-            openSelectedObjectMenu(activity)
+            openEditMenu(activity)
             revealMenuAction(activity, R.string.ModelScaleToBuildVolume)
             compose.onNodeWithContentDescription(activity.getString(R.string.ModelScaleToBuildVolume))
                 .performScrollTo().assertIsDisplayed().assertIsEnabled().performClick()
@@ -9971,7 +9973,7 @@ class InitialProjectMenuDeviceTest {
             val originalWidth = width(before[0])
             val originalSpacing = centerX(before[1]) - centerX(before[0])
 
-            openSelectedObjectMenu(activity)
+            openEditMenu(activity)
             revealMenuAction(activity, R.string.MenuTransformScale)
             compose.onNodeWithContentDescription(activity.getString(R.string.MenuTransformScale))
                 .performScrollTo().assertIsDisplayed().performClick()
@@ -10158,7 +10160,7 @@ class InitialProjectMenuDeviceTest {
             glView.selectModel(0, Runnable {})
             instrumentationWaitForGlIdle()
 
-            openSelectedObjectMenu(activity)
+            openEditMenu(activity)
             revealMenuAction(activity, R.string.MenuTransformCut)
             compose.onNodeWithContentDescription(activity.getString(R.string.MenuTransformCut))
                 .performScrollTo().assertIsDisplayed().performClick()
@@ -10179,7 +10181,7 @@ class InitialProjectMenuDeviceTest {
             assertFalse("Back should hide the uncommitted cut preview", readRendererBooleanOnGl(glView, "cutPlaneVisible"))
             assertEquals("cancelling Cut must preserve the object", 1, readObjectCountOnGl(glView))
 
-            openSelectedObjectMenu(activity)
+            openEditMenu(activity)
             revealMenuAction(activity, R.string.MenuToolbarVariableLayerHeight)
             compose.onNodeWithContentDescription(activity.getString(R.string.MenuToolbarVariableLayerHeight))
                 .performScrollTo().assertIsDisplayed().performClick()
@@ -10192,7 +10194,7 @@ class InitialProjectMenuDeviceTest {
 
             glView.selectModel(0, Runnable {})
             instrumentationWaitForGlIdle()
-            openSelectedObjectMenu(activity)
+            openEditMenu(activity)
             revealMenuAction(activity, R.string.ModelMenuSplit)
             compose.onNodeWithContentDescription(activity.getString(R.string.ModelMenuSplit))
                 .performScrollTo().assertIsDisplayed().performClick()
@@ -10222,7 +10224,7 @@ class InitialProjectMenuDeviceTest {
             assertFalse("the fixture should begin with constant layer height",
                 readAdaptiveLayerHeightOnGl(glView, 0))
 
-            openSelectedObjectMenu(activity)
+            openEditMenu(activity)
             revealMenuAction(activity, R.string.MenuToolbarVariableLayerHeight)
             compose.onNodeWithContentDescription(activity.getString(R.string.MenuToolbarVariableLayerHeight))
                 .performScrollTo().assertIsDisplayed().performClick()
@@ -10271,7 +10273,7 @@ class InitialProjectMenuDeviceTest {
             glView.selectModel(0, Runnable {})
             instrumentationWaitForGlIdle()
 
-            openSelectedObjectMenu(activity)
+            openEditMenu(activity)
             revealMenuAction(activity, R.string.MenuTransformCut)
             compose.onNodeWithContentDescription(activity.getString(R.string.MenuTransformCut))
                 .performScrollTo().assertIsDisplayed().performClick()
@@ -10327,7 +10329,7 @@ class InitialProjectMenuDeviceTest {
             glView.selectModel(0, Runnable {})
             instrumentationWaitForGlIdle()
 
-            openSelectedObjectMenu(activity)
+            openEditMenu(activity)
             revealMenuAction(activity, R.string.MenuTransformCut)
             compose.onNodeWithContentDescription(activity.getString(R.string.MenuTransformCut))
                 .performScrollTo().assertIsDisplayed().performClick()
@@ -10411,7 +10413,7 @@ class InitialProjectMenuDeviceTest {
                 readTriangleCountOnGl(glView, 1),
             )
 
-            openSelectedObjectMenu(activity)
+            openEditMenu(activity)
             revealMenuAction(activity, R.string.MenuTransformCut)
             compose.onNodeWithContentDescription(activity.getString(R.string.MenuTransformCut))
                 .performScrollTo().assertIsDisplayed().performClick()
@@ -10611,7 +10613,7 @@ class InitialProjectMenuDeviceTest {
             instrumentationWaitForGlIdle()
             val trianglesBefore = readTriangleCountOnGl(glView, 0)
 
-            openSelectedObjectMenu(activity)
+            openEditMenu(activity)
             revealMenuAction(activity, R.string.MenuToolbarEmboss)
             compose.onNodeWithContentDescription(activity.getString(R.string.MenuToolbarEmboss))
                 .performScrollTo().assertIsDisplayed().performClick()
@@ -10789,9 +10791,9 @@ class InitialProjectMenuDeviceTest {
             FilamentSlot(0xFF3366CC.toInt(), "UI Paint Accent"),
         ))
         try {
-            activity.assets.open("models/xyz_cube.stl").use { source ->
-                modelFile.outputStream().use(source::copyTo)
-            }
+            // A phone-sized brush stroke needs enough projected surface to distinguish a
+            // drag from a single tap; use a larger temporary cube than the 20 mm asset.
+            writeScaledCubeStl(activity, modelFile, 80f)
             val model = loadSingleTestModel(bed, modelFile)
             assertEquals(1, model.objectsCount)
             val glView = requireNotNull(bed.glView)
@@ -10807,10 +10809,10 @@ class InitialProjectMenuDeviceTest {
                 R.string.MenuToolbarColorPaint to GLRenderer.PAINT_MODE_COLOR,
             )
             paintActions.forEach { (labelRes, expectedMode) ->
-                openSelectedObjectMenu(activity)
+                openEditMenu(activity)
                 revealMenuAction(activity, labelRes)
                 compose.onNodeWithContentDescription(activity.getString(labelRes))
-                    .performScrollTo().assertIsDisplayed().performClick()
+                    .assertIsDisplayed().performClick()
                 val paintStarted = runCatching {
                     compose.waitUntil(timeoutMillis = 10_000) {
                         bed.isPaintMode && readRendererBooleanOnGl(glView, "isPaintMode")
@@ -10822,10 +10824,49 @@ class InitialProjectMenuDeviceTest {
                         "rendererMode=${readRendererIntOnGl(glView, "paintModeKind")}",
                     paintStarted.isSuccess,
                 )
+                compose.onNodeWithTag("workspace-docked-tool-panel").assertIsDisplayed()
                 compose.onNodeWithText(activity.getString(R.string.PaintWith)).assertIsDisplayed()
                 assertEquals("The selected menu action must activate its matching GL paint mode",
                     expectedMode, readRendererIntOnGl(glView, "paintModeKind"))
                 assertFalse("Opening or cancelling paint must not add model paint",
+                    readModelHasPaintOnGl(glView, 0))
+                val strokePoint = findUncoveredPreciseSurfacePoint(glView, bed)
+                val strokeEnd = findUncoveredPreciseSurfacePoint(
+                    // Make the second ray land well beyond the initial 1 mm brush footprint;
+                    // a short move can stay within the same triangulated face and make a
+                    // triangle-count assertion look like the drag was dropped.
+                    glView, bed, avoid = strokePoint, minimumAvoidDistancePx = 280f,
+                )
+                // Keep the brush smaller than the fixture so the swipe must cover new
+                // facets after its initial down point; the default 4 mm brush can saturate
+                // this small test cube in a single tap and falsely look like lost moves.
+                glView.queueEvent { glView.renderer.paintBrushRadius = 1.0 }
+                instrumentationWaitForGlIdle()
+                val paintState = if (expectedMode == GLRenderer.PAINT_MODE_COLOR) 2 else 1
+                // Compare a real start-point tap with a separately cleared, real Android
+                // touch stream. Triangle counts can be identical when equal-sized regions
+                // on two faces are painted, so compare the actual preview mesh geometry.
+                paintAtScreenPointWhileHeld(glView, strokePoint)
+                val tapOnlyMesh = readPaintSessionMeshOnGl(glView, paintState)
+                glView.queueEvent { glView.renderer.clearPaint(); glView.requestRender() }
+                instrumentationWaitForGlIdle()
+                val swipeTouchDiagnostics = injectWorkspaceCanvasSwipe(
+                    activity, bed, glView, strokePoint.first, strokePoint.second, strokeEnd.first, strokeEnd.second,
+                )
+                val swipeMesh = readPaintSessionMeshOnGl(glView, paintState)
+                val dragPreview = runCatching {
+                    assertTrue("the dragged brush must paint mesh facets beyond its initial tap point", 
+                        swipeMesh.size > 0 && !tapOnlyMesh.contentEquals(swipeMesh))
+                }
+                assertTrue(
+                    "the dragged brush must paint beyond its initial tap point: " +
+                        "mode=$expectedMode start=$strokePoint end=$strokeEnd " +
+                        "tapVertices=${tapOnlyMesh.size} swipeVertices=${swipeMesh.size} " +
+                        "touch=$swipeTouchDiagnostics " +
+                        "paintMode=${glView.renderer.isPaintMode} brush=${glView.isPaintBrushActive}",
+                    dragPreview.isSuccess,
+                )
+                assertFalse("a live swipe remains a draft until paint confirmation",
                     readModelHasPaintOnGl(glView, 0))
 
                 assertTrue("Android Back should cancel the active paint tool", bed.onBackPressed())
@@ -10840,10 +10881,10 @@ class InitialProjectMenuDeviceTest {
                 assertTrue("Paint tool exit should retain the renderer view", bed.glView === glView)
             }
 
-            openSelectedObjectMenu(activity)
+            openEditMenu(activity)
             revealMenuAction(activity, R.string.MenuToolbarColorPaint)
             compose.onNodeWithContentDescription(activity.getString(R.string.MenuToolbarColorPaint))
-                .performScrollTo().assertIsDisplayed().performClick()
+                .assertIsDisplayed().performClick()
             val secondPaintStart = runCatching {
                 compose.waitUntil(timeoutMillis = 10_000) {
                     bed.isPaintMode && readRendererBooleanOnGl(glView, "isPaintMode")
@@ -10894,10 +10935,10 @@ class InitialProjectMenuDeviceTest {
                 intArrayOf(1), readUsedFilamentsOnGl(glView, 0),
             )
 
-            openSelectedObjectMenu(activity)
+            openEditMenu(activity)
             revealMenuAction(activity, R.string.MenuToolbarColorPaint)
             compose.onNodeWithContentDescription(activity.getString(R.string.MenuToolbarColorPaint))
-                .performScrollTo().assertIsDisplayed().performClick()
+                .assertIsDisplayed().performClick()
             compose.waitUntil(timeoutMillis = 10_000) {
                 bed.isPaintMode && readRendererBooleanOnGl(glView, "isPaintMode")
             }
@@ -10950,10 +10991,10 @@ class InitialProjectMenuDeviceTest {
             val glView = requireNotNull(bed.glView)
             glView.selectModel(0, Runnable {})
             instrumentationWaitForGlIdle()
-            openSelectedObjectMenu(activity)
+            openEditMenu(activity)
             revealMenuAction(activity, R.string.MenuToolbarColorPaint)
             compose.onNodeWithContentDescription(activity.getString(R.string.MenuToolbarColorPaint))
-                .performScrollTo().assertIsDisplayed().performClick()
+                .assertIsDisplayed().performClick()
             compose.waitUntil(timeoutMillis = 10_000) {
                 bed.isPaintMode && readRendererBooleanOnGl(glView, "isPaintMode")
             }
@@ -11114,10 +11155,10 @@ class InitialProjectMenuDeviceTest {
             val glView = requireNotNull(bed.glView)
             glView.selectModel(0, Runnable {})
             instrumentationWaitForGlIdle()
-            openSelectedObjectMenu(activity)
+            openEditMenu(activity)
             revealMenuAction(activity, R.string.MenuToolbarColorPaint)
             compose.onNodeWithContentDescription(activity.getString(R.string.MenuToolbarColorPaint))
-                .performScrollTo().assertIsDisplayed().performClick()
+                .assertIsDisplayed().performClick()
             compose.waitUntil(timeoutMillis = 10_000) {
                 bed.isPaintMode && readRendererBooleanOnGl(glView, "isPaintMode")
             }
@@ -11203,7 +11244,7 @@ class InitialProjectMenuDeviceTest {
             }
             assertTrue("GL thread should apply the pre-paint zoom", zoomReady.await(5, TimeUnit.SECONDS))
 
-            openSelectedObjectMenu(activity)
+            openEditMenu(activity)
             revealMenuAction(activity, R.string.MenuToolbarColorPaint)
             compose.onNodeWithContentDescription(activity.getString(R.string.MenuToolbarColorPaint))
                 .performScrollTo().assertIsDisplayed().performClick()
@@ -11329,7 +11370,7 @@ class InitialProjectMenuDeviceTest {
             glView.selectModel(0, Runnable {})
             instrumentationWaitForGlIdle()
 
-            openSelectedObjectMenu(activity)
+            openEditMenu(activity)
             revealMenuAction(activity, R.string.MenuToolbarColorPaint)
             compose.onNodeWithContentDescription(activity.getString(R.string.MenuToolbarColorPaint))
                 .performScrollTo().assertIsDisplayed().performClick()
@@ -11402,7 +11443,7 @@ class InitialProjectMenuDeviceTest {
             glView.selectModel(0, Runnable {})
             instrumentationWaitForGlIdle()
             assertFalse("paint touch fixture starts without facet assignments", readModelHasPaintOnGl(glView, 0))
-            openSelectedObjectMenu(activity)
+            openEditMenu(activity)
             revealMenuAction(activity, R.string.MenuToolbarColorPaint)
             compose.onNodeWithContentDescription(activity.getString(R.string.MenuToolbarColorPaint))
                 .performScrollTo().assertIsDisplayed().performClick()
@@ -11520,7 +11561,7 @@ class InitialProjectMenuDeviceTest {
                 val state = if (paintState == R.string.PaintBlock) 2 else 1
                 assertEquals("mode $expectedMode should start with an empty native annotation channel", 0,
                     readCommittedPaintModeTriangleCountOnGl(glView, expectedMode, state))
-                openSelectedObjectMenu(activity)
+                openEditMenu(activity)
                 revealMenuAction(activity, actionLabel)
                 compose.onNodeWithContentDescription(activity.getString(actionLabel))
                     .performScrollTo().assertIsDisplayed().performClick()
@@ -11556,7 +11597,7 @@ class InitialProjectMenuDeviceTest {
                 assertEquals("cancelling mode-$expectedMode paint must discard the staged stroke", 0,
                     readCommittedPaintModeTriangleCountOnGl(glView, expectedMode, state))
 
-                openSelectedObjectMenu(activity)
+                openEditMenu(activity)
                 revealMenuAction(activity, actionLabel)
                 compose.onNodeWithContentDescription(activity.getString(actionLabel))
                     .performScrollTo().assertIsDisplayed().performClick()
@@ -11616,7 +11657,7 @@ class InitialProjectMenuDeviceTest {
             val originalTriangles = readTriangleCountOnGl(glView, 0)
             assertTrue("sphere fixture must be large enough for simplification", originalTriangles > 4)
 
-            openSelectedObjectMenu(activity)
+            openEditMenu(activity)
             revealMenuAction(activity, R.string.ModelSimplify)
             compose.onNodeWithContentDescription(activity.getString(R.string.ModelSimplify))
                 .performScrollTo().assertIsDisplayed().performClick()
@@ -11624,7 +11665,7 @@ class InitialProjectMenuDeviceTest {
             assertEquals("cancelling simplify must preserve the model", originalTriangles,
                 readTriangleCountOnGl(glView, 0))
 
-            openSelectedObjectMenu(activity)
+            openEditMenu(activity)
             revealMenuAction(activity, R.string.ModelSimplify)
             compose.onNodeWithContentDescription(activity.getString(R.string.ModelSimplify))
                 .performScrollTo().assertIsDisplayed().performClick()
@@ -12010,20 +12051,24 @@ class InitialProjectMenuDeviceTest {
     private fun revealMenuAction(activity: MainActivity, titleRes: Int) {
         val title = activity.getString(titleRes)
         if (usesCompactPortraitLayout(activity)) {
-            // Lazy grids expose only their currently composed cells to semantics. Scroll through
-            // the real menu items first; asking Compose to scroll to a not-yet-composed node can
-            // never find late actions such as Scale, Delete, or Paint.
-            for (index in 0 until 64) {
-                if (compose.onAllNodesWithContentDescription(title).fetchSemanticsNodes().isNotEmpty()) break
-                val scrolled = runCatching { scrollMenuToIndex(index) }.isSuccess
-                if (!scrolled) break
+            // LazyVerticalGrid exposes ScrollToIndex rather than ScrollBy/ScrollTo. Move
+            // through its own scroll action until the requested virtualized tile exists.
+            // This mirrors actual vertical scrolling without asking the tile to scroll itself.
+            for (index in 0..63) {
+                if (compose.onAllNodesWithContentDescription(title).fetchSemanticsNodes().isNotEmpty()) {
+                    break
+                }
+                compose.onNode(hasScrollToIndexAction()).performScrollToIndex(index)
                 compose.waitForIdle()
             }
         }
         compose.waitUntil(timeoutMillis = 5_000) {
             compose.onAllNodesWithContentDescription(title).fetchSemanticsNodes().isNotEmpty()
         }
-        compose.onNodeWithContentDescription(title).performScrollTo().assertIsDisplayed()
+        // The reveal action above already scrolls the owning menu container. Individual
+        // tiles are not scroll containers, so performScrollTo() on the tile itself throws
+        // when the compact grid exposes only a ScrollToIndex action on its parent.
+        compose.onNodeWithContentDescription(title).assertIsDisplayed()
     }
 
     private fun revealPaintFilamentSwatch(
@@ -12803,6 +12848,30 @@ class InitialProjectMenuDeviceTest {
         return requireNotNull(value.get())
     }
 
+    private fun readPaintSessionMeshOnGl(
+        glView: ru.ytkab0bp.slicebeam.view.GLView,
+        filament: Int,
+    ): FloatArray {
+        val finished = CountDownLatch(1)
+        val value = AtomicReference<FloatArray>()
+        val failure = AtomicReference<Throwable?>()
+        glView.queueEvent {
+            try {
+                val session = GLRenderer::class.java.getDeclaredField("paintSession")
+                    .apply { isAccessible = true }.get(glView.renderer) as? PaintSession
+                    ?: error("Paint session ended before preview mesh inspection")
+                value.set(session.getMesh(filament))
+            } catch (error: Throwable) {
+                failure.set(error)
+            } finally {
+                finished.countDown()
+            }
+        }
+        assertTrue("GL thread did not return paint preview geometry", finished.await(10, TimeUnit.SECONDS))
+        failure.get()?.let { throw AssertionError("Could not inspect paint preview geometry", it) }
+        return requireNotNull(value.get())
+    }
+
     private fun readRendererLastDrawOnGl(glView: ru.ytkab0bp.slicebeam.view.GLView): Long {
         val done = CountDownLatch(1)
         val value = AtomicReference<Long>()
@@ -13217,6 +13286,79 @@ class InitialProjectMenuDeviceTest {
         InstrumentationRegistry.getInstrumentation().waitForIdleSync()
     }
 
+    /** Dispatches a touchscreen stream through the Compose and Android parent hierarchy. */
+    private fun injectWorkspaceCanvasSwipe(
+        activity: Activity,
+        bed: BedFragment,
+        glView: ru.ytkab0bp.slicebeam.view.GLView,
+        screenX: Float,
+        screenY: Float,
+        endScreenX: Float,
+        endScreenY: Float,
+    ): String {
+        assertTrue("the swipe start must be inside the visible GL canvas",
+            screenX >= glView.getLocationOnScreenX() && screenY >= glView.getLocationOnScreenY())
+        assertTrue("the swipe end must be inside the visible GL canvas",
+            endScreenX >= glView.getLocationOnScreenX() && endScreenY >= glView.getLocationOnScreenY())
+        val downTime = SystemClock.uptimeMillis()
+        val root = requireNotNull(bed.overlayLayout)
+        val rootLocation = IntArray(2)
+        root.getLocationOnScreen(rootLocation)
+        var lastEventTime = downTime
+        var activeMidway = false
+        var pointMidway = "not sampled"
+        fun dispatch(action: Int, x: Float, y: Float) {
+            val eventTime = maxOf(SystemClock.uptimeMillis(), lastEventTime + 1L)
+            val event = MotionEvent.obtain(
+                downTime, eventTime, action, x - rootLocation[0], y - rootLocation[1], 0,
+            ).apply { source = InputDevice.SOURCE_TOUCHSCREEN }
+            try {
+                var handled = false
+                compose.runOnUiThread { handled = root.dispatchTouchEvent(event) }
+                assertTrue("workspace root rejected touchscreen swipe action=$action", handled)
+            } finally { event.recycle() }
+            lastEventTime = eventTime
+        }
+        dispatch(MotionEvent.ACTION_DOWN, screenX, screenY)
+        repeat(8) { index ->
+            val fraction = (index + 1) / 8f
+            dispatch(MotionEvent.ACTION_MOVE,
+                screenX + (endScreenX - screenX) * fraction,
+                screenY + (endScreenY - screenY) * fraction)
+            if (index == 3) {
+                compose.runOnUiThread {
+                    activeMidway = ru.ytkab0bp.slicebeam.view.GLView::class.java
+                        .getDeclaredField("paintStrokeActive").apply { isAccessible = true }.getBoolean(glView)
+                }
+                val pointDone = CountDownLatch(1)
+                glView.queueEvent {
+                    pointMidway = ru.ytkab0bp.slicebeam.view.GLView::class.java
+                        .getDeclaredField("lastPaintPoint").apply { isAccessible = true }
+                        .get(glView)?.toString() ?: "null"
+                    pointDone.countDown()
+                }
+                assertTrue("GL thread did not report mid-swipe input state", pointDone.await(5, TimeUnit.SECONDS))
+            }
+            SystemClock.sleep(20L)
+        }
+        dispatch(MotionEvent.ACTION_UP, endScreenX, endScreenY)
+        instrumentationWaitForGlIdle()
+        return "activeMidway=$activeMidway,lastPointMidway=$pointMidway,root=${root.javaClass.simpleName} " +
+            "gl=${glView.getLocationOnScreenX()},${glView.getLocationOnScreenY()} ${glView.width}x${glView.height}"
+    }
+
+    private fun View.getLocationOnScreenX(): Float {
+        val location = IntArray(2)
+        getLocationOnScreen(location)
+        return location[0].toFloat()
+    }
+
+    private fun View.getLocationOnScreenY(): Float {
+        val location = IntArray(2)
+        getLocationOnScreen(location)
+        return location[1].toFloat()
+    }
+
     private fun hasSnackbarTitle(titleRes: Int): Boolean {
         val expectedTitle = compose.activity.getString(titleRes)
         // Read the rendered state through Compose semantics. Reflectively iterating the
@@ -13322,9 +13464,12 @@ class InitialProjectMenuDeviceTest {
         SliceBeam.clearLiveDiffs()
 
         val config = context.assets.open("orca_profiles/Anycubic.ini").use(::Slic3rConfigWrapper)
-        val printer = requireNotNull(config.findPrinter("Anycubic Kobra 3 0.4 nozzle"))
-        val process = requireNotNull(config.findPrint("0.16mm Standard"))
-        val filament = requireNotNull(config.findFilament("Anycubic Generic PLA"))
+        // Keep this fixture tied to the bundled current Anycubic preset database.
+        // Profile titles are versioned by printer model/nozzle and may change when
+        // the upstream Orca database is refreshed.
+        val printer = requireNotNull(config.findPrinter("Anycubic Kobra 3 V2 0.4 nozzle"))
+        val process = requireNotNull(config.findPrint(printer["default_print_profile"]))
+        val filament = requireNotNull(config.findFilament(printer["default_filament_profile"]))
         config.presets = ConfigObject("presets").apply {
             put("printer", printer.title)
             put("print", process.title)

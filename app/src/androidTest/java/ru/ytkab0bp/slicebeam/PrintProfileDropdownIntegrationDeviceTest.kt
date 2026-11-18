@@ -32,6 +32,7 @@ import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
 import ru.ytkab0bp.slicebeam.config.ConfigObject
+import ru.ytkab0bp.slicebeam.config.ProfileCompatibility
 import ru.ytkab0bp.slicebeam.config.ProfileSettingsRepository
 import ru.ytkab0bp.slicebeam.config.PrinterScopedProcessProfile
 import ru.ytkab0bp.slicebeam.fragment.PrinterConfigFragment
@@ -45,6 +46,7 @@ import ru.ytkab0bp.slicebeam.slic3r.ConfigOptionDef
 import ru.ytkab0bp.slicebeam.slic3r.Slic3rConfigWrapper
 import ru.ytkab0bp.slicebeam.slic3r.Slic3rLocalization
 import ru.ytkab0bp.slicebeam.config.SlotFilamentProfiles
+import ru.ytkab0bp.slicebeam.fragment.BedFragment
 import ru.ytkab0bp.slicebeam.utils.Prefs
 import ru.ytkab0bp.slicebeam.utils.PrinterProfileSelectionStore
 import ru.ytkab0bp.slicebeam.ui.settings.OrcaProfileGroupLocalizer
@@ -69,7 +71,7 @@ class PrintProfileDropdownIntegrationDeviceTest {
         val preferences = requireNotNull(Prefs.getPrefs())
         val previousSlot = SlotFilamentProfiles.selectedSlot
         val previousSlotProfiles = preferences.getString("filament_slot_profiles", null)
-        val firstFilamentTitle = requireNotNull(config.filamentConfigs.first().title)
+        val firstFilamentTitle = requireNotNull(ProfileCompatibility.filaments(config).first().title)
 
         try {
             activity.runOnUiThread {
@@ -595,7 +597,12 @@ class PrintProfileDropdownIntegrationDeviceTest {
     fun activeCompatibleProcessPresetIsSelectedInFilteredMenuSnapshot() {
         val activity = compose.activity
         val config = SliceBeam.requireConfig()
-        assertEquals("The fixture starts from the bundled process preset", "0.16mm High Quality", config.presets?.get("print"))
+        val initialPrinter = requireNotNull(config.findPrinter(config.presets?.get("printer")))
+        assertEquals(
+            "The fixture starts from the selected printer's current factory default",
+            initialPrinter["default_print_profile"],
+            config.presets?.get("print"),
+        )
 
         activity.runOnUiThread {
             (activity.navigationDelegate as MobileNavigationDelegate).switchToSlot(2)
@@ -991,10 +998,10 @@ class PrintProfileDropdownIntegrationDeviceTest {
 
         try {
             activity.runOnUiThread {
-                (activity.navigationDelegate as MobileNavigationDelegate).switchToSlot(2)
+                (activity.navigationDelegate as MobileNavigationDelegate).switchToSlot(0)
             }
             compose.waitUntil(timeoutMillis = 15_000) {
-                activity.navigationDelegate.getCurrentFragment() is PrintConfigFragment
+                activity.navigationDelegate.getCurrentFragment() is BedFragment
             }
             val activeProcessTitle = requireNotNull(presets["print"])
             val activeProcess = requireNotNull(config.findPrint(activeProcessTitle))
@@ -1005,8 +1012,7 @@ class PrintProfileDropdownIntegrationDeviceTest {
             val changedY = initialPositions.y.toMutableList().also { it[0] = "42.25" }
             val expected = requireNotNull(PrintConfigToolsLogic.serializeTowerPositions(changedX, changedY))
 
-            compose.onNodeWithText(activity.getString(R.string.PrimeTowerPositionShort))
-                .assertIsDisplayed().performClick()
+            compose.onNodeWithTag("workspace-header-prime-tower").assertIsDisplayed().performClick()
             compose.onNodeWithTag("prime-tower-x-0").performTextClearance()
             compose.onNodeWithTag("prime-tower-x-0").performTextInput("27.5")
             compose.onNodeWithTag("prime-tower-y-0").performTextClearance()
@@ -1026,8 +1032,7 @@ class PrintProfileDropdownIntegrationDeviceTest {
             assertEquals("Applying the tool edits only the profile draft", originalX, activeProcess.get("wipe_tower_x"))
             assertEquals(originalY, activeProcess.get("wipe_tower_y"))
 
-            compose.onNodeWithText(activity.getString(R.string.PrimeTowerPositionShort))
-                .assertIsDisplayed().performClick()
+            compose.onNodeWithTag("workspace-header-prime-tower").assertIsDisplayed().performClick()
             compose.onNodeWithTag("prime-tower-x-0").performTextClearance()
             compose.onNodeWithTag("prime-tower-x-0").performTextInput("35")
             compose.onNodeWithText(activity.getString(android.R.string.cancel)).performClick()
@@ -1066,10 +1071,10 @@ class PrintProfileDropdownIntegrationDeviceTest {
 
         try {
             activity.runOnUiThread {
-                (activity.navigationDelegate as MobileNavigationDelegate).switchToSlot(2)
+                (activity.navigationDelegate as MobileNavigationDelegate).switchToSlot(0)
             }
             compose.waitUntil(timeoutMillis = 15_000) {
-                activity.navigationDelegate.getCurrentFragment() is PrintConfigFragment
+                activity.navigationDelegate.getCurrentFragment() is BedFragment
             }
             val activeProcess = requireNotNull(config.findPrint(requireNotNull(presets["print"])))
             val originalMatrix = activeProcess.get("flush_volumes_matrix")
@@ -1086,16 +1091,7 @@ class PrintProfileDropdownIntegrationDeviceTest {
                 PrintConfigToolsLogic.serializeFlushMatrix(matrix.side, changedCells),
             )
 
-            val flushVolumesLabel = activity.getString(R.string.FlushVolumes)
-            compose.waitUntil(timeoutMillis = 10_000) {
-                try {
-                    compose.onNodeWithText(flushVolumesLabel).assertIsDisplayed()
-                    true
-                } catch (_: AssertionError) {
-                    false
-                }
-            }
-            compose.onNodeWithText(flushVolumesLabel).performClick()
+            compose.onNodeWithTag("workspace-header-flush-volumes").assertIsDisplayed().performClick()
             compose.onNodeWithTag("flush-cell-1").performTextClearance()
             compose.onNodeWithTag("flush-cell-1").performTextInput("315")
             compose.onNodeWithText(activity.getString(android.R.string.ok)).performClick()
@@ -1110,15 +1106,7 @@ class PrintProfileDropdownIntegrationDeviceTest {
             assertEquals("Applying the matrix updates only the profile draft",
                 originalMatrix, activeProcess.get("flush_volumes_matrix"))
 
-            compose.waitUntil(timeoutMillis = 10_000) {
-                try {
-                    compose.onNodeWithText(flushVolumesLabel).assertIsDisplayed()
-                    true
-                } catch (_: AssertionError) {
-                    false
-                }
-            }
-            compose.onNodeWithText(flushVolumesLabel).performClick()
+            compose.onNodeWithTag("workspace-header-flush-volumes").assertIsDisplayed().performClick()
             compose.onNodeWithTag("flush-cell-1").performTextClearance()
             compose.onNodeWithTag("flush-cell-1").performTextInput("400")
             compose.onNodeWithText(activity.getString(android.R.string.cancel)).performClick()
@@ -1477,8 +1465,10 @@ class PrintProfileDropdownIntegrationDeviceTest {
 
         val config = context.assets.open("orca_profiles/Anycubic.ini").use(::Slic3rConfigWrapper)
         val printer = requireNotNull(config.findPrinter("Anycubic Kobra 3 0.4 nozzle"))
-        val process = requireNotNull(config.findPrint("0.16mm High Quality"))
-        val filament = requireNotNull(config.findFilament("Anycubic Generic PLA"))
+        // Orca renames factory presets over time. Seed the fixture from the printer's
+        // own defaults so this integration test follows the current bundled database.
+        val process = requireNotNull(config.findPrint(printer["default_print_profile"]))
+        val filament = requireNotNull(config.findFilament(printer["default_filament_profile"]))
         config.presets = ConfigObject("presets").apply {
             put("printer", printer.title)
             put("print", process.title)

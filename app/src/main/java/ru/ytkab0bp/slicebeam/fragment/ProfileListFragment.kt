@@ -44,8 +44,8 @@ import ru.ytkab0bp.slicebeam.navigation.Fragment
 import ru.ytkab0bp.slicebeam.slic3r.ConfigOptionDef
 import ru.ytkab0bp.slicebeam.ui.BeamComposeTheme
 import ru.ytkab0bp.slicebeam.ui.OrkanSection
-import ru.ytkab0bp.slicebeam.ui.components.OrkanPageHeader
 import ru.ytkab0bp.slicebeam.ui.settings.ComposeProfileSettingsStatus
+import ru.ytkab0bp.slicebeam.ui.settings.PrinterProfileCategoryAssets
 import ru.ytkab0bp.slicebeam.ui.settings.ProfileSettingsViewModel
 import ru.ytkab0bp.slicebeam.ui.navigation.AdaptiveNavigationPolicy
 import ru.ytkab0bp.slicebeam.view.FilamentPaletteController
@@ -247,103 +247,116 @@ abstract class ProfileListFragment : Fragment() {
                         configuration.screenHeightDp,
                         configuration.orientation == Configuration.ORIENTATION_PORTRAIT,
                     )
+                    val printProfile = getProfileListType() == ConfigObject.PROFILE_LIST_PRINT
+                    val selectedDropdownTitle = if (printProfile) {
+                        // Process names often repeat the active printer/nozzle suffix. The
+                        // printer is already selected in the workspace header, so keep this
+                        // picker focused on the actual process preset.
+                        dropdownTitle?.substringBefore(" @")?.trim()?.ifBlank { dropdownTitle }
+                    } else dropdownTitle
                     Column(modifier = Modifier.fillMaxSize()) {
-                        if (getProfileListType() >= 0) {
-                            OrkanPageHeader(
-                                title = ctx.getString(title),
-                                subtitle = ctx.getString(profileSubtitleResource()),
-                                iconRes = profileIconResource(),
-                                modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 6.dp),
-                            )
-                        }
-                        if (TemporaryProjectSettings.active && getProfileListType() >= 0) {
-                            TemporaryProjectSettingsBar(showFilamentSelector = getProfileListType() == ConfigObject.PROFILE_LIST_FILAMENT)
-                        }
-                        if (!TemporaryProjectSettings.active && getProfileListType() == ConfigObject.PROFILE_LIST_FILAMENT) {
-                            ru.ytkab0bp.slicebeam.ui.settings.OwnFilamentSlotBar(dropdownTitle) { slot ->
-                                (this@ProfileListFragment as? FilamentConfigFragment)?.selectOwnFilamentSlot(slot)
-                            }
-                        }
-                        Row(
-                            modifier = Modifier.fillMaxWidth().padding(
-                                start = 12.dp,
-                                top = if (isPortrait) 0.dp else 12.dp,
-                                end = 12.dp,
-                                bottom = 8.dp,
-                            ),
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(6.dp),
-                        ) {
-                            Box(modifier = Modifier.weight(1f)) {
-                                ProfileDropdownContent(
-                                    title = if (TemporaryProjectSettings.owns(getProfileListType()))
-                                        ctx.getString(R.string.ProjectSettingsProfileTitle) else dropdownTitle,
-                                    menu = dropdownMenu,
-                                    menuTitle = dropdownMenuTitle,
-                                    expanded = dropdownExpanded,
-                                    canManage = !TemporaryProjectSettings.owns(getProfileListType()),
-                                    onOpen = { openProfileMenu() },
-                                    onDismiss = { dropdownExpanded = false },
-                                    onSelect = ::selectProfileFromMenu,
-                                    onDelete = {
-                                        dropdownExpanded = false
-                                        if (TemporaryProjectSettings.owns(getProfileListType())) return@ProfileDropdownContent
-                                        deleteCurrentProfile()
-                                        refreshWorkspaceProfileStatus()
-                                        onUpdateConfigItems()
-                                    },
-                                    onClone = {
-                                        dropdownExpanded = false
-                                        if (TemporaryProjectSettings.owns(getProfileListType())) return@ProfileDropdownContent
-                                        cloneCurrentProfile()
-                                        refreshWorkspaceProfileStatus()
-                                        onUpdateConfigItems()
-                                    },
-                                )
-                            }
-                            profileFilterController?.ToggleContent()
-                        }
-                        if (profileSettingsViewModel != null) {
-                            ComposeProfileSettingsStatus(profileSettingsViewModel!!)
-                        }
-                        ProfileHeaderContent(
-                            modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 4.dp),
-                        )
-                        if (showFilamentPalette() && !isPortrait) {
-                            Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                                filamentPaletteController?.Content(
-                                    modifier = Modifier.weight(1f).heightIn(min = 64.dp).padding(bottom = 2.dp),
-                                )
-                                if (showBelowFilamentPaletteContent()) {
-                                    BelowFilamentPaletteContent(
-                                        modifier = Modifier.width(290.dp).padding(end = 12.dp, bottom = 4.dp),
-                                    )
-                                }
-                            }
-                        } else {
-                            if (showFilamentPalette()) {
-                                filamentPaletteController?.Content(
-                                    modifier = Modifier.fillMaxWidth().heightIn(min = 64.dp).padding(bottom = 2.dp),
-                                )
-                            }
-                            if (showBelowFilamentPaletteContent()) {
-                                BelowFilamentPaletteContent(
-                                    modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 3.dp),
-                                )
-                            }
-                        }
-                        if (useTabs()) {
-                            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                                profileFilterController?.Content(showToggle = false)
-                                if (!useAccordionCategories()) categoryTabsController?.Content()
-                            }
-                        }
                         Box(modifier = Modifier.weight(1f).fillMaxWidth()) {
-                            // Compose rows keep saveable editor/value state under their stable
-                            // option keys. Namespace that state by profile so a printer switch
-                            // cannot display the previous printer's values for matching options.
-                            key(getProfileListType(), dropdownTitle, project.generation, project.selectedFilament) {
-                                profileList.Content()
+                            // Keep the profile picker, contextual controls and settings rows
+                            // in one LazyColumn. This lets the entire page scroll instead of
+                            // pinning a tall header over a short inner list.
+                            key(getProfileListType(), selectedDropdownTitle, project.generation, project.selectedFilament) {
+                                profileList.Content(headerContent = {
+                                    Column {
+                                        if (TemporaryProjectSettings.active && getProfileListType() >= 0) {
+                                            TemporaryProjectSettingsBar(showFilamentSelector = getProfileListType() == ConfigObject.PROFILE_LIST_FILAMENT)
+                                        }
+                                        if (!TemporaryProjectSettings.active && getProfileListType() == ConfigObject.PROFILE_LIST_FILAMENT) {
+                                            ru.ytkab0bp.slicebeam.ui.settings.OwnFilamentSlotBar(dropdownTitle) { slot ->
+                                                (this@ProfileListFragment as? FilamentConfigFragment)?.selectOwnFilamentSlot(slot)
+                                            }
+                                        }
+                                        Row(
+                                            modifier = Modifier.fillMaxWidth().padding(
+                                                start = 12.dp,
+                                                top = if (isPortrait) 0.dp else 12.dp,
+                                                end = 12.dp,
+                                                bottom = 8.dp,
+                                            ),
+                                            verticalAlignment = Alignment.CenterVertically,
+                                            horizontalArrangement = Arrangement.spacedBy(6.dp),
+                                        ) {
+                                            Box(modifier = Modifier.weight(1f)) {
+                                                ProfileDropdownContent(
+                                                    title = if (TemporaryProjectSettings.owns(getProfileListType()))
+                                                        ctx.getString(R.string.ProjectSettingsProfileTitle)
+                                                    else selectedDropdownTitle ?: if (
+                                                        getProfileListType() == ConfigObject.PROFILE_LIST_PRINTER &&
+                                                        SliceBeam.requireConfig().printerConfigs.isEmpty()
+                                                    ) ctx.getString(R.string.PrinterProfileMissing) else null,
+                                                    modifier = Modifier.fillMaxWidth(if (printProfile) 0.5f else 1f),
+                                                    menu = dropdownMenu,
+                                                    menuTitle = dropdownMenuTitle,
+                                                    expanded = dropdownExpanded,
+                                                    canManage = !TemporaryProjectSettings.owns(getProfileListType()),
+                                                    onOpen = { openProfileMenu() },
+                                                    onDismiss = { dropdownExpanded = false },
+                                                    onSelect = ::selectProfileFromMenu,
+                                                    onDelete = {
+                                                        dropdownExpanded = false
+                                                        if (TemporaryProjectSettings.owns(getProfileListType())) return@ProfileDropdownContent
+                                                        deleteCurrentProfile()
+                                                        refreshWorkspaceProfileStatus()
+                                                        onUpdateConfigItems()
+                                                    },
+                                                    onClone = {
+                                                        dropdownExpanded = false
+                                                        if (TemporaryProjectSettings.owns(getProfileListType())) return@ProfileDropdownContent
+                                                        cloneCurrentProfile()
+                                                        refreshWorkspaceProfileStatus()
+                                                        onUpdateConfigItems()
+                                                    },
+                                                    leadingIconRes = if (getProfileListType() == ConfigObject.PROFILE_LIST_PRINTER) {
+                                                        PrinterProfileCategoryAssets.stateIcon(
+                                                            R.drawable.printerprofile_druckerauswahl,
+                                                            active = dropdownExpanded,
+                                                        )
+                                                    } else null,
+                                                )
+                                            }
+                                            profileFilterController?.ToggleContent()
+                                        }
+                                        if (profileSettingsViewModel != null) {
+                                            ComposeProfileSettingsStatus(profileSettingsViewModel!!)
+                                        }
+                                        ProfileHeaderContent(
+                                            modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 4.dp),
+                                        )
+                                        if (showFilamentPalette() && !isPortrait) {
+                                            Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                                                filamentPaletteController?.Content(
+                                                    modifier = Modifier.weight(1f).heightIn(min = 64.dp).padding(bottom = 2.dp),
+                                                )
+                                                if (showBelowFilamentPaletteContent()) {
+                                                    BelowFilamentPaletteContent(
+                                                        modifier = Modifier.width(290.dp).padding(end = 12.dp, bottom = 4.dp),
+                                                    )
+                                                }
+                                            }
+                                        } else {
+                                            if (showFilamentPalette()) {
+                                                filamentPaletteController?.Content(
+                                                    modifier = Modifier.fillMaxWidth().heightIn(min = 64.dp).padding(bottom = 2.dp),
+                                                )
+                                            }
+                                            if (showBelowFilamentPaletteContent()) {
+                                                BelowFilamentPaletteContent(
+                                                    modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 3.dp),
+                                                )
+                                            }
+                                        }
+                                        if (useTabs()) {
+                                            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                                                profileFilterController?.Content(showToggle = false)
+                                                if (!useAccordionCategories()) categoryTabsController?.Content()
+                                            }
+                                        }
+                                    }
+                                })
                             }
                         }
                         profileFooter?.Content(isPortrait)
@@ -361,20 +374,6 @@ abstract class ProfileListFragment : Fragment() {
         ConfigObject.PROFILE_LIST_FILAMENT -> OrkanSection.FILAMENT
         ConfigObject.PROFILE_LIST_PRINTER -> OrkanSection.PRINTER
         else -> OrkanSection.DEFAULT
-    }
-
-    private fun profileSubtitleResource(): Int = when (getProfileListType()) {
-        ConfigObject.PROFILE_LIST_PRINT -> R.string.SlotPrintConfigTooltip
-        ConfigObject.PROFILE_LIST_FILAMENT -> R.string.SlotFilamentConfigTooltip
-        ConfigObject.PROFILE_LIST_PRINTER -> R.string.SlotPrinterConfigTooltip
-        else -> R.string.SlotAppSettingsTooltip
-    }
-
-    private fun profileIconResource(): Int = when (getProfileListType()) {
-        ConfigObject.PROFILE_LIST_PRINT -> R.drawable.vk_wrench_outline_24
-        ConfigObject.PROFILE_LIST_FILAMENT -> R.drawable.vk_palette_outline_24
-        ConfigObject.PROFILE_LIST_PRINTER -> R.drawable.vk_printer_outline_24
-        else -> R.drawable.vk_gear_outline_24
     }
 
     override fun onCreate() {

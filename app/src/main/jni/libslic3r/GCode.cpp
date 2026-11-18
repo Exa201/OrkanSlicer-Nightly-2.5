@@ -1659,7 +1659,7 @@ static std::vector<Vec2d> get_path_of_change_filament(const Print& print)
     std::string WipeTowerIntegration::finalize(GCode &gcodegen)
     {
         std::string gcode;
-        if (gcodegen.wipe_tower_type() == WipeTowerType::Type2) {
+        if (m_final_purge_required && gcodegen.wipe_tower_type() == WipeTowerType::Type2) {
             if (std::abs(gcodegen.writer().get_position().z() - m_final_purge.print_z) > EPSILON)
                 gcode += gcodegen.change_layer(m_final_purge.print_z);
             gcode += append_tcr2(gcodegen, m_final_purge, -1);
@@ -3503,7 +3503,8 @@ void GCode::_do_export(Print& print, GCodeOutputStream &file, ThumbnailsGenerato
             // Prusa Multi-Material wipe tower.
             if (has_wipe_tower && ! layers_to_print.empty()) {
                 m_wipe_tower.reset(new WipeTowerIntegration(print.config(), print.get_plate_index(), print.get_plate_origin(), *print.wipe_tower_data().priming.get(),
-                                                            print.wipe_tower_data().tool_changes, *print.wipe_tower_data().final_purge.get(), print.get_slice_used_filaments(false)));
+                                                            print.wipe_tower_data().tool_changes, *print.wipe_tower_data().final_purge.get(),
+                                                            print.wipe_tower_data().final_purge_required, print.get_slice_used_filaments(false)));
                 m_wipe_tower->set_wipe_tower_depth(print.get_wipe_tower_depth());
                 m_wipe_tower->set_wipe_tower_bbx(print.get_wipe_tower_bbx());
                 m_wipe_tower->set_rib_offset(print.get_rib_offset());

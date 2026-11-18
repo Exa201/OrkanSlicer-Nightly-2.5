@@ -88,7 +88,7 @@ private fun ProfileSettingGroupHeader(title: String, collapsed: Boolean, onClick
             Icon(
                 painter = painterResource(R.drawable.dropdown_24),
                 contentDescription = null,
-                modifier = Modifier.size(20.dp).rotate(if (collapsed) -90f else 0f),
+                modifier = Modifier.size(26.dp).rotate(if (collapsed) -90f else 0f),
                 tint = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }

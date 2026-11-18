@@ -4,7 +4,7 @@ import ru.ytkab0bp.slicebeam.recycler.SpaceItem
 import ru.ytkab0bp.slicebeam.slic3r.ConfigOptionDef
 import ru.ytkab0bp.slicebeam.slic3r.PrintConfigDef
 import ru.ytkab0bp.slicebeam.ui.settings.OrcaProcessSettingsCatalog
-import ru.ytkab0bp.slicebeam.ui.settings.ProfileCategoryAssets
+import ru.ytkab0bp.slicebeam.ui.settings.PrintProfileCategoryAssets
 import ru.ytkab0bp.slicebeam.ui.settings.OrcaConditionalSettingsPolicy
 import ru.ytkab0bp.slicebeam.ui.settings.OrcaSettingsCategory
 import ru.ytkab0bp.slicebeam.utils.ViewUtils
@@ -43,7 +43,7 @@ object OrcaPrintSettingsBuilder {
         showInfillAnchorOptions: Boolean,
     ): List<ProfileOptionElement> {
         val items = ArrayList<ProfileOptionElement>()
-        val categoryIcon = ProfileCategoryAssets.iconFor(category.title, category.iconResId)
+        val categoryIcon = PrintProfileCategoryAssets.iconFor(category.title, category.iconResId)
         items.add(ProfileOptionElement(categoryIcon, category.title).apply { noTint = categoryIcon != category.iconResId })
 
         category.sections.forEach { section ->

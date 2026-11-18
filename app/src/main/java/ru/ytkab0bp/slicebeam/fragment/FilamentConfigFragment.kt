@@ -1,22 +1,19 @@
 package ru.ytkab0bp.slicebeam.fragment
 
-import android.text.TextUtils
 import android.widget.Toast
 import ru.ytkab0bp.slicebeam.R
 import ru.ytkab0bp.slicebeam.SliceBeam
 import ru.ytkab0bp.slicebeam.config.ConfigObject
-import ru.ytkab0bp.slicebeam.slic3r.Slic3rUtils
 import ru.ytkab0bp.slicebeam.config.SlotFilamentProfiles
 import ru.ytkab0bp.slicebeam.config.TemporaryProjectSettings
 import ru.ytkab0bp.slicebeam.config.ProfileSettingsRepository
+import ru.ytkab0bp.slicebeam.config.ProfileCompatibility
 import ru.ytkab0bp.slicebeam.utils.Prefs
 
 /** Filament profile screen backed by Orca's native settings definitions and compatibility checks. */
 class FilamentConfigFragment : ProfileListFragment() {
     private var compatItems: List<ProfileListItem>? = null
-    private var lastPrinter: String? = null
-    private var lastPrint: String? = null
-    private var lastUid = 0
+    private var compatibilityCacheKey: ProfileCompatibilityCacheKey? = null
     private var currentConfig: ConfigObject? = null
 
     fun selectOwnFilamentSlot(index: Int) {
@@ -58,56 +55,20 @@ class FilamentConfigFragment : ProfileListFragment() {
         val profiles = SliceBeam.requireConfig().filamentConfigs
         if (!filter) return profiles.map { it as ProfileListItem }
 
-        val printer = SliceBeam.requireConfig().presets!!.get("printer")
-        val print = SliceBeam.requireConfig().presets!!.get("print")
-        if (lastPrinter == printer && lastPrint == print && compatItems != null && lastUid == SliceBeam.CONFIG_UID) {
+        val config = SliceBeam.requireConfig()
+        val cacheKey = ProfileCompatibilityCacheKey(
+            printer = config.presets?.get("printer"),
+            process = config.presets?.get("print"),
+            filament = config.presets?.get("filament"),
+            configUid = SliceBeam.CONFIG_UID,
+        )
+        if (compatibilityCacheKey == cacheKey && compatItems != null) {
             return compatItems.orEmpty()
         }
-
-        val printerConfig = SliceBeam.requireConfig().findPrinter(printer)
-        val model = printerConfig?.get("printer_model")
-        var nozzle = printerConfig?.get("printer_variant")
-        if (printerConfig != null && nozzle == null) {
-            nozzle = Slic3rUtils.firstNozzleDiameter(printerConfig.get("nozzle_diameter"))
-        }
-        val printerChecker = printerConfig?.let { Slic3rUtils.ConfigChecker(it.serialize()) }
-        val printConfig = SliceBeam.requireConfig().findPrint(print)
-        val printChecker = printConfig?.let { Slic3rUtils.ConfigChecker(it.serialize()) }
-        val seenTitles = HashSet<String>()
-        val compatible = ArrayList<ProfileListItem>(profiles.size)
-
-        try {
-            for (profile in profiles) {
-                val printerCompatible = Slic3rUtils.isPrinterCompatible(
-                    profile.title,
-                    profile.get("compatible_printers").orEmpty(),
-                    profile.get("compatible_printers_condition").orEmpty(),
-                    printer,
-                    model,
-                    nozzle,
-                    printerChecker,
-                )
-                val printCompatible = TextUtils.isEmpty(print) || Slic3rUtils.isCompatible(
-                    profile.get("compatible_prints").orEmpty(),
-                    profile.get("compatible_prints_condition").orEmpty(),
-                    print,
-                    printChecker,
-                )
-                if (printerCompatible && printCompatible && seenTitles.add(profile.title.orEmpty())) {
-                    // Collapse duplicate names introduced by per-printer profile imports.
-                    compatible.add(profile)
-                }
-            }
-        } finally {
-            printChecker?.release()
-            printerChecker?.release()
-        }
-
-        lastPrinter = printer
-        lastPrint = print
-        lastUid = SliceBeam.CONFIG_UID
+        val compatible = ProfileCompatibility.filaments(config)
+        compatibilityCacheKey = cacheKey
         compatItems = compatible
-        return compatible
+        return compatible.map { it as ProfileListItem }
     }
 
     override fun getConfigItems(): List<ProfileOptionElement> =
@@ -150,9 +111,9 @@ class FilamentConfigFragment : ProfileListFragment() {
         val removedIndex = profiles.indexOf(stored)
         if (removedIndex < 0) return
         profiles.removeAt(removedIndex)
-        if (!TemporaryProjectSettings.active) SlotFilamentProfiles.remove(stored.title)
-        val firstProfile = getItems(false).firstOrNull() ?: run {
+        val firstProfile = getItems(true).firstOrNull() ?: run {
             profiles.add(removedIndex, stored)
+            getContext()?.let { Toast.makeText(it, R.string.ProfileDeleteLastBlocked, Toast.LENGTH_LONG).show() }
             return
         }
         if (!selectItem(firstProfile)) {
@@ -162,6 +123,7 @@ class FilamentConfigFragment : ProfileListFragment() {
             compatItems = null
             return
         }
+        if (!TemporaryProjectSettings.active) SlotFilamentProfiles.remove(stored.title)
         setProfileDropdownTitle(getCurrentConfig()?.title)
     }
 

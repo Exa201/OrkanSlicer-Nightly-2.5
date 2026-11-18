@@ -39,6 +39,7 @@ data class WorkspaceNavigationItem(
     val slot: Int,
     val label: String,
     @DrawableRes val icon: Int,
+    @DrawableRes val selectedIcon: Int? = null,
     val accessibilityLabel: String,
     val compactLabel: String? = null,
     val accent: Color? = null,
@@ -154,8 +155,9 @@ private fun Destination(
     announcePanelState: Boolean,
     showPanelToggleIndicator: Boolean,
 ) {
-    // Navigation keeps a one-line label and stable row height at large text scales.
-    // The full localized name remains in the selectable's accessibility semantics.
+    // Keep the label readable at large system font scales without letting the
+    // icon chip consume the caption's vertical space. Full localized names stay
+    // available through the selectable's accessibility semantics.
     val displayFontScale = LocalDensity.current.fontScale.coerceAtLeast(0.1f)
     val navigationLabelSize = (14f / displayFontScale).sp
     val accent = item.accent ?: MaterialTheme.colorScheme.primary
@@ -170,18 +172,18 @@ private fun Destination(
                     stateDescription = if (panelOpen) panelOpenDescription else panelClosedDescription
                 }
             }
-            .padding(horizontal = 2.dp, vertical = 5.dp),
+            .padding(horizontal = 2.dp, vertical = 2.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.spacedBy(2.dp, Alignment.CenterVertically),
+            verticalArrangement = Arrangement.spacedBy(0.dp, Alignment.CenterVertically),
     ) {
         Surface(
             shape = RoundedCornerShape(OrkanUiTokens.compactCornerRadius),
             color = if (selected) accent.copy(alpha = 0.20f)
                 else androidx.compose.ui.graphics.Color.Transparent,
         ) {
-            Box(Modifier.padding(horizontal = 10.dp, vertical = 3.dp).size(OrkanUiTokens.navigationIconSize)) {
+            Box(Modifier.padding(horizontal = 5.dp, vertical = 0.dp).size(OrkanUiTokens.navigationIconSize)) {
                 Icon(
-                    painterResource(item.icon), contentDescription = null,
+                    painterResource(if (selected) item.selectedIcon ?: item.icon else item.icon), contentDescription = null,
                     modifier = Modifier.fillMaxSize(),
                     // Workspace assets are deliberately multicolor; applying a selected-state
                     // tint erased their shape cues. The accent now stays in the backing chip.

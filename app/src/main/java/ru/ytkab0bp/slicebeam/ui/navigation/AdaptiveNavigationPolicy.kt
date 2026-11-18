@@ -6,7 +6,9 @@ object AdaptiveNavigationPolicy {
     const val NAVIGATION_RAIL_WIDTH_DP = 80
     const val LARGE_TEXT_NAVIGATION_RAIL_WIDTH_DP = 96
     const val COMPACT_BOTTOM_LABEL_WIDTH_DP = 440
-    const val NAVIGATION_BAR_HEIGHT_DP = 56
+    // Shared host height for the top and bottom bars. The additional vertical
+    // room keeps the one-line caption visible below the full-size multicolor icon.
+    const val NAVIGATION_BAR_HEIGHT_DP = 80
     const val COMPACT_LABEL_FONT_SCALE = 1.15f
 
     @JvmStatic

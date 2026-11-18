@@ -63,6 +63,7 @@ internal fun WorkspaceShell(
     portrait: Boolean,
     toolPanelExpanded: Boolean,
     toolPanelNeedsTwoRows: Boolean,
+    menuActionCount: Int = 0,
     toolPanelAdditionalChromeDp: Int = 0,
     navigationItemCount: Int,
     menuWidthDp: Int,
@@ -90,7 +91,7 @@ internal fun WorkspaceShell(
     var visibleMenuHeightDp by remember { mutableIntStateOf(0) }
     val density = LocalDensity.current
     val toolPanelHeightDp = WorkspaceToolPanelPolicy.menuHeightDp(
-        toolPanelNeedsTwoRows,
+        menuActionCount > 4 || (menuActionCount == 0 && toolPanelNeedsTwoRows),
         LocalBeamLayoutFontScale.current,
         toolPanelAdditionalChromeDp,
     )
@@ -122,6 +123,7 @@ internal fun WorkspaceShell(
             slot = destination.ordinal,
             label = stringResource(if (compactLabels) compactTitle else destination.navigationTitleRes),
             icon = destination.iconRes,
+            selectedIcon = destination.selectedIconRes,
             accessibilityLabel = stringResource(destination.navigationTitleRes),
             compactLabel = if (compactLabels) stringResource(compactTitle) else null,
         )
@@ -141,6 +143,9 @@ internal fun WorkspaceShell(
         Row(
             modifier = modifier
             .fillMaxWidth()
+                // Match the global top navigation surface so the destination tabs and
+                // workspace dashboard read as one continuous two-row header.
+                .background(MaterialTheme.colorScheme.surface)
                 .testTag("workspace-header")
                 // Keep the renderer viewport stationary while app/system text zoom
                 // changes. The concise model label wraps within a fixed-height row;
@@ -355,6 +360,11 @@ internal fun WorkspaceShell(
     }
 }
 
+internal object WorkspaceMenuHeightPolicy {
+    @JvmStatic
+    fun needsTwoRows(actionCount: Int): Boolean = actionCount > 4
+}
+
 @Composable
 private fun WorkspaceMenuHost(
     slot: Int,
@@ -363,10 +373,11 @@ private fun WorkspaceMenuHost(
 ) {
     AnimatedContent(
         targetState = slot,
-        // Keep the full panel in Compose's hit-test chain so empty padding cannot start a
-        // GL gesture. The observer below deliberately never consumes; Lazy grids and tile
-        // click/long-press gestures must arbitrate touch normally, as in the regular app.
-        modifier = modifier.observeMenuPointerEvents(),
+        // Leave unused/transparent parts of the menu overlay out of the pointer hit-test
+        // chain. Keeping a full-size pointerInput observer here caused swipes that began
+        // over blank panel space to be routed away from the GL workspace and its gestures.
+        // Actual tiles and scroll containers keep their own gesture handlers.
+        modifier = modifier,
         transitionSpec = {
             val direction = if (targetState > initialState) 1 else -1
             (slideInHorizontally(tween(220)) { direction * it / 3 } + fadeIn(tween(180))) togetherWith
@@ -410,8 +421,10 @@ internal fun WorkspaceActionControl(
 /** Measurable policy for the portion of a compact workspace reserved for the actual build plate. */
 internal object WorkspaceShellLayoutPolicy {
     const val MIN_LANDSCAPE_SIDE_PANEL_WIDTH_DP = 360
-    const val DASHBOARD_ACTION_STRIP_WIDTH_DP = 260
-    private const val WORKSPACE_HEADER_HEIGHT_DP = 80
+    const val DASHBOARD_ACTION_STRIP_WIDTH_DP = 276
+    // The dashboard controls themselves need one 48 dp touch row. The former
+    // 80 dp reservation left a conspicuous empty strip below them on phones.
+    private const val WORKSPACE_HEADER_HEIGHT_DP = 64
 
     /** Fixed workspace geometry sized to keep the profile text readable at maximum zoom. */
     @JvmStatic

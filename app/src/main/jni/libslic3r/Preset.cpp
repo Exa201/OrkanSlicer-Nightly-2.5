@@ -1019,6 +1019,7 @@ static std::vector<std::string> s_Preset_print_options{
     "is_infill_first",
     "sparse_infill_density",
     "fill_multiline",
+    "sparse_infill_strategy",
     "gyroid_optimized",
     "sparse_infill_pattern",
     "sparse_infill_smooth_factor",

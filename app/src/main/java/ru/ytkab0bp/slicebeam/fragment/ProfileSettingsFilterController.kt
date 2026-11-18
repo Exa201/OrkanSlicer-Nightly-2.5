@@ -10,15 +10,19 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Icon
 import androidx.compose.material3.OutlinedIconButton
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import ru.ytkab0bp.slicebeam.R
+import ru.ytkab0bp.slicebeam.config.ConfigObject
 import ru.ytkab0bp.slicebeam.slic3r.ConfigOptionDef
 import ru.ytkab0bp.slicebeam.slic3r.Slic3rLocalization
 import ru.ytkab0bp.slicebeam.ui.settings.ProfileFilterBar
 import ru.ytkab0bp.slicebeam.ui.settings.ProfileSettingsFilter
 import ru.ytkab0bp.slicebeam.ui.settings.ProfileSettingsViewModel
+import ru.ytkab0bp.slicebeam.ui.settings.PrinterProfileCategoryAssets
 import ru.ytkab0bp.slicebeam.utils.Prefs
 import java.util.HashSet
 import java.util.function.BooleanSupplier
@@ -78,9 +82,18 @@ class ProfileSettingsFilterController(
             shape = RoundedCornerShape(10.dp),
         ) {
             Icon(
-                painterResource(R.drawable.print_settings_search_24),
+                painterResource(
+                    if (profileType == ConfigObject.PROFILE_LIST_PRINTER) {
+                        PrinterProfileCategoryAssets.stateIcon(
+                            R.drawable.printerprofile_profilsuche,
+                            active = filtersExpanded,
+                        )
+                    } else R.drawable.print_settings_search_24,
+                ),
                 contentDescription = stringResource(R.string.ProfileSettingsSearchAndFilter),
-                modifier = Modifier.size(22.dp),
+                modifier = Modifier.size(29.dp),
+                tint = if (profileType == ConfigObject.PROFILE_LIST_PRINTER) Color.Unspecified
+                    else MaterialTheme.colorScheme.onSurface,
             )
         }
     }

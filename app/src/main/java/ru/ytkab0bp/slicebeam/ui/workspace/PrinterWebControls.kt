@@ -53,28 +53,17 @@ internal fun PrinterWebOpenButton(
         shape = RoundedCornerShape(10.dp),
         contentPadding = PaddingValues(0.dp),
         colors = ButtonDefaults.buttonColors(
-            containerColor = MaterialTheme.colorScheme.primary,
-            contentColor = MaterialTheme.colorScheme.onPrimary,
+            containerColor = MaterialTheme.colorScheme.surfaceVariant,
+            contentColor = MaterialTheme.colorScheme.onSurfaceVariant,
         ),
     ) {
         Box(contentAlignment = Alignment.Center) {
             Icon(
-                painterResource(R.drawable.globe_cross_outline_28),
+                painterResource(if (connected) R.drawable.ic_printer_online else R.drawable.ic_printer_offline),
                 contentDescription = null,
-                modifier = Modifier.size(22.dp),
+                modifier = Modifier.size(46.dp),
+                tint = Color.Unspecified,
             )
-            if (connected) {
-                Surface(
-                    modifier = Modifier.align(Alignment.BottomEnd).size(13.dp),
-                    shape = CircleShape,
-                    color = Color(0xFF36C275),
-                    contentColor = Color.White,
-                ) {
-                    Box(contentAlignment = Alignment.Center) {
-                        Icon(painterResource(R.drawable.done_outline_28), null, Modifier.size(10.dp))
-                    }
-                }
-            }
         }
     }
 }

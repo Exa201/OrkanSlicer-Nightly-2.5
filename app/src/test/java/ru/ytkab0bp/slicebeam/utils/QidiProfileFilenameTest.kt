@@ -17,7 +17,7 @@ class QidiProfileFilenameTest {
     @Test
     fun qidiFilenameUsesTheInitiallySelectedToolInsteadOfAlwaysT0() {
         val filenameFormats = qidiProfile().lineSequence()
-            .filter { it.startsWith("output_filename_format =") }
+            .filter { it.startsWith("filename_format =") || it.startsWith("output_filename_format =") }
             .filter { it.contains("{filament_type[") }
             .toList()
 
@@ -44,7 +44,7 @@ class QidiProfileFilenameTest {
         qidiMultiMaterialPrinters.forEach { section ->
             val header = section.lineSequence().first()
             val startGcode = section.lineSequence()
-                .firstOrNull { it.startsWith("start_gcode =") }
+                .firstOrNull { it.startsWith("start_gcode =") || it.startsWith("machine_start_gcode =") }
                 .orEmpty()
             assertTrue("$header must heat the selected plate type", startGcode.contains("BED=[bed_temperature_initial_layer_single]"))
             assertTrue("$header must set the selected plate temperature", startGcode.contains("M140 S[bed_temperature_initial_layer_single]"))
@@ -70,7 +70,7 @@ class QidiProfileFilenameTest {
         affectedSections.forEach { section ->
             val header = section.lineSequence().first()
             val startGcode = section.lineSequence()
-                .firstOrNull { it.startsWith("start_gcode =") }
+                .firstOrNull { it.startsWith("start_gcode =") || it.startsWith("machine_start_gcode =") }
                 .orEmpty()
             assertTrue(
                 "$header must heat the selected plate type",

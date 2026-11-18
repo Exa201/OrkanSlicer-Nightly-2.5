@@ -183,9 +183,9 @@ class SettingsMenuActionDeviceTest {
                 .performScrollTo().assertIsDisplayed().performClick()
 
             val workspaceRevisionBefore = workspaceThemeRevision(activity)
-            val heading = compose.onNodeWithText(activity.getString(R.string.SlotAppSettings))
-            heading.assertIsDisplayed()
-            val beforeHeight = heading.fetchSemanticsNode().size.height
+            val sectionHeading = compose.onNodeWithText(activity.getString(R.string.SettingsInterface))
+            sectionHeading.assertIsDisplayed()
+            val beforeHeight = sectionHeading.fetchSemanticsNode().size.height
 
             compose.onNodeWithText(activity.getString(R.string.SettingsInterfaceTextSize))
                 .performScrollTo().assertIsDisplayed().performClick()
@@ -207,7 +207,7 @@ class SettingsMenuActionDeviceTest {
             compose.waitUntil(timeoutMillis = 5_000) { Prefs.getUiTextScale() == targetScale }
             compose.waitForIdle()
 
-            val afterHeight = compose.onNodeWithText(activity.getString(R.string.SlotAppSettings))
+            val afterHeight = compose.onNodeWithText(activity.getString(R.string.SettingsInterface))
                 .fetchSemanticsNode().size.height
             assertEquals(targetScale, Prefs.getUiTextScale(), 0f)
             showPreviewWorkspace(activity)
@@ -223,10 +223,10 @@ class SettingsMenuActionDeviceTest {
             assertTrue("The already-created workspace must receive the global theme/text-scale invalidation",
                 workspaceThemeRevision(activity) > workspaceRevisionBefore)
             if (targetScale > originalScale) {
-                assertTrue("The live Compose heading must grow with the selected text scale ($beforeHeight → $afterHeight)",
+                assertTrue("The live Compose section title must grow with the selected text scale ($beforeHeight → $afterHeight)",
                     afterHeight > beforeHeight)
             } else {
-                assertTrue("The live Compose heading must shrink with the selected text scale ($beforeHeight → $afterHeight)",
+                assertTrue("The live Compose section title must shrink with the selected text scale ($beforeHeight → $afterHeight)",
                     afterHeight < beforeHeight)
             }
 
@@ -333,7 +333,7 @@ class SettingsMenuActionDeviceTest {
         InstrumentationRegistry.getInstrumentation().sendKeyDownUpSync(android.view.KeyEvent.KEYCODE_BACK)
         compose.waitForIdle()
         assertConfigurationUnchanged()
-        compose.onNodeWithText(activity.getString(R.string.SlotAppSettings)).performScrollTo().assertIsDisplayed()
+        compose.onNodeWithText(activity.getString(R.string.SettingsResetToDefault)).performScrollTo().assertIsDisplayed()
     }
 
     @Test

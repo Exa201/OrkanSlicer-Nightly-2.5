@@ -86,7 +86,7 @@ internal fun WorkspaceProfileStatus(
                 painter = painterResource(R.drawable.dropdown_24),
                 contentDescription = null,
                 tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.size(18.dp),
+                modifier = Modifier.size(23.dp),
             )
         }
     }

@@ -6,6 +6,22 @@ import org.junit.Test
 
 class ProfileListRefreshPolicyTest {
     @Test
+    fun changingSelectedProcessInvalidatesCompatibilityListsWithoutPrinterChange() {
+        val before = ProfileCompatibilityCacheKey(null, "Process A", null, 12)
+        val after = ProfileCompatibilityCacheKey(null, "Process B", null, 12)
+
+        assertFalse(before == after)
+    }
+
+    @Test
+    fun changingSelectedFilamentInvalidatesFilamentCompatibilityList() {
+        val before = ProfileCompatibilityCacheKey(null, "Process A", "Filament A", 12)
+        val after = ProfileCompatibilityCacheKey(null, "Process A", "Filament B", 12)
+
+        assertFalse(before == after)
+    }
+
+    @Test
     fun switchingPrinterProfileRequiresARebindAndCategoryReset() {
         assertTrue(ProfileListRefreshPolicy.needsReload("Printer A", 10, "Printer B", 11))
         assertTrue(ProfileListRefreshPolicy.profileChanged("Printer A", "Printer B"))

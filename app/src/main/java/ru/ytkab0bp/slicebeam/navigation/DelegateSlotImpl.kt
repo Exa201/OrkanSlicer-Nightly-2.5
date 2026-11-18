@@ -16,12 +16,22 @@ abstract class DelegateSlotImpl : NavigationDelegate() {
 
     @DrawableRes
     open fun getSlotIcon(slot: Int): Int = when (slot) {
-        1 -> R.drawable.menu3d_smart_slice
-        2 -> R.drawable.menu3d_layers
-        3 -> R.drawable.menu3d_spool
-        4 -> R.drawable.menu3d_printer
-        5 -> R.drawable.menu3d_tools
-        else -> R.drawable.menu3d_objects
+        2 -> R.drawable.ic_top_druck_standard
+        3 -> R.drawable.ic_top_filament_standard
+        4 -> R.drawable.ic_top_drucker_standard
+        5 -> R.drawable.ic_top_app_standard
+        1 -> R.drawable.ic_top_app_standard
+        else -> R.drawable.ic_top_3d_standard
+    }
+
+    @DrawableRes
+    open fun getSlotSelectedIcon(slot: Int): Int = when (slot) {
+        2 -> R.drawable.ic_top_druck_active
+        3 -> R.drawable.ic_top_filament_active
+        4 -> R.drawable.ic_top_drucker_active
+        5 -> R.drawable.ic_top_app_active
+        1 -> R.drawable.ic_top_app_active
+        else -> R.drawable.ic_top_3d_active
     }
 
     open fun needDisplaySlotGear(slot: Int): Boolean = slot != 0 && slot != 5

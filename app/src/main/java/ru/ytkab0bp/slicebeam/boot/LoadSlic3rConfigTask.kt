@@ -4,17 +4,16 @@ import android.util.Log
 import org.json.JSONObject
 import ru.ytkab0bp.slicebeam.SliceBeam
 import ru.ytkab0bp.slicebeam.config.ConfigObject
+import ru.ytkab0bp.slicebeam.config.FactoryProfileDatabaseUpdater
+import ru.ytkab0bp.slicebeam.config.FactoryProfileDatabaseRefreshPolicy
 import ru.ytkab0bp.slicebeam.config.Kobra3V2ProfileMigration
 import ru.ytkab0bp.slicebeam.config.ProfileConfigSchemaMigrator
 import ru.ytkab0bp.slicebeam.config.ProfileConfigSnapshot
-import ru.ytkab0bp.slicebeam.config.QidiXSmart5ProfileBundle
 import ru.ytkab0bp.slicebeam.slic3r.Slic3rConfigWrapper
-import ru.ytkab0bp.slicebeam.utils.IOUtils
+import java.io.ByteArrayOutputStream
 import java.io.File
 import java.io.IOException
-import java.io.InputStream
-import java.util.Collections
-import java.util.HashMap
+import java.util.zip.ZipInputStream
 
 open class LoadSlic3rConfigTask : BootTask(Runnable {
     val configFile = SliceBeam.recoverConfigFile()
@@ -29,16 +28,13 @@ open class LoadSlic3rConfigTask : BootTask(Runnable {
                 )
             }
         } catch (e: Exception) {
-            // The migration uses a backup and rollback file; keep loading the original config if it cannot upgrade.
             Log.e("LoadSlic3rConfigTask", "Stored profile migration failed; loading the existing file", e)
         }
         try {
             SliceBeam.CONFIG = Slic3rConfigWrapper(configFile)
-            SliceBeam.CONFIG?.loadWarnings?.forEach { warning ->
-                Log.w("LoadSlic3rConfigTask", warning.toString())
-            }
-            ensureKobra3V2Available()
-            ensureQidiXSmart5Available()
+            SliceBeam.CONFIG?.loadWarnings?.forEach { warning -> Log.w("LoadSlic3rConfigTask", warning.toString()) }
+            refreshFactoryProfileDatabase()
+            sanitizeKobra3V2StartGcode()
         } catch (e: IOException) {
             throw RuntimeException(e)
         }
@@ -49,80 +45,103 @@ open class LoadSlic3rConfigTask : BootTask(Runnable {
     }
 
     private companion object {
-        private const val KOBRA_3_V2_TITLE = "Anycubic Kobra 3 v2 0.4 nozzle - Stock"
+        private const val PROFILE_DATABASE_REVISION_ASSET = "orca_profiles/UPSTREAM_VERSION.txt"
+        private const val PROFILE_DATABASE_INDEX_ASSET = "orca_profiles/model_vendor_index.json"
+        private const val PROFILE_DATABASE_LEGACY_ASSET = "orca_profiles/legacy_factory_profiles.zip"
+        private const val PROFILE_DATABASE_REVISION_KEY = "orca_profile_database_revision"
 
-        private fun ensureKobra3V2Available() {
+        /** Updates factory profiles for configured printer families; edited/custom profiles are retained. */
+        private fun refreshFactoryProfileDatabase() {
             val config = SliceBeam.CONFIG ?: return
-            val existing = config.findPrinter(KOBRA_3_V2_TITLE)
-            var changed = false
-            val previousStartCodes = mutableListOf<Pair<ConfigObject, String>>()
-            config.printerConfigs.forEach { printer ->
-                if (!Kobra3V2ProfileMigration.isKobra3V2Profile(printer.title, printer.get("printer_model"))) return@forEach
-                val oldStartGcode = printer.get("machine_start_gcode").orEmpty()
-                val migratedStartGcode = Kobra3V2ProfileMigration.removeLegacyPressureAdvance(oldStartGcode)
-                if (migratedStartGcode != oldStartGcode) {
-                    previousStartCodes += printer to oldStartGcode
-                    printer.put("machine_start_gcode", migratedStartGcode)
-                    changed = true
-                }
-            }
-            if (changed && !SliceBeam.saveConfig()) {
-                previousStartCodes.forEach { (printer, startGcode) -> printer.put("machine_start_gcode", startGcode) }
-                Log.w("LoadSlic3rConfigTask", "Could not save the Kobra 3 V2 Pressure Advance profile migration")
-                return
-            }
-            if (changed) Log.i("LoadSlic3rConfigTask", "Removed fixed M900 K0.051 overrides from stored Kobra 3 V2 printer profiles")
-            if (existing != null) return
             try {
-                val profile = SliceBeam.requireInstance().getAssets()
-                profile.open("orca_profiles/Anycubic.ini").use { anycubicIni ->
-                    profile.open("orca_profiles/kobra3v2/printer/Anycubic Kobra 3 v2 0.4 nozzle - Stock.json")
-                        .use { jsonInput ->
-                            val bundled = Slic3rConfigWrapper(anycubicIni)
-                            val base = bundled.findPrinter("Anycubic Kobra 3 0.4 nozzle") ?: return
-                            val json = JSONObject(IOUtils.readString(jsonInput))
-                            val v2 = IOUtils.configJsonToIni(
-                                json,
-                                "machine",
-                                Slic3rConfigWrapper.PRINTER_CONFIG_KEYS,
-                                Collections.singletonList(KOBRA_3_V2_TITLE)
-                            )
-                            val merged = HashMap<String, String>(base.values)
-                            merged.putAll(v2.values)
-                            merged.remove("inherits")
-                            v2.values = merged
-                            v2.put("printer_model", "Anycubic Kobra 3 V2")
-                            v2.profileListType = ConfigObject.PROFILE_LIST_PRINTER
-                            config.printerConfigs.add(v2)
-                            if (!SliceBeam.saveConfig()) {
-                                config.printerConfigs.remove(v2)
-                                Log.w("LoadSlic3rConfigTask", "Bundled Kobra 3 V2 profile was not saved; removed the in-memory copy")
-                            }
-                        }
+                val assets = SliceBeam.requireInstance().assets
+                val revision = assets.open(PROFILE_DATABASE_REVISION_ASSET).bufferedReader().use { it.readText().trim() }
+                val modelVendors = assets.open(PROFILE_DATABASE_INDEX_ASSET).bufferedReader().use {
+                    JSONObject(it.readText())
                 }
-            } catch (e: Exception) {
-                Log.w("LoadSlic3rConfigTask", "Could not install bundled Kobra 3 V2 profile", e)
+                val activeModels = config.printerConfigs.mapNotNull { it["printer_model"] }.toSet()
+                val vendorFiles = activeModels
+                    .mapNotNull { model -> modelVendors.optString(model).takeIf(String::isNotBlank) }
+                    .toSet()
+                if (vendorFiles.isEmpty()) {
+                    // A fresh profile has no configured printer yet. Do not mark the database
+                    // current before SetupActivity has installed a printer bundle, or the next
+                    // launch will skip the import and leave the process list effectively empty.
+                    val previousRevision = config.presets?.get(PROFILE_DATABASE_REVISION_KEY)
+                    config.presets?.values?.remove(PROFILE_DATABASE_REVISION_KEY)
+                    if (previousRevision != null && !SliceBeam.saveConfig()) {
+                        config.presets?.put(PROFILE_DATABASE_REVISION_KEY, previousRevision)
+                        Log.w("LoadSlic3rConfigTask", "Could not defer Orca profile refresh until a printer is configured")
+                    }
+                    return
+                }
+                if (FactoryProfileDatabaseRefreshPolicy.shouldSkip(
+                        config.presets?.get(PROFILE_DATABASE_REVISION_KEY),
+                        revision,
+                        vendorFiles.size,
+                    )
+                ) return
+
+                val previousBundles = readLegacyFactoryBundles(vendorFiles)
+                val snapshot = ProfileConfigSnapshot(config)
+                var changed = false
+                try {
+                    vendorFiles.forEach { filename ->
+                        val latest = assets.open("orca_profiles/$filename").use(::Slic3rConfigWrapper)
+                        val previous = previousBundles[filename]?.let { bytes -> Slic3rConfigWrapper(bytes.inputStream()) }
+                        changed = FactoryProfileDatabaseUpdater.refresh(config, latest, previous) || changed
+                    }
+                    if (config.presets == null) config.presets = ConfigObject()
+                    config.presets?.put(PROFILE_DATABASE_REVISION_KEY, revision)
+                    if (!SliceBeam.saveConfig()) {
+                        snapshot.restore()
+                        Log.w("LoadSlic3rConfigTask", "Orca profile database update could not be saved; restored previous profiles")
+                        return
+                    }
+                    Log.i("LoadSlic3rConfigTask", "Updated configured printer profiles from Orca $revision (profile data changed: $changed)")
+                } catch (error: Exception) {
+                    snapshot.restore()
+                    throw error
+                }
+            } catch (error: Exception) {
+                Log.w("LoadSlic3rConfigTask", "Could not refresh factory profiles from the bundled Orca database", error)
             }
         }
 
-        private fun ensureQidiXSmart5Available() {
-            val config = SliceBeam.CONFIG ?: return
-            try {
-                val bundled = QidiXSmart5ProfileBundle.load(SliceBeam.requireInstance().assets)
-                val snapshot = ProfileConfigSnapshot(config)
-                if (!QidiXSmart5ProfileBundle.mergeInto(config, bundled)) return
-                if (!SliceBeam.saveConfig()) {
-                    snapshot.restore()
-                    Log.w("LoadSlic3rConfigTask", "Could not save bundled Qidi X-Smart 5 profiles; restored previous configuration")
-                    return
+        private fun readLegacyFactoryBundles(filenames: Set<String>): Map<String, ByteArray> {
+            val found = HashMap<String, ByteArray>()
+            ZipInputStream(SliceBeam.requireInstance().assets.open(PROFILE_DATABASE_LEGACY_ASSET)).use { zip ->
+                while (true) {
+                    val entry = zip.nextEntry ?: break
+                    if (!entry.isDirectory && entry.name in filenames) {
+                        val output = ByteArrayOutputStream()
+                        zip.copyTo(output)
+                        found[entry.name] = output.toByteArray()
+                    }
+                    zip.closeEntry()
                 }
-                Log.i(
-                    "LoadSlic3rConfigTask",
-                    "Installed Orca 2.5 Qidi X-Smart 5 profile family (${bundled.printerConfigs.size} printers, " +
-                        "${bundled.printConfigs.size} processes, ${bundled.filamentConfigs.size} filaments)"
-                )
-            } catch (error: Exception) {
-                Log.w("LoadSlic3rConfigTask", "Could not install bundled Qidi X-Smart 5 profiles", error)
+            }
+            return found
+        }
+
+        /** Keep the Kobra 3 V2's historical fixed PA command out of its generated start G-code. */
+        private fun sanitizeKobra3V2StartGcode() {
+            val config = SliceBeam.CONFIG ?: return
+            val previous = mutableListOf<Pair<ConfigObject, String>>()
+            config.printerConfigs.forEach { printer ->
+                if (!Kobra3V2ProfileMigration.isKobra3V2Profile(printer.title, printer.get("printer_model"))) return@forEach
+                val old = printer.get("machine_start_gcode").orEmpty()
+                val cleaned = Kobra3V2ProfileMigration.removeLegacyPressureAdvance(old)
+                if (cleaned != old) {
+                    previous += printer to old
+                    printer.put("machine_start_gcode", cleaned)
+                }
+            }
+            if (previous.isNotEmpty() && !SliceBeam.saveConfig()) {
+                previous.forEach { (printer, startGcode) -> printer.put("machine_start_gcode", startGcode) }
+                Log.w("LoadSlic3rConfigTask", "Could not save the Kobra 3 V2 Pressure Advance profile migration")
+            } else if (previous.isNotEmpty()) {
+                Log.i("LoadSlic3rConfigTask", "Removed fixed legacy pressure advance overrides from Kobra 3 V2 profiles")
             }
         }
     }

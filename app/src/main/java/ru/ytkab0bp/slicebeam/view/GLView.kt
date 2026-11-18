@@ -22,6 +22,8 @@ import android.text.TextPaint
 import android.view.HapticFeedbackConstants
 import android.view.MotionEvent
 import android.view.SurfaceHolder
+import android.view.View
+import android.view.ViewParent
 import android.view.ViewConfiguration
 import java.nio.IntBuffer
 import java.util.ArrayList
@@ -107,9 +109,9 @@ private val tapGestureGate = TapGestureGate()
 private var paintStrokeActive = false
 private var variableLayerHeightStrokeActive = false
 private var variableLayerHeightStrokeChanged = false
-private var lastVariableLayerHeightBrushAtMs = 0L
 private val variableLayerHeightUnsupportedObjects = HashSet<Int>()
 private val paintInputCoalescer = PaintInputCoalescer()
+private val variableLayerHeightInputCoalescer = PaintInputCoalescer()
 private var lastPaintPoint: PaintInputCoalescer.Point? = null
 private var tempVec = Vec3d()
 private var longClickOffset = Vec3d()
@@ -230,46 +232,74 @@ if (paintInputCoalescer.submit(surfaceTouchX(x), surfaceTouchY(y))) {
 private fun paintVariableLayerHeightAtScreen(x: Float, y: Float) {
     val screenX = surfaceTouchX(x)
     val screenY = surfaceTouchY(y)
-    queueEvent {
-        val now = SystemClock.uptimeMillis()
-        if (lastVariableLayerHeightBrushAtMs != 0L && now - lastVariableLayerHeightBrushAtMs < 55L) return@queueEvent
-        lastVariableLayerHeightBrushAtMs = now
-        val activeModel = renderer.model ?: return@queueEvent
-        val objectIndex = renderer.raycastObjectIndex(screenX, screenY)
-        if (objectIndex !in 0 until activeModel.objectsCount) return@queueEvent
-        if (!renderer.prepareExactSurfaceRaycast(objectIndex)) {
-            if (variableLayerHeightUnsupportedObjects.add(objectIndex)) {
-                SliceBeam.EVENT_BUS.fireEvent(NeedSnackbarEvent(R.string.VariableLayerRaycastUnavailable))
-            }
-            return@queueEvent
+    if (variableLayerHeightInputCoalescer.submit(screenX, screenY)) {
+        queueEvent { drainVariableLayerHeightInput() }
+    }
+}
+
+/** Preserve Android's historical samples as well as the current point for fast stylus/finger moves. */
+private inline fun MotionEvent.forEachSinglePointerSample(apply: (Float, Float) -> Unit) {
+    for (historyIndex in 0 until historySize) {
+        apply(getHistoricalX(0, historyIndex), getHistoricalY(0, historyIndex))
+    }
+    apply(getX(0), getY(0))
+}
+
+private fun drainVariableLayerHeightInput() {
+    variableLayerHeightInputCoalescer.takePending()?.let { segment ->
+        val path = segment.points
+        if (path.size == 1) applyVariableLayerHeightPoint(path[0].x, path[0].y)
+        for (index in 1 until path.size) {
+            sampleStrokeSegment(path[index - 1], path[index], 10f, ::applyVariableLayerHeightPoint)
         }
-        val hit = renderer.raycastObjectHit(objectIndex, screenX, screenY) ?: return@queueEvent
-        if (hit.approximate) return@queueEvent
-        val configPath = variableLayerHeightConfigPath ?: return@queueEvent
-        val changed = runCatching {
-            activeModel.adjustLayerHeightAtWorldPoint(
-                objectIndex,
-                configPath,
-                hit.position.x,
-                hit.position.y,
-                hit.position.z,
-                variableLayerHeightBrushBandWidthMm,
-                variableLayerHeightBrushDeltaMm,
-                variableLayerHeightBrushAction,
-                variableLayerHeightQualityFactor,
-            )
-        }.getOrElse { error ->
-            SliceBeam.EVENT_BUS.fireEvent(NeedSnackbarEvent(R.string.VariableLayerFailed, error.message))
-            false
+    }
+    if (variableLayerHeightInputCoalescer.finishDrain()) {
+        queueEvent { drainVariableLayerHeightInput() }
+    }
+}
+
+private fun applyVariableLayerHeightPoint(screenX: Float, screenY: Float) {
+    val activeModel = renderer.model ?: return
+    val objectIndex = renderer.raycastObjectIndex(screenX, screenY)
+    if (objectIndex !in 0 until activeModel.objectsCount) return
+    if (!renderer.prepareExactSurfaceRaycast(objectIndex)) {
+        if (variableLayerHeightUnsupportedObjects.add(objectIndex)) {
+            SliceBeam.EVENT_BUS.fireEvent(NeedSnackbarEvent(R.string.VariableLayerRaycastUnavailable))
         }
-        if (changed) {
-            variableLayerHeightStrokeChanged = true
-            requestRender()
-        }
+        return
+    }
+    val hit = renderer.raycastObjectHit(objectIndex, screenX, screenY) ?: return
+    if (hit.approximate) return
+    val configPath = variableLayerHeightConfigPath ?: return
+    val changed = runCatching {
+        activeModel.adjustLayerHeightAtWorldPoint(
+            objectIndex,
+            configPath,
+            hit.position.x,
+            hit.position.y,
+            hit.position.z,
+            variableLayerHeightBrushBandWidthMm,
+            variableLayerHeightBrushDeltaMm,
+            variableLayerHeightBrushAction,
+            variableLayerHeightQualityFactor,
+        )
+    }.getOrElse { error ->
+        SliceBeam.EVENT_BUS.fireEvent(NeedSnackbarEvent(R.string.VariableLayerFailed, error.message))
+        false
+    }
+    if (changed) {
+        variableLayerHeightStrokeChanged = true
+        requestRender()
     }
 }
 private fun finishVariableLayerHeightStrokeOnGlThread() {
-    lastVariableLayerHeightBrushAtMs = 0L
+    variableLayerHeightInputCoalescer.flush()?.let { segment ->
+        val path = segment.points
+        if (path.size == 1) applyVariableLayerHeightPoint(path[0].x, path[0].y)
+        for (index in 1 until path.size) {
+            sampleStrokeSegment(path[index - 1], path[index], 10f, ::applyVariableLayerHeightPoint)
+        }
+    }
     if (!variableLayerHeightStrokeChanged) return
     variableLayerHeightStrokeChanged = false
     requestRender()
@@ -296,11 +326,29 @@ private fun endPaintStrokeOnGlThread() {
     requestRender()
 }
 private fun applyPaintSegment(segment: PaintInputCoalescer.Segment) {
-    // If the GL queue was busy when a stroke began, submit() may coalesce DOWN and several
-    // MOVE events together. Paint the first point before interpolating to the latest point so
-    // a fast initial swipe cannot lose its leading section.
-    if (lastPaintPoint == null) applyPaintPoint(segment.start)
-    if (segment.end != segment.start) applyPaintPoint(segment.end)
+    val path = segment.points
+    if (path.isEmpty()) return
+    if (lastPaintPoint == null) applyPaintPoint(path.first())
+    for (index in 1 until path.size) {
+        val from = lastPaintPoint ?: path[index - 1]
+        val to = path[index]
+        sampleStrokeSegment(from, to, 8f) { x, y -> applyPaintPoint(PaintInputCoalescer.Point(x, y)) }
+    }
+}
+
+/** Interpolates each delivered segment so a fast finger movement cannot leave gaps. */
+private inline fun sampleStrokeSegment(
+    start: PaintInputCoalescer.Point,
+    end: PaintInputCoalescer.Point,
+    maximumStepPx: Float,
+    apply: (Float, Float) -> Unit,
+) {
+    val distance = kotlin.math.hypot((end.x - start.x).toDouble(), (end.y - start.y).toDouble())
+    val steps = kotlin.math.ceil(distance / maximumStepPx).toInt().coerceIn(1, 64)
+    for (step in 1..steps) {
+        val fraction = step.toFloat() / steps
+        apply(start.x + (end.x - start.x) * fraction, start.y + (end.y - start.y) * fraction)
+    }
 }
 private fun applyPaintPoint(point: PaintInputCoalescer.Point) {
     val previous = lastPaintPoint
@@ -1022,24 +1070,97 @@ queueEvent(Runnable { requestRender() })
 return super.onHoverEvent(event)
 }
 @SuppressLint("ClickableViewAccessibility")
+override fun dispatchTouchEvent(event: MotionEvent): Boolean {
+    val action = event.actionMasked
+    val paintGesture = event.pointerCount == 1 && renderer.isPaintMode && isPaintBrushActive
+    val variableLayerGesture = event.pointerCount == 1 && isVariableLayerHeightBrushActive
+    if ((action == MotionEvent.ACTION_DOWN && (paintGesture || variableLayerGesture)) ||
+        (action == MotionEvent.ACTION_MOVE && (paintStrokeActive || variableLayerHeightStrokeActive))
+    ) {
+        // Compose's AndroidView interop adds more than one parent between this surface and
+        // the activity. Lock every parent as soon as a paint stroke starts, so a vertical
+        // drag cannot be reclassified as a menu/panel scroll after its initial touch.
+        requestWorkspaceTouchInterception(disallow = true)
+    }
+    return try {
+        super.dispatchTouchEvent(event)
+    } finally {
+        if (action == MotionEvent.ACTION_UP || action == MotionEvent.ACTION_CANCEL ||
+            action == MotionEvent.ACTION_POINTER_DOWN
+        ) {
+            requestWorkspaceTouchInterception(disallow = false)
+        }
+    }
+}
+
+private fun requestWorkspaceTouchInterception(disallow: Boolean) {
+    var currentParent: ViewParent? = parent
+    while (currentParent != null) {
+        currentParent.requestDisallowInterceptTouchEvent(disallow)
+        currentParent = (currentParent as? View)?.parent
+    }
+}
+
+@SuppressLint("ClickableViewAccessibility")
 override fun onTouchEvent(e:MotionEvent):Boolean {
 val deltaMs = System.currentTimeMillis() - lastActionTime
 lastActionTime = System.currentTimeMillis()
 val action = e.getActionMasked()
-if (variableLayerHeightStrokeActive && (action == MotionEvent.ACTION_UP || action == MotionEvent.ACTION_CANCEL ||
-        action == MotionEvent.ACTION_POINTER_DOWN)) {
+if (variableLayerHeightStrokeActive && action == MotionEvent.ACTION_POINTER_DOWN) {
     variableLayerHeightStrokeActive = false
+    requestWorkspaceTouchInterception(disallow = false)
     queueEvent { finishVariableLayerHeightStrokeOnGlThread() }
-    if (action != MotionEvent.ACTION_POINTER_DOWN) return true
 }
-if (paintStrokeActive && (action == MotionEvent.ACTION_UP || action == MotionEvent.ACTION_CANCEL ||
-        action == MotionEvent.ACTION_POINTER_DOWN)) {
+if (paintStrokeActive && action == MotionEvent.ACTION_POINTER_DOWN) {
     paintStrokeActive = false
+    requestWorkspaceTouchInterception(disallow = false)
     queueEvent { endPaintStrokeOnGlThread() }
 }
-if (renderer.isPaintMode && isPaintBrushActive && e.getPointerCount() == 1 && action == MotionEvent.ACTION_DOWN) {
-    paintStrokeActive = true
-    queueEvent { renderer.beginPaintStroke() }
+if (e.pointerCount == 1 && isVariableLayerHeightBrushActive &&
+    (action == MotionEvent.ACTION_DOWN || variableLayerHeightStrokeActive && action in setOf(
+        MotionEvent.ACTION_MOVE, MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL,
+    ))) {
+    tapGestureGate.invalidate()
+    when (action) {
+        MotionEvent.ACTION_DOWN -> {
+            variableLayerHeightStrokeActive = true
+            variableLayerHeightInputCoalescer.flush()
+            requestWorkspaceTouchInterception(disallow = true)
+            queueEvent { variableLayerHeightStrokeChanged = false }
+        }
+        MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
+            if (action == MotionEvent.ACTION_UP) e.forEachSinglePointerSample(::paintVariableLayerHeightAtScreen)
+            variableLayerHeightStrokeActive = false
+            requestWorkspaceTouchInterception(disallow = false)
+            queueEvent { finishVariableLayerHeightStrokeOnGlThread() }
+            return true
+        }
+    }
+    e.forEachSinglePointerSample(::paintVariableLayerHeightAtScreen)
+    return true
+}
+if (e.pointerCount == 1 && renderer.isPaintMode && isPaintBrushActive &&
+    (action == MotionEvent.ACTION_DOWN || paintStrokeActive && action in setOf(
+        MotionEvent.ACTION_MOVE, MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL,
+    ))) {
+    tapGestureGate.invalidate()
+    when (action) {
+        MotionEvent.ACTION_DOWN -> {
+            paintStrokeActive = true
+            paintInputCoalescer.flush()
+            requestWorkspaceTouchInterception(disallow = true)
+            queueEvent { renderer.beginPaintStroke() }
+        }
+        MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
+            if (action == MotionEvent.ACTION_UP) e.forEachSinglePointerSample(::paintAtScreen)
+            paintStrokeActive = false
+            requestWorkspaceTouchInterception(disallow = false)
+            queueEvent { endPaintStrokeOnGlThread() }
+            return true
+        }
+    }
+    e.forEachSinglePointerSample(::paintAtScreen)
+    return true
 }
 if (action == MotionEvent.ACTION_CANCEL) {
 tapGestureGate.invalidate()
@@ -1064,29 +1185,6 @@ fromTwoPointers = false
 isScaling = false
 twoPointerGesture = false
 onePointerGesture = false
-return true
-}
-// Painting variable layer height consumes one-finger gestures, while two fingers retain the
-// normal orbit/zoom path. Exact surface hits are resolved on the GL thread with the model mesh.
-if (isVariableLayerHeightBrushActive && e.getPointerCount() == 1 &&
-    (action == MotionEvent.ACTION_DOWN || (action == MotionEvent.ACTION_MOVE && variableLayerHeightStrokeActive))) {
-    tapGestureGate.invalidate()
-    if (action == MotionEvent.ACTION_DOWN) {
-        variableLayerHeightStrokeActive = true
-        queueEvent {
-            variableLayerHeightStrokeChanged = false
-            lastVariableLayerHeightBrushAtMs = 0L
-        }
-    }
-    paintVariableLayerHeightAtScreen(e.getX(), e.getY())
-    return true
-}
-// Paint mode: a single finger paints; two fingers still orbit/zoom via the normal path.
- if ((renderer.isPaintMode && isPaintBrushActive && e.getPointerCount() == 1 &&
-        (action == MotionEvent.ACTION_DOWN || (action == MotionEvent.ACTION_MOVE && paintStrokeActive))))
-{
-tapGestureGate.invalidate()
-paintAtScreen(e.getX(), e.getY())
 return true
 }
 if (action == MotionEvent.ACTION_DOWN || action == MotionEvent.ACTION_POINTER_DOWN)

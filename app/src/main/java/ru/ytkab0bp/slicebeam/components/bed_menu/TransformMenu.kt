@@ -24,6 +24,9 @@ class TransformMenu : ListBedMenu() {
             items.invalidateSelectionState()
             composeActions.value = items.createItems()
         }
+        androidx.compose.runtime.SideEffect {
+            bed.updateWorkspaceMenuActionCount(composeActions.value.size)
+        }
         CustomizableBedMenuActionsContent("edit", composeActions.value, portrait)
     }
 

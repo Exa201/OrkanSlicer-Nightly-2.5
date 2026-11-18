@@ -1778,6 +1778,8 @@ public:
 
     // Croaks if the duplicated objects do not fit the print bed.
     void duplicate_objects_grid(size_t x, size_t y, coordf_t dist);
+    // Rotate imported objects together around their common XY center while preserving their layout.
+    void rotate_and_center_objects(double angle_z);
 
     bool 		  looks_like_multipart_object() const;
     void 		  convert_multipart_object(unsigned int max_extruders, bool keep_volume_names = false);

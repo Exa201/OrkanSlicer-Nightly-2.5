@@ -1,0 +1,461 @@
+[
+  {
+    "window-title": "",
+    "type": "SYSTEM",
+    "active": true,
+    "focused": true,
+    "layer": 0,
+    "bounds": "[0,0][1280,2800]",
+    "content": [
+      {
+        "class": "android.widget.FrameLayout",
+        "bounds": "[0,0][1280,2800]",
+        "center": "[640,1400]",
+        "children": [
+          {
+            "class": "android.view.View",
+            "resource-id": "com.android.systemui:id/scrim_behind",
+            "interactions": [
+              "CLICKABLE",
+              "FOCUSABLE"
+            ],
+            "bounds": "[0,0][1280,2800]",
+            "center": "[640,1400]"
+          },
+          {
+            "class": "android.view.View",
+            "resource-id": "com.android.systemui:id/scrim_in_front",
+            "interactions": [
+              "FOCUSABLE"
+            ],
+            "bounds": "[0,0][1280,2800]",
+            "center": "[640,1400]"
+          },
+          {
+            "class": "android.widget.FrameLayout",
+            "resource-id": "com.android.systemui:id/backdrop",
+            "bounds": "[0,0][1280,2800]",
+            "center": "[640,1400]",
+            "children": [
+              {
+                "class": "android.view.View",
+                "hidden": true
+              },
+              {
+                "class": "androidx.viewpager.widget.ViewPager",
+                "resource-id": "com.android.systemui:id/backdrop_back_noAnimation",
+                "interactions": [
+                  "SCROLLABLE",
+                  "FOCUSABLE"
+                ],
+                "bounds": "[0,0][1280,2800]",
+                "center": "[640,1400]",
+                "children": [
+                  {
+                    "class": "android.widget.RelativeLayout",
+                    "off-screen": true,
+                    "hidden": true,
+                    "children": [
+                      {
+                        "class": "android.widget.ImageView",
+                        "resource-id": "com.android.systemui:id/magazine_img",
+                        "off-screen": true,
+                        "hidden": true
+                      },
+                      {
+                        "class": "android.view.View",
+                        "resource-id": "com.android.systemui:id/dwb_black_scrim_view",
+                        "off-screen": true,
+                        "hidden": true
+                      },
+                      {
+                        "class": "android.widget.FrameLayout",
+                        "resource-id": "com.android.systemui:id/description_container",
+                        "off-screen": true,
+                        "hidden": true
+                      }
+                    ]
+                  },
+                  {
+                    "class": "android.widget.RelativeLayout",
+                    "bounds": "[0,0][1280,2800]",
+                    "center": "[640,1400]",
+                    "children": [
+                      {
+                        "class": "android.view.View",
+                        "resource-id": "com.android.systemui:id/wallpaper_mask_full",
+                        "bounds": "[0,0][1280,2800]",
+                        "center": "[640,1400]"
+                      },
+                      {
+                        "class": "android.view.View",
+                        "resource-id": "com.android.systemui:id/dwb_black_scrim_view",
+                        "bounds": "[0,0][1280,2800]",
+                        "center": "[640,1400]"
+                      }
+                    ]
+                  },
+                  {
+                    "class": "android.widget.RelativeLayout",
+                    "off-screen": true,
+                    "hidden": true,
+                    "children": [
+                      {
+                        "class": "android.widget.ImageView",
+                        "resource-id": "com.android.systemui:id/magazine_img",
+                        "off-screen": true,
+                        "hidden": true
+                      },
+                      {
+                        "class": "android.view.View",
+                        "resource-id": "com.android.systemui:id/dwb_black_scrim_view",
+                        "off-screen": true,
+                        "hidden": true
+                      },
+                      {
+                        "class": "android.widget.FrameLayout",
+                        "resource-id": "com.android.systemui:id/description_container",
+                        "off-screen": true,
+                        "hidden": true
+                      }
+                    ]
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "class": "android.widget.FrameLayout",
+            "resource-id": "com.android.systemui:id/notification_panel",
+            "bounds": "[0,0][1280,2800]",
+            "center": "[640,1400]",
+            "children": [
+              {
+                "class": "android.widget.FrameLayout",
+                "resource-id": "com.android.systemui:id/notification_container_parent",
+                "bounds": "[0,0][1280,2800]",
+                "center": "[640,1400]",
+                "children": [
+                  {
+                    "class": "android.widget.FrameLayout",
+                    "resource-id": "com.android.systemui:id/colume_container",
+                    "bounds": "[0,0][1280,2664]",
+                    "center": "[640,1332]"
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "class": "android.widget.FrameLayout",
+            "resource-id": "com.android.systemui:id/hn_overlay_status_view",
+            "hidden": true,
+            "children": [
+              {
+                "class": "android.widget.FrameLayout",
+                "resource-id": "com.android.systemui:id/capsule_set",
+                "hidden": true
+              },
+              {
+                "class": "android.widget.FrameLayout",
+                "resource-id": "com.android.systemui:id/hn_status_bar_contents_parent",
+                "hidden": true,
+                "children": [
+                  {
+                    "class": "android.widget.LinearLayout",
+                    "resource-id": "com.android.systemui:id/status_bar_contents",
+                    "hidden": true,
+                    "children": [
+                      {
+                        "class": "android.widget.TextView",
+                        "resource-id": "com.android.systemui:id/clock",
+                        "text": "22:10",
+                        "hidden": true
+                      },
+                      {
+                        "class": "android.widget.LinearLayout",
+                        "resource-id": "com.android.systemui:id/system_icon_unstable",
+                        "hidden": true,
+                        "children": [
+                          {
+                            "class": "android.widget.LinearLayout",
+                            "resource-id": "com.android.systemui:id/statusIcons_more",
+                            "hidden": true,
+                            "children": [
+                              {
+                                "class": "android.widget.ImageView",
+                                "content-desc": "Wecker eingestellt.",
+                                "hidden": true
+                              },
+                              {
+                                "class": "android.widget.ImageView",
+                                "content-desc": "Klingeltonmodus \"Vibration\"",
+                                "hidden": true
+                              }
+                            ]
+                          },
+                          {
+                            "class": "android.widget.FrameLayout",
+                            "resource-id": "com.android.systemui:id/notification_icon_area",
+                            "hidden": true,
+                            "children": [
+                              {
+                                "class": "android.view.ViewGroup",
+                                "resource-id": "com.android.systemui:id/notificationIcons",
+                                "hidden": true,
+                                "children": [
+                                  {
+                                    "class": "android.widget.ImageView",
+                                    "content-desc": "Benachrichtigung von Android-System: ",
+                                    "hidden": true
+                                  }
+                                ]
+                              }
+                            ]
+                          },
+                          {
+                            "class": "android.widget.LinearLayout",
+                            "resource-id": "com.android.systemui:id/network_area_more",
+                            "off-screen": true,
+                            "hidden": true
+                          }
+                        ]
+                      },
+                      {
+                        "class": "android.widget.LinearLayout",
+                        "resource-id": "com.android.systemui:id/system_icon_area",
+                        "hidden": true,
+                        "children": [
+                          {
+                            "class": "android.widget.LinearLayout",
+                            "resource-id": "com.android.systemui:id/system_icons",
+                            "hidden": true,
+                            "children": [
+                              {
+                                "class": "android.widget.LinearLayout",
+                                "resource-id": "com.android.systemui:id/signalIcons",
+                                "hidden": true,
+                                "children": [
+                                  {
+                                    "class": "android.widget.FrameLayout",
+                                    "resource-id": "com.android.systemui:id/signal_cluster_container",
+                                    "hidden": true,
+                                    "children": [
+                                      {
+                                        "class": "android.widget.LinearLayout",
+                                        "resource-id": "com.android.systemui:id/signal_cluster",
+                                        "hidden": true,
+                                        "children": [
+                                          {
+                                            "class": "android.widget.LinearLayout",
+                                            "resource-id": "com.android.systemui:id/signal_cluster_container",
+                                            "hidden": true,
+                                            "children": [
+                                              {
+                                                "class": "android.widget.FrameLayout",
+                                                "resource-id": "com.android.systemui:id/wifi_combo",
+                                                "hidden": true,
+                                                "children": [
+                                                  {
+                                                    "class": "android.widget.ImageView",
+                                                    "resource-id": "com.android.systemui:id/wifi_signal",
+                                                    "content-desc": "WLAN: volle Signalstärke",
+                                                    "hidden": true
+                                                  },
+                                                  {
+                                                    "class": "android.widget.ImageView",
+                                                    "resource-id": "com.android.systemui:id/wifi_inout",
+                                                    "hidden": true
+                                                  }
+                                                ]
+                                              },
+                                              {
+                                                "class": "android.widget.FrameLayout",
+                                                "hidden": true,
+                                                "children": [
+                                                  {
+                                                    "class": "android.widget.LinearLayout",
+                                                    "resource-id": "com.android.systemui:id/mobile_combo",
+                                                    "hidden": true,
+                                                    "children": [
+                                                      {
+                                                        "class": "android.widget.LinearLayout",
+                                                        "resource-id": "com.android.systemui:id/mobile_combo_card",
+                                                        "content-desc": "LTE, Volles Signal.",
+                                                        "hidden": true,
+                                                        "children": [
+                                                          {
+                                                            "class": "android.widget.FrameLayout",
+                                                            "hidden": true,
+                                                            "children": [
+                                                              {
+                                                                "class": "android.widget.ImageView",
+                                                                "resource-id": "com.android.systemui:id/mobile_signal",
+                                                                "hidden": true
+                                                              },
+                                                              {
+                                                                "class": "android.widget.FrameLayout",
+                                                                "resource-id": "com.android.systemui:id/mobile_data",
+                                                                "off-screen": true,
+                                                                "hidden": true
+                                                              }
+                                                            ]
+                                                          }
+                                                        ]
+                                                      },
+                                                      {
+                                                        "class": "android.widget.LinearLayout",
+                                                        "resource-id": "com.android.systemui:id/mobile_combo_card",
+                                                        "content-desc": "LTE, Volles Signal.",
+                                                        "hidden": true,
+                                                        "children": [
+                                                          {
+                                                            "class": "android.widget.FrameLayout",
+                                                            "hidden": true,
+                                                            "children": [
+                                                              {
+                                                                "class": "android.widget.ImageView",
+                                                                "resource-id": "com.android.systemui:id/mobile_signal",
+                                                                "hidden": true
+                                                              },
+                                                              {
+                                                                "class": "android.widget.FrameLayout",
+                                                                "resource-id": "com.android.systemui:id/mobile_data",
+                                                                "off-screen": true,
+                                                                "hidden": true
+                                                              }
+                                                            ]
+                                                          }
+                                                        ]
+                                                      }
+                                                    ]
+                                                  }
+                                                ]
+                                              },
+                                              {
+                                                "class": "android.widget.LinearLayout",
+                                                "resource-id": "com.android.systemui:id/signal_icons",
+                                                "off-screen": true,
+                                                "hidden": true,
+                                                "children": [
+                                                  {
+                                                    "class": "android.widget.LinearLayout",
+                                                    "resource-id": "com.android.systemui:id/msim_status_bar_operators_card_two_id",
+                                                    "off-screen": true,
+                                                    "hidden": true,
+                                                    "children": [
+                                                      {
+                                                        "class": "android.widget.FrameLayout",
+                                                        "resource-id": "com.android.systemui:id/operator_cust_container",
+                                                        "off-screen": true,
+                                                        "hidden": true
+                                                      }
+                                                    ]
+                                                  },
+                                                  {
+                                                    "class": "android.widget.LinearLayout",
+                                                    "resource-id": "com.android.systemui:id/msim_status_bar_operators_card_one_id",
+                                                    "off-screen": true,
+                                                    "hidden": true,
+                                                    "children": [
+                                                      {
+                                                        "class": "android.widget.FrameLayout",
+                                                        "resource-id": "com.android.systemui:id/operator_cust_container",
+                                                        "off-screen": true,
+                                                        "hidden": true
+                                                      }
+                                                    ]
+                                                  },
+                                                  {
+                                                    "class": "android.widget.LinearLayout",
+                                                    "resource-id": "com.android.systemui:id/msim_status_bar_operators_card_vsim_id",
+                                                    "off-screen": true,
+                                                    "hidden": true,
+                                                    "children": [
+                                                      {
+                                                        "class": "android.widget.FrameLayout",
+                                                        "resource-id": "com.android.systemui:id/operator_cust_container",
+                                                        "off-screen": true,
+                                                        "hidden": true
+                                                      }
+                                                    ]
+                                                  }
+                                                ]
+                                              },
+                                              {
+                                                "class": "android.widget.LinearLayout",
+                                                "resource-id": "com.android.systemui:id/mobile_signal_group",
+                                                "off-screen": true,
+                                                "hidden": true
+                                              }
+                                            ]
+                                          }
+                                        ]
+                                      }
+                                    ]
+                                  }
+                                ]
+                              },
+                              {
+                                "class": "android.widget.LinearLayout",
+                                "resource-id": "com.android.systemui:id/network_area_icons",
+                                "off-screen": true,
+                                "hidden": true
+                              },
+                              {
+                                "class": "android.widget.LinearLayout",
+                                "resource-id": "com.android.systemui:id/statusIcons",
+                                "off-screen": true,
+                                "hidden": true
+                              },
+                              {
+                                "class": "android.widget.LinearLayout",
+                                "resource-id": "com.android.systemui:id/battery",
+                                "hidden": true,
+                                "children": [
+                                  {
+                                    "class": "android.widget.FrameLayout",
+                                    "resource-id": "com.android.systemui:id/battery_container",
+                                    "hidden": true,
+                                    "children": [
+                                      {
+                                        "class": "android.widget.ImageView",
+                                        "resource-id": "com.android.systemui:id/battery_border",
+                                        "content-desc": "Akku86 Prozent.",
+                                        "hidden": true
+                                      },
+                                      {
+                                        "class": "android.widget.ImageView",
+                                        "resource-id": "com.android.systemui:id/battery_inside_level",
+                                        "hidden": true
+                                      }
+                                    ]
+                                  },
+                                  {
+                                    "class": "android.widget.TextView",
+                                    "resource-id": "com.android.systemui:id/battery_outside_percent",
+                                    "text": "86 %",
+                                    "hidden": true
+                                  },
+                                  {
+                                    "class": "android.widget.FrameLayout",
+                                    "off-screen": true,
+                                    "hidden": true
+                                  }
+                                ]
+                              }
+                            ]
+                          }
+                        ]
+                      }
+                    ]
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  }
+]

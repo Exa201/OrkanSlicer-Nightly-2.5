@@ -34,6 +34,8 @@ enum class CalibState { Start = 0, Preset, Calibration, CoarseSave, FineCalibrat
 struct Calib_Params
 {
     Calib_Params() : mode(CalibMode::Calib_None){};
+    // Zero-based filament and nozzle used by this test.
+    int filament_id = 0;
     int extruder_id = 0;
     double    start, end, step;
     bool      print_numbers;
@@ -236,6 +238,8 @@ protected:
 
     Vec3d m_last_pos;
     DynamicPrintConfig m_config;
+    int m_filament_idx{0};
+    int m_extruder_idx{0};
 
     const double m_encroachment{1. / 3.};
     DrawDigitMode                m_draw_digit_mode{DrawDigitMode::Left_To_Right};
@@ -323,8 +327,7 @@ protected:
     double accel_perimeter() const { return m_config.option<ConfigOptionFloat>("outer_wall_acceleration")->value; }
     double line_width_first_layer() const
     {
-        // TODO: FIXME: find out current filament/extruder?
-        const double nozzle_diameter = m_config.opt_float("nozzle_diameter", 0);
+        const double nozzle_diameter = m_config.opt_float("nozzle_diameter", m_extruder_idx);
         return m_config.get_abs_value("initial_layer_line_width", nozzle_diameter);
     };
     double line_width() const;

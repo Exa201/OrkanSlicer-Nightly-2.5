@@ -1,0 +1,737 @@
+[
+  {
+    "window-title": "Navigationsleiste",
+    "type": "SYSTEM",
+    "layer": 2,
+    "bounds": "[0,2664][1280,2800]",
+    "content": [
+      {
+        "class": "android.widget.ImageView",
+        "resource-id": "com.android.systemui:id/back",
+        "content-desc": "Zurück",
+        "interactions": [
+          "CLICKABLE",
+          "LONG_CLICKABLE",
+          "FOCUSABLE"
+        ],
+        "bounds": "[231,2664][503,2800]",
+        "center": "[367,2732]"
+      },
+      {
+        "class": "android.widget.FrameLayout",
+        "resource-id": "com.android.systemui:id/home",
+        "interactions": [
+          "CLICKABLE",
+          "LONG_CLICKABLE",
+          "FOCUSABLE"
+        ],
+        "bounds": "[503,2664][775,2800]",
+        "center": "[639,2732]",
+        "children": [
+          {
+            "class": "android.widget.ImageView",
+            "resource-id": "com.android.systemui:id/home_button",
+            "content-desc": "Startbildschirm",
+            "interactions": [
+              "CLICKABLE",
+              "LONG_CLICKABLE",
+              "FOCUSABLE"
+            ],
+            "bounds": "[503,2664][775,2800]",
+            "center": "[639,2732]"
+          },
+          {
+            "class": "android.widget.ImageView",
+            "resource-id": "com.android.systemui:id/white",
+            "interactions": [
+              "CLICKABLE",
+              "FOCUSABLE"
+            ],
+            "bounds": "[503,2690][775,2774]",
+            "center": "[639,2732]"
+          }
+        ]
+      },
+      {
+        "class": "android.widget.ImageView",
+        "resource-id": "com.android.systemui:id/recent_apps",
+        "content-desc": "Kürzlich verwendete Apps",
+        "interactions": [
+          "CLICKABLE",
+          "LONG_CLICKABLE",
+          "FOCUSABLE"
+        ],
+        "bounds": "[775,2664][1047,2800]",
+        "center": "[911,2732]"
+      }
+    ]
+  },
+  {
+    "window-title": "",
+    "type": "SYSTEM",
+    "layer": 1,
+    "bounds": "[0,0][1280,141]",
+    "content": [
+      {
+        "class": "android.widget.TextView",
+        "resource-id": "com.android.systemui:id/clock",
+        "text": "21:53",
+        "bounds": "[67,55][198,117]",
+        "center": "[132,86]"
+      },
+      {
+        "class": "android.widget.ImageView",
+        "content-desc": "Wecker eingestellt.",
+        "bounds": "[198,49][255,123]",
+        "center": "[226,86]"
+      },
+      {
+        "class": "android.widget.ImageView",
+        "content-desc": "Klingeltonmodus \"Vibration\"",
+        "bounds": "[255,49][317,123]",
+        "center": "[286,86]"
+      },
+      {
+        "class": "android.widget.ImageView",
+        "content-desc": "Benachrichtigung von ChatGPT: ",
+        "bounds": "[323,49][367,123]",
+        "center": "[345,86]"
+      },
+      {
+        "class": "android.widget.ImageView",
+        "content-desc": "Benachrichtigung von Android-System: ",
+        "bounds": "[379,49][423,123]",
+        "center": "[401,86]"
+      },
+      {
+        "class": "android.widget.ImageView",
+        "resource-id": "com.android.systemui:id/wifi_signal",
+        "content-desc": "WLAN: volle Signalstärke",
+        "bounds": "[800,58][867,114]",
+        "center": "[833,86]"
+      },
+      {
+        "class": "android.widget.LinearLayout",
+        "resource-id": "com.android.systemui:id/mobile_combo_card",
+        "content-desc": "5G, Volles Signal.",
+        "bounds": "[867,58][941,114]",
+        "center": "[904,86]"
+      },
+      {
+        "class": "android.widget.LinearLayout",
+        "resource-id": "com.android.systemui:id/mobile_combo_card",
+        "content-desc": "LTE, Volles Signal.",
+        "bounds": "[941,58][1015,114]",
+        "center": "[978,86]"
+      },
+      {
+        "class": "android.widget.ImageView",
+        "resource-id": "com.android.systemui:id/battery_border",
+        "content-desc": "Akku88 Prozent.",
+        "bounds": "[1015,58][1112,114]",
+        "center": "[1063,86]"
+      },
+      {
+        "class": "android.widget.TextView",
+        "resource-id": "com.android.systemui:id/battery_outside_percent",
+        "text": "88 %",
+        "bounds": "[1112,55][1213,117]",
+        "center": "[1162,86]"
+      },
+      {
+        "class": "android.widget.FrameLayout",
+        "interactions": [
+          "CLICKABLE",
+          "FOCUSABLE"
+        ],
+        "bounds": "[499,49][781,123]",
+        "center": "[640,86]"
+      }
+    ]
+  },
+  {
+    "window-title": "OrkanSlicer Nightly 2.5",
+    "type": "APPLICATION",
+    "active": true,
+    "focused": true,
+    "layer": 0,
+    "bounds": "[0,0][1280,2800]",
+    "content": [
+      {
+        "class": "android.view.View",
+        "interactions": [
+          "FOCUSABLE"
+        ],
+        "state": [
+          "SELECTED"
+        ],
+        "bounds": "[0,141][256,307]",
+        "center": "[128,224]",
+        "children": [
+          {
+            "class": "android.view.View",
+            "content-desc": "Vorschau",
+            "bounds": "[0,141][256,307]",
+            "center": "[128,224]"
+          },
+          {
+            "class": "android.widget.TextView",
+            "text": "3D",
+            "bounds": "[6,240][250,292]",
+            "center": "[128,266]"
+          }
+        ]
+      },
+      {
+        "class": "android.view.View",
+        "interactions": [
+          "CLICKABLE",
+          "FOCUSABLE"
+        ],
+        "bounds": "[256,141][512,307]",
+        "center": "[384,224]",
+        "children": [
+          {
+            "class": "android.view.View",
+            "content-desc": "Druck",
+            "bounds": "[256,141][512,307]",
+            "center": "[384,224]"
+          },
+          {
+            "class": "android.widget.TextView",
+            "text": "Druck",
+            "bounds": "[262,240][506,292]",
+            "center": "[384,266]"
+          }
+        ]
+      },
+      {
+        "class": "android.view.View",
+        "interactions": [
+          "CLICKABLE",
+          "FOCUSABLE"
+        ],
+        "bounds": "[512,141][768,307]",
+        "center": "[640,224]",
+        "children": [
+          {
+            "class": "android.view.View",
+            "content-desc": "Filament",
+            "bounds": "[512,141][768,307]",
+            "center": "[640,224]"
+          },
+          {
+            "class": "android.widget.TextView",
+            "text": "Fil.",
+            "bounds": "[518,240][762,292]",
+            "center": "[640,266]"
+          }
+        ]
+      },
+      {
+        "class": "android.view.View",
+        "interactions": [
+          "CLICKABLE",
+          "FOCUSABLE"
+        ],
+        "bounds": "[768,141][1024,307]",
+        "center": "[896,224]",
+        "children": [
+          {
+            "class": "android.view.View",
+            "content-desc": "Drucker",
+            "bounds": "[768,141][1024,307]",
+            "center": "[896,224]"
+          },
+          {
+            "class": "android.widget.TextView",
+            "text": "Drucker",
+            "bounds": "[774,240][1018,292]",
+            "center": "[896,266]"
+          }
+        ]
+      },
+      {
+        "class": "android.view.View",
+        "interactions": [
+          "CLICKABLE",
+          "FOCUSABLE"
+        ],
+        "bounds": "[1024,141][1280,307]",
+        "center": "[1152,224]",
+        "children": [
+          {
+            "class": "android.view.View",
+            "content-desc": "App",
+            "bounds": "[1024,141][1280,307]",
+            "center": "[1152,224]"
+          },
+          {
+            "class": "android.widget.TextView",
+            "text": "App",
+            "bounds": "[1030,240][1274,292]",
+            "center": "[1152,266]"
+          }
+        ]
+      },
+      {
+        "class": "android.view.View",
+        "interactions": [
+          "CLICKABLE",
+          "FOCUSABLE"
+        ],
+        "bounds": "[18,319][526,462]",
+        "center": "[272,390]",
+        "children": [
+          {
+            "class": "android.view.View",
+            "content-desc": "Ausgewählter Drucker: Anycubic Kobra 3 v2 0.4 nozzle - Stock. Düse: 0.4. Filament: Anycubic Generic PLA. Druckprofil: 0.20mm High Quality · Anycubic Kobra 3 v2 0.4 nozzle - Stock. Öffnet die Profilauswahl.",
+            "bounds": "[18,319][526,462]",
+            "center": "[272,390]"
+          },
+          {
+            "class": "android.widget.TextView",
+            "text": "Anycubic Kobra 3 v2 0.4 nozzle - Stock",
+            "bounds": "[120,328][424,382]",
+            "center": "[272,355]"
+          },
+          {
+            "class": "android.widget.TextView",
+            "text": "Düse 0.4 · Anycubic Generic PLA",
+            "bounds": "[120,382][424,454]",
+            "center": "[272,418]"
+          }
+        ]
+      },
+      {
+        "class": "android.view.View",
+        "interactions": [
+          "CLICKABLE",
+          "FOCUSABLE"
+        ],
+        "bounds": "[526,319][669,462]",
+        "center": "[597,390]",
+        "children": [
+          {
+            "class": "android.view.View",
+            "content-desc": "Modellfilamentfarben, 3 Slots",
+            "bounds": "[526,319][669,462]",
+            "center": "[597,390]"
+          },
+          {
+            "class": "android.widget.TextView",
+            "text": "3",
+            "bounds": "[626,405][642,437]",
+            "center": "[634,421]"
+          }
+        ]
+      },
+      {
+        "class": "android.view.View",
+        "interactions": [
+          "CLICKABLE",
+          "FOCUSABLE"
+        ],
+        "bounds": "[681,319][848,462]",
+        "center": "[764,390]",
+        "children": [
+          {
+            "class": "android.view.View",
+            "content-desc": "Druckplatte 1 von 1. Druckplattenauswahl öffnen.",
+            "bounds": "[681,319][848,462]",
+            "center": "[764,390]"
+          },
+          {
+            "class": "android.widget.TextView",
+            "text": "Platte",
+            "bounds": "[715,343][814,391]",
+            "center": "[764,367]"
+          },
+          {
+            "class": "android.widget.TextView",
+            "text": "1/1",
+            "bounds": "[734,391][795,439]",
+            "center": "[764,415]"
+          }
+        ]
+      },
+      {
+        "class": "android.view.View",
+        "content-desc": "Ansichtswürfel. Ziehe den Würfel, um die Kameraperspektive zu drehen. Tippe eine sichtbare Würfelfläche für die Standardansicht an.",
+        "bounds": "[860,319][1003,462]",
+        "center": "[931,390]"
+      },
+      {
+        "class": "android.widget.Button",
+        "content-desc": "Öffnet den eingestellten Druckerhost im Browser",
+        "interactions": [
+          "CLICKABLE",
+          "FOCUSABLE"
+        ],
+        "bounds": "[1015,319][1158,462]",
+        "center": "[1086,390]"
+      },
+      {
+        "class": "android.view.View",
+        "interactions": [
+          "CHECKABLE",
+          "CLICKABLE",
+          "FOCUSABLE"
+        ],
+        "state": [
+          "CHECKED"
+        ],
+        "bounds": "[12,1759][628,1902]",
+        "center": "[320,1830]",
+        "children": [
+          {
+            "class": "android.widget.TextView",
+            "text": "Auswahl",
+            "bounds": "[60,1801][226,1861]",
+            "center": "[143,1831]"
+          }
+        ]
+      },
+      {
+        "class": "android.view.View",
+        "interactions": [
+          "CHECKABLE",
+          "CLICKABLE",
+          "FOCUSABLE"
+        ],
+        "bounds": "[652,1759][1268,1902]",
+        "center": "[960,1830]",
+        "children": [
+          {
+            "class": "android.widget.TextView",
+            "text": "Druckplatte",
+            "bounds": "[700,1801][936,1861]",
+            "center": "[818,1831]"
+          }
+        ]
+      },
+      {
+        "class": "android.view.View",
+        "interactions": [
+          "SCROLLABLE"
+        ],
+        "bounds": "[0,1902][1137,2467]",
+        "center": "[568,2184]",
+        "children": [
+          {
+            "class": "android.view.View",
+            "interactions": [
+              "CLICKABLE",
+              "FOCUSABLE"
+            ],
+            "bounds": "[21,1911][277,2173]",
+            "center": "[149,2042]",
+            "children": [
+              {
+                "class": "android.view.View",
+                "content-desc": "Objekte",
+                "bounds": "[21,1911][277,2173]",
+                "center": "[149,2042]"
+              },
+              {
+                "class": "android.widget.TextView",
+                "text": "Objekte",
+                "bounds": "[33,2051][265,2099]",
+                "center": "[149,2075]"
+              }
+            ]
+          },
+          {
+            "class": "android.view.View",
+            "interactions": [
+              "CLICKABLE"
+            ],
+            "bounds": "[301,1911][557,2173]",
+            "center": "[429,2042]",
+            "children": [
+              {
+                "class": "android.view.View",
+                "content-desc": "Ausgewähltes Objekt oder Gruppe duplizieren und Anzahl wählen",
+                "bounds": "[301,1911][557,2173]",
+                "center": "[429,2042]"
+              },
+              {
+                "class": "android.widget.TextView",
+                "text": "Kopien erstellen",
+                "bounds": "[313,2027][545,2123]",
+                "center": "[429,2075]"
+              }
+            ]
+          },
+          {
+            "class": "android.view.View",
+            "interactions": [
+              "CLICKABLE"
+            ],
+            "bounds": "[581,1911][837,2173]",
+            "center": "[709,2042]",
+            "children": [
+              {
+                "class": "android.view.View",
+                "content-desc": "Ausgewähltes Modell auf andere Druckplatte verschieben",
+                "bounds": "[581,1911][837,2173]",
+                "center": "[709,2042]"
+              },
+              {
+                "class": "android.widget.TextView",
+                "text": "Andere Platte",
+                "bounds": "[593,2027][825,2123]",
+                "center": "[709,2075]"
+              }
+            ]
+          },
+          {
+            "class": "android.view.View",
+            "interactions": [
+              "CLICKABLE"
+            ],
+            "bounds": "[861,1911][1116,2173]",
+            "center": "[988,2042]",
+            "children": [
+              {
+                "class": "android.view.View",
+                "content-desc": "Teile trennen",
+                "bounds": "[861,1911][1116,2173]",
+                "center": "[988,2042]"
+              },
+              {
+                "class": "android.widget.TextView",
+                "text": "Teile trennen",
+                "bounds": "[873,2027][1104,2123]",
+                "center": "[988,2075]"
+              }
+            ]
+          },
+          {
+            "class": "android.view.View",
+            "interactions": [
+              "CLICKABLE"
+            ],
+            "bounds": "[21,2197][277,2459]",
+            "center": "[149,2328]",
+            "children": [
+              {
+                "class": "android.view.View",
+                "content-desc": "Ausgewähltes Objekt oder Gruppe auf der Platte zentrieren",
+                "bounds": "[21,2197][277,2459]",
+                "center": "[149,2328]"
+              },
+              {
+                "class": "android.widget.TextView",
+                "text": "Zentrieren",
+                "bounds": "[33,2337][265,2385]",
+                "center": "[149,2361]"
+              }
+            ]
+          },
+          {
+            "class": "android.view.View",
+            "interactions": [
+              "CLICKABLE"
+            ],
+            "bounds": "[301,2197][557,2459]",
+            "center": "[429,2328]",
+            "children": [
+              {
+                "class": "android.view.View",
+                "content-desc": "Objekt ins Druckvolumen einpassen",
+                "bounds": "[301,2197][557,2459]",
+                "center": "[429,2328]"
+              },
+              {
+                "class": "android.widget.TextView",
+                "text": "Objekt ins Druckvolumen einpassen",
+                "bounds": "[313,2289][545,2433]",
+                "center": "[429,2361]"
+              }
+            ]
+          },
+          {
+            "class": "android.view.View",
+            "interactions": [
+              "CLICKABLE"
+            ],
+            "bounds": "[581,2197][837,2459]",
+            "center": "[709,2328]",
+            "children": [
+              {
+                "class": "android.view.View",
+                "content-desc": "Ausgewählte Objektgruppe auf die Platte ablegen",
+                "bounds": "[581,2197][837,2459]",
+                "center": "[709,2328]"
+              },
+              {
+                "class": "android.widget.TextView",
+                "text": "Auf Platte ablegen",
+                "bounds": "[593,2313][825,2409]",
+                "center": "[709,2361]"
+              }
+            ]
+          },
+          {
+            "class": "android.view.View",
+            "interactions": [
+              "CLICKABLE"
+            ],
+            "bounds": "[861,2197][1116,2459]",
+            "center": "[988,2328]",
+            "children": [
+              {
+                "class": "android.view.View",
+                "content-desc": "Auf ein anderes Objekt setzen",
+                "bounds": "[861,2197][1116,2459]",
+                "center": "[988,2328]"
+              },
+              {
+                "class": "android.widget.TextView",
+                "text": "Oben platzieren",
+                "bounds": "[873,2313][1104,2409]",
+                "center": "[988,2361]"
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "class": "android.view.View",
+        "interactions": [
+          "CLICKABLE",
+          "FOCUSABLE"
+        ],
+        "bounds": "[1137,1902][1280,2497]",
+        "center": "[1208,2199]",
+        "children": [
+          {
+            "class": "android.widget.TextView",
+            "text": "⋮",
+            "content-desc": "Menü anpassen",
+            "bounds": "[1200,2156][1217,2244]",
+            "center": "[1208,2200]"
+          }
+        ]
+      },
+      {
+        "class": "android.view.View",
+        "interactions": [
+          "CLICKABLE",
+          "FOCUSABLE"
+        ],
+        "bounds": "[0,2497][256,2664]",
+        "center": "[128,2580]",
+        "children": [
+          {
+            "class": "android.view.View",
+            "content-desc": "Projekt",
+            "bounds": "[0,2497][256,2664]",
+            "center": "[128,2580]"
+          },
+          {
+            "class": "android.widget.TextView",
+            "text": "Projekt",
+            "bounds": "[6,2596][250,2649]",
+            "center": "[128,2622]"
+          }
+        ]
+      },
+      {
+        "class": "android.view.View",
+        "interactions": [
+          "FOCUSABLE"
+        ],
+        "state": [
+          "SELECTED"
+        ],
+        "bounds": "[256,2497][512,2664]",
+        "center": "[384,2580]",
+        "children": [
+          {
+            "class": "android.view.View",
+            "content-desc": "Modell",
+            "bounds": "[256,2497][512,2664]",
+            "center": "[384,2580]"
+          },
+          {
+            "class": "android.widget.TextView",
+            "text": "Modell",
+            "bounds": "[262,2596][506,2649]",
+            "center": "[384,2622]"
+          }
+        ]
+      },
+      {
+        "class": "android.view.View",
+        "interactions": [
+          "CLICKABLE",
+          "FOCUSABLE"
+        ],
+        "bounds": "[512,2497][768,2664]",
+        "center": "[640,2580]",
+        "children": [
+          {
+            "class": "android.view.View",
+            "content-desc": "Bearbeiten",
+            "bounds": "[512,2497][768,2664]",
+            "center": "[640,2580]"
+          },
+          {
+            "class": "android.widget.TextView",
+            "text": "Ändern",
+            "bounds": "[518,2596][762,2649]",
+            "center": "[640,2622]"
+          }
+        ]
+      },
+      {
+        "class": "android.view.View",
+        "interactions": [
+          "CLICKABLE",
+          "FOCUSABLE"
+        ],
+        "bounds": "[768,2497][1024,2664]",
+        "center": "[896,2580]",
+        "children": [
+          {
+            "class": "android.view.View",
+            "content-desc": "Werkzeuge",
+            "bounds": "[768,2497][1024,2664]",
+            "center": "[896,2580]"
+          },
+          {
+            "class": "android.widget.TextView",
+            "text": "Tools",
+            "bounds": "[774,2596][1018,2649]",
+            "center": "[896,2622]"
+          }
+        ]
+      },
+      {
+        "class": "android.view.View",
+        "interactions": [
+          "CLICKABLE",
+          "FOCUSABLE"
+        ],
+        "bounds": "[1024,2497][1280,2664]",
+        "center": "[1152,2580]",
+        "children": [
+          {
+            "class": "android.view.View",
+            "content-desc": "Slicen",
+            "bounds": "[1024,2497][1280,2664]",
+            "center": "[1152,2580]"
+          },
+          {
+            "class": "android.widget.TextView",
+            "text": "Slicen",
+            "bounds": "[1030,2596][1274,2649]",
+            "center": "[1152,2622]"
+          }
+        ]
+      }
+    ]
+  }
+]

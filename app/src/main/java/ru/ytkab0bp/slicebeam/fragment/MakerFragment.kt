@@ -22,9 +22,9 @@ import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.Icon
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.foundation.Image
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
@@ -97,7 +97,7 @@ class MakerFragment : Fragment() {
         MakerSection(
             R.string.MakerConverters,
             R.string.MakerConvertersDescription,
-            R.drawable.picture_outline_28,
+            R.drawable.ic_maker_konverter_normal,
             listOf(
                 action(R.string.ImageToStlMenu) { bed -> activity()?.let { ImageToStlConverter.pickImage(it, bed) } },
                 action(R.string.LithophaneGeneratorMenu) { activity()?.let { ImageToStlConverter.pickLithophane(it) } },
@@ -106,13 +106,13 @@ class MakerFragment : Fragment() {
         MakerSection(
             R.string.FastenerTitle,
             R.string.FastenerDescription,
-            R.drawable.box_heart_outline_28,
+            R.drawable.ic_maker_schrauben_muttern_scheiben_normal,
             listOf(action(R.string.FastenerStart) { bed -> activity()?.let { FastenerGenerator.show(it, bed) } }),
         ),
         MakerSection(
             R.string.MakerKromacut,
             R.string.MakerKromacutDescription,
-            R.drawable.magic_wand_outline_28,
+            R.drawable.ic_maker_kromacut_normal,
             listOf(action(R.string.MakerOpenKromacut) { bed ->
                 bed.showWorkspaceComposeTool(KromacutEditorMenu())
             }),
@@ -120,7 +120,7 @@ class MakerFragment : Fragment() {
         MakerSection(
             R.string.MakerGenerators,
             R.string.MakerGeneratorsDescription,
-            R.drawable.box_heart_outline_28,
+            R.drawable.ic_maker_generatoren_normal,
             listOf(
                 action(R.string.TextTagMenu) { bed -> activity()?.let { TextTagGenerator.show(it, bed) } },
                 action(R.string.UtilityBoxMenu) { bed -> activity()?.let { UtilityBoxGenerator.show(it, bed) } },
@@ -208,7 +208,7 @@ internal fun MakerContent(
                 shape = RoundedCornerShape(10.dp),
                 contentPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp),
             ) {
-                Icon(painterResource(R.drawable.arrow_left_outline_28), contentDescription = null, modifier = Modifier.size(20.dp))
+                Image(painterResource(R.drawable.ic_maker_zurueck_normal), contentDescription = null, modifier = Modifier.size(31.dp))
                 Spacer(Modifier.size(6.dp))
                 Text(stringResource(R.string.MakerBack), fontSize = 14.sp, lineHeight = 18.sp)
             }
@@ -275,9 +275,10 @@ private fun MakerSectionCard(
                     .padding(horizontal = 10.dp, vertical = 8.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                androidx.compose.material3.Icon(
-                    painter = painterResource(section.iconRes), contentDescription = null,
-                    modifier = Modifier.size(20.dp), tint = MaterialTheme.colorScheme.primary,
+                Image(
+                    painter = painterResource(makerSectionIcon(section.iconRes, expanded)),
+                    contentDescription = null,
+                    modifier = Modifier.size(36.dp),
                 )
                 Column(Modifier.weight(1f).padding(start = 8.dp, end = 4.dp)) {
                     Text(stringResource(section.titleRes), color = MaterialTheme.colorScheme.onSurface,
@@ -320,6 +321,12 @@ private fun MakerActionRow(action: MakerAction, onClick: () -> Unit) {
             modifier = Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 10.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
+            Image(
+                painter = painterResource(makerActionIcon(action.titleRes)),
+                contentDescription = null,
+                modifier = Modifier.size(36.dp),
+            )
+            Spacer(modifier = Modifier.size(10.dp))
             Text(
                 text = stringResource(action.titleRes),
                 modifier = Modifier.weight(1f),
@@ -335,4 +342,18 @@ private fun MakerActionRow(action: MakerAction, onClick: () -> Unit) {
             )
         }
     }
+}
+
+private fun makerActionIcon(titleRes: Int): Int = when (titleRes) {
+    R.string.ImageToStlMenu, R.string.LithophaneGeneratorMenu -> R.drawable.ic_maker_konverter_normal
+    R.string.FastenerStart -> R.drawable.ic_maker_schrauben_muttern_scheiben_normal
+    R.string.MakerOpenKromacut -> R.drawable.ic_maker_kromacut_normal
+    else -> R.drawable.ic_maker_generatoren_normal
+}
+
+private fun makerSectionIcon(normalRes: Int, expanded: Boolean): Int = if (!expanded) normalRes else when (normalRes) {
+    R.drawable.ic_maker_konverter_normal -> R.drawable.ic_maker_konverter_active
+    R.drawable.ic_maker_schrauben_muttern_scheiben_normal -> R.drawable.ic_maker_schrauben_muttern_scheiben_active
+    R.drawable.ic_maker_kromacut_normal -> R.drawable.ic_maker_kromacut_active
+    else -> R.drawable.ic_maker_generatoren_active
 }

@@ -21,6 +21,7 @@
         android:dataExtractionRules="@xml/data_extraction_rules"
         android:fullBackupContent="@xml/backup_rules"
         android:icon="@mipmap/icon"
+        android:roundIcon="@mipmap/icon"
         android:label="@string/AppName"
         android:supportsRtl="true"
         android:theme="@style/Theme.SliceBeam"

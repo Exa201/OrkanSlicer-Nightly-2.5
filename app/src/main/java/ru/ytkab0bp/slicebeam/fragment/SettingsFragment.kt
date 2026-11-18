@@ -43,6 +43,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.rotate
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.ComposeView
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalDensity
@@ -80,10 +81,10 @@ import ru.ytkab0bp.slicebeam.ui.BeamComposeTheme
 import ru.ytkab0bp.slicebeam.ui.OrkanSection
 import ru.ytkab0bp.slicebeam.ui.LocalOrkanSection
 import ru.ytkab0bp.slicebeam.ui.components.OrkanIconBadge
-import ru.ytkab0bp.slicebeam.ui.components.OrkanPageHeader
 import ru.ytkab0bp.slicebeam.ui.components.OrkanAccordion
 import ru.ytkab0bp.slicebeam.ui.components.OrkanSettingRow
 import ru.ytkab0bp.slicebeam.ui.settings.SettingsMenuLayoutPolicy
+import ru.ytkab0bp.slicebeam.ui.settings.AppSettingsIconAssets
 import ru.ytkab0bp.slicebeam.ui.workspace.WorkspaceMessageDialog
 import ru.ytkab0bp.slicebeam.utils.ConverterStorage
 import ru.ytkab0bp.slicebeam.utils.Prefs
@@ -533,15 +534,8 @@ internal fun SettingsContent(
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
         Column(modifier = Modifier.widthIn(max = 840.dp).fillMaxWidth()) {
-            OrkanPageHeader(
-                title = stringResource(R.string.SlotAppSettings),
-                subtitle = stringResource(R.string.SettingsScreenDescription),
-                iconRes = R.drawable.menu3d_tools,
-                modifier = Modifier.padding(bottom = if (compactLayout) 10.dp else 16.dp),
-            )
-
             SettingsActionRow(
-                R.drawable.menu3d_smart_slice,
+                R.drawable.ic_maker_open,
                 R.string.SettingsAppMakerTitle,
                 if (shortLandscapeLayout) null else stringResource(R.string.SettingsAppMakerDescription),
                 onMaker,
@@ -577,7 +571,7 @@ internal fun SettingsContent(
                     index = 0,
                     expandedSections = expandedSections,
                     onToggle = onToggleSection,
-                    iconRes = R.drawable.menu3d_tune,
+                    iconRes = R.drawable.ic_user_interface,
                     title = stringResource(R.string.SettingsInterface),
                     compactLayout = compactLayout,
                     denseLandscape = shortLandscapeLayout,
@@ -624,7 +618,7 @@ internal fun SettingsContent(
                     index = 1,
                     expandedSections = expandedSections,
                     onToggle = onToggleSection,
-                    iconRes = R.drawable.menu3d_combine,
+                    iconRes = R.drawable.ic_converter_storage,
                     title = stringResource(R.string.ConverterFolderSection),
                     compactLayout = compactLayout,
                     denseLandscape = shortLandscapeLayout,
@@ -644,7 +638,7 @@ internal fun SettingsContent(
                     index = 5,
                     expandedSections = expandedSections,
                     onToggle = onToggleSection,
-                    iconRes = R.drawable.menu3d_rotate,
+                    iconRes = R.drawable.ic_view,
                     title = stringResource(R.string.MenuCamera),
                     compactLayout = compactLayout,
                     denseLandscape = shortLandscapeLayout,
@@ -662,7 +656,7 @@ internal fun SettingsContent(
                             CameraPreset.ISOMETRIC -> R.string.MenuCameraIsometric
                         }
                         SettingsActionRow(
-                            iconRes = R.drawable.menu3d_rotate,
+                            iconRes = R.drawable.ic_view,
                             titleRes = label,
                             description = null,
                             onClick = { onCameraPreset(preset) },
@@ -678,7 +672,7 @@ internal fun SettingsContent(
                     index = 2,
                     expandedSections = expandedSections,
                     onToggle = onToggleSection,
-                    iconRes = R.drawable.menu3d_tools,
+                    iconRes = R.drawable.ic_printer_profiles,
                     title = stringResource(R.string.SettingsDevices),
                     compactLayout = compactLayout,
                     denseLandscape = shortLandscapeLayout,
@@ -698,13 +692,13 @@ internal fun SettingsContent(
                     index = 3,
                     expandedSections = expandedSections,
                     onToggle = onToggleSection,
-                    iconRes = R.drawable.menu3d_layers,
+                    iconRes = R.drawable.ic_app_information,
                     title = stringResource(R.string.SettingsAppInformation),
                     compactLayout = compactLayout,
                     denseLandscape = shortLandscapeLayout,
                 ) {
                     SettingsActionRow(
-                        R.drawable.menu3d_layers,
+                        R.drawable.ic_app_information,
                         R.string.SettingsAbout,
                         stringResource(R.string.SettingsAboutDescription),
                         onAbout,
@@ -745,7 +739,7 @@ internal fun SettingsContent(
             }
 
             SettingsActionRow(
-                R.drawable.refresh_outline_28,
+                R.drawable.ic_reset,
                 R.string.SettingsResetToDefault,
                 null,
                 onReset,
@@ -830,8 +824,8 @@ private fun SettingsActionRow(
                 androidx.compose.material3.Icon(
                     painter = painterResource(iconRes),
                     contentDescription = null,
-                    modifier = Modifier.size(if (denseLandscape) 20.dp else if (compactLayout) 22.dp else 24.dp),
-                    tint = foreground,
+                    modifier = Modifier.size(if (denseLandscape) 34.dp else if (compactLayout) 38.dp else 40.dp),
+                    tint = if (AppSettingsIconAssets.isPackAsset(iconRes)) Color.Unspecified else foreground,
                 )
             } else {
                 OrkanIconBadge(iconRes, size = if (denseLandscape) 34.dp else if (compactLayout) 36.dp else 42.dp)

@@ -417,6 +417,13 @@ static t_config_enum_values s_keys_map_SurfaceFillOrder {
 };
 CONFIG_OPTION_ENUM_DEFINE_STATIC_MAPS(SurfaceFillOrder)
 
+static t_config_enum_values s_keys_map_InfillStrategy{
+    { "default",      int(InfillStrategy::Default) },
+    { "crossing",     int(InfillStrategy::Crossing) },
+    { "non_crossing", int(InfillStrategy::NonCrossing) },
+};
+CONFIG_OPTION_ENUM_DEFINE_STATIC_MAPS(InfillStrategy)
+
 // Orca
 static t_config_enum_values s_keys_map_SeamScarfType{
     { "none",           int(SeamScarfType::None) },
@@ -3166,6 +3173,18 @@ void PrintConfigDef::init_fff_params()
     def->min = 1;
     def->max = 10; // Maximum number of lines for infill pattern
     def->set_default_value(new ConfigOptionInt(1));
+
+    def             = this->add("sparse_infill_strategy", coEnum);
+    def->label      = L("Sparse infill strategy");
+    def->category   = L("Strength");
+    def->tooltip    = L("How lines of Grid, Triangles, Tri-hexagon, Cubic, Quarter Cubic, Adaptive Cubic and Support Cubic meet. "
+                        "Default crosses with a single line and turns back with multiline infill. Crossing runs straight across; "
+                        "non-crossing turns back where lines meet.");
+    def->enum_keys_map = &ConfigOptionEnum<InfillStrategy>::get_enum_values();
+    def->enum_values = { "default", "crossing", "non_crossing" };
+    def->enum_labels = { L("Default"), L("Crossing"), L("Non-crossing") };
+    def->mode       = comExpert;
+    def->set_default_value(new ConfigOptionEnum<InfillStrategy>(InfillStrategy::Default));
 
     // Z-buckling bias optimization (experimental). Tightens the gyroid wave along the Z
     // (vertical) axis at low infill density to shorten the effective column length under

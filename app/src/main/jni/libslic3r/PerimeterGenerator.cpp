@@ -1143,6 +1143,129 @@ static void reorient_perimeters(ExtrusionEntityCollection &entities, bool steep_
     }
 }
 
+// Only discard inner walls where an actual top surface can replace them.
+static bool top_fill_replaces_inner_walls(const PrintRegionConfig &config)
+{
+    return config.top_shell_layers.value > 0 && config.top_surface_density.value > 0;
+}
+
+static double over_top_length(const Polyline &centerline, const ExPolygons &top_region,
+                              const BoundingBox &top_region_bbox)
+{
+    if (!get_extents(centerline).overlap(top_region_bbox))
+        return 0.;
+    return total_length(intersection_pl(Polylines{centerline}, top_region));
+}
+
+static ExPolygons top_fill_area(const ExPolygons &top_fills, const ExPolygons &fill_clip,
+                                coord_t ext_perimeter_spacing)
+{
+    return intersection_ex(fill_clip, offset_ex(top_fills, double(ext_perimeter_spacing / 2)));
+}
+
+static double clipper_z_path_length(const ClipperLib_Z::Path &path)
+{
+    double length = 0.;
+    for (size_t i = 1; i < path.size(); ++i)
+        length += (Vec2d(double(path[i].x()), double(path[i].y())) -
+                   Vec2d(double(path[i - 1].x()), double(path[i - 1].y()))).norm();
+    return length;
+}
+
+// For Arachne, preserve inner-wall segments where the model continues above a top surface,
+// while clipping segments that would otherwise be printed underneath the top fill.
+static void clip_inner_walls_over_top(std::vector<Arachne::VariableWidthLines> &inner_perimeters,
+                                      const ExPolygons &top_region, coord_t perimeter_width,
+                                      Polygons &kept_over_top)
+{
+    const BoundingBox top_region_bbox = get_extents(top_region).inflated(SCALED_EPSILON);
+    auto centerline_of = [](const Arachne::ExtrusionLine &line) {
+        Polyline centerline;
+        centerline.points.reserve(line.junctions.size());
+        for (const Arachne::ExtrusionJunction &junction : line.junctions)
+            centerline.points.emplace_back(junction.p);
+        return centerline;
+    };
+    auto covered_by = [&centerline_of](const Arachne::ExtrusionLine &line) {
+        coord_t width = 0;
+        for (const Arachne::ExtrusionJunction &junction : line.junctions)
+            width = std::max(width, junction.w);
+        return offset(centerline_of(line), float(width) / 2.f);
+    };
+
+    ClipperLib_Z::Paths top_paths_z;
+    for (const Polygon &polygon : to_polygons(offset_ex(top_region, float(perimeter_width) / 2.f))) {
+        top_paths_z.emplace_back();
+        ClipperLib_Z::Path &path = top_paths_z.back();
+        path.reserve(polygon.points.size());
+        for (const Point &point : polygon.points)
+            path.emplace_back(point.x(), point.y(), 0);
+    }
+
+    for (Arachne::VariableWidthLines &inner_perimeter : inner_perimeters) {
+        Arachne::VariableWidthLines kept;
+        kept.reserve(inner_perimeter.size());
+        for (Arachne::ExtrusionLine &line : inner_perimeter) {
+            if (line.empty())
+                continue;
+            const Polyline centerline = centerline_of(line);
+            const double over = over_top_length(centerline, top_region, top_region_bbox);
+            if (over <= 0.) {
+                kept.emplace_back(std::move(line));
+                continue;
+            }
+
+            ClipperLib_Z::Path subject;
+            subject.reserve(line.size());
+            for (const Arachne::ExtrusionJunction &junction : line.junctions)
+                subject.emplace_back(junction.p.x(), junction.p.y(), junction.w);
+            if (over >= clipper_z_path_length(subject) - double(SCALED_EPSILON))
+                continue;
+            ClipperLib_Z::Paths pieces = clip_extrusion(subject, top_paths_z, ClipperLib_Z::ctDifference);
+
+            auto same_point = [](const ClipperLib_Z::IntPoint &a, const ClipperLib_Z::IntPoint &b) {
+                return std::abs(a.x() - b.x()) <= SCALED_EPSILON && std::abs(a.y() - b.y()) <= SCALED_EPSILON;
+            };
+            for (size_t i = 0; i < pieces.size(); ++i) {
+                for (size_t j = i + 1; j < pieces.size();) {
+                    ClipperLib_Z::Path &a = pieces[i];
+                    ClipperLib_Z::Path &b = pieces[j];
+                    if (same_point(a.front(), b.front()) || same_point(a.front(), b.back()))
+                        std::reverse(a.begin(), a.end());
+                    if (same_point(a.back(), b.back()))
+                        std::reverse(b.begin(), b.end());
+                    if (same_point(a.back(), b.front())) {
+                        a.insert(a.end(), b.begin() + 1, b.end());
+                        pieces.erase(pieces.begin() + j);
+                        j = i + 1;
+                    } else {
+                        ++j;
+                    }
+                }
+            }
+
+            double kept_length = 0.;
+            for (const ClipperLib_Z::Path &piece : pieces)
+                kept_length += clipper_z_path_length(piece);
+            if (clipper_z_path_length(subject) - kept_length < 2. * double(perimeter_width)) {
+                append(kept_over_top, covered_by(line));
+                kept.emplace_back(std::move(line));
+                continue;
+            }
+
+            for (const ClipperLib_Z::Path &piece : pieces) {
+                Arachne::ExtrusionLine clipped(line.inset_idx, line.is_odd);
+                clipped.junctions.reserve(piece.size());
+                for (const ClipperLib_Z::IntPoint &point : piece)
+                    clipped.junctions.emplace_back(Point(point.x(), point.y()), coord_t(point.z()), line.inset_idx);
+                if (clipped.size() >= 2 && clipped.getLength() >= perimeter_width)
+                    kept.emplace_back(std::move(clipped));
+            }
+        }
+        inner_perimeter = std::move(kept);
+    }
+}
+
 void PerimeterGenerator::process_classic()
 {
     group_region_by_fuzzify(*this);
@@ -1238,6 +1361,10 @@ void PerimeterGenerator::process_classic()
         ExPolygons gaps;
         ExPolygons top_fills;
         ExPolygons fill_clip;
+        ExPolygons one_wall_top_region;
+        ExPolygons one_wall_top_reclaimed;
+        Polygons one_wall_top_kept_bands;
+        bool apply_one_wall_top = false;
         if (loop_number >= 0) {
             // In case no perimeters are to be generated, loop_number will equal to -1.
             std::vector<PerimeterGeneratorLoops> contours(loop_number+1);    // depth => loops
@@ -1376,8 +1503,16 @@ void PerimeterGenerator::process_classic()
 
                 //BBS: refer to superslicer
                 //store surface for top infill if only_one_wall_top
-                if (i == 0 && i!=loop_number && config->only_one_wall_top && !surface.is_bridge() && this->upper_slices != NULL) {
-                    this->split_top_surfaces(last, top_fills, last, fill_clip);
+                if (i == 0 && i != loop_number && config->only_one_wall_top && !surface.is_bridge() && this->upper_slices != NULL) {
+                    if (top_fill_replaces_inner_walls(*this->config)) {
+                        ExPolygons non_top_polygons;
+                        this->split_top_surfaces(last, top_fills, non_top_polygons, fill_clip);
+                        apply_one_wall_top = !top_fills.empty();
+                        if (apply_one_wall_top)
+                            one_wall_top_region = top_fill_area(top_fills, fill_clip, ext_perimeter_spacing);
+                    } else {
+                        this->split_top_surfaces(last, top_fills, last, fill_clip);
+                    }
                 }
 
                 if (i == loop_number && (! has_gap_fill || this->config->sparse_infill_density.value == 0)) {
@@ -1385,6 +1520,44 @@ void PerimeterGenerator::process_classic()
                 	// As the gap fill is either disabled or not
                 	break;
                 }
+            }
+
+            // Classic walls are closed loops, so drop a whole inner loop when it runs over the top fill.
+            // Keep short grazes intact and reserve their footprint from the top fill to avoid overlap.
+            if (apply_one_wall_top) {
+                const BoundingBox top_region_bbox = get_extents(one_wall_top_region).inflated(SCALED_EPSILON);
+                const double grazing_tolerance = 2. * double(perimeter_width);
+                auto wall_band = [perimeter_spacing](const Polygon &poly) {
+                    Polygon centerline = poly;
+                    centerline.make_counter_clockwise();
+                    return diff(offset(centerline, float(perimeter_spacing) / 2.f),
+                                offset(centerline, -float(perimeter_spacing) / 2.f));
+                };
+                Polygons dropped_wall_bands;
+                auto reduce_over_top = [&](PerimeterGeneratorLoops &loops) {
+                    loops.erase(std::remove_if(loops.begin(), loops.end(), [&](const PerimeterGeneratorLoop &loop) {
+                        if (!get_extents(loop.polygon).overlap(top_region_bbox))
+                            return false;
+                        const Polyline centerline = loop.polygon.split_at_first_point();
+                        const double over = over_top_length(centerline, one_wall_top_region, top_region_bbox);
+                        if (over <= 0.)
+                            return false;
+                        if (over < loop.polygon.length() - double(SCALED_EPSILON) && over < grazing_tolerance) {
+                            append(one_wall_top_kept_bands, wall_band(loop.polygon));
+                            return false;
+                        }
+                        append(dropped_wall_bands, wall_band(loop.polygon));
+                        return true;
+                    }), loops.end());
+                };
+                for (int d = 1; d <= loop_number; ++d) {
+                    reduce_over_top(contours[d]);
+                    reduce_over_top(holes[d]);
+                }
+                if (!gaps.empty())
+                    gaps = diff_ex(gaps, one_wall_top_region);
+                if (!dropped_wall_bands.empty())
+                    one_wall_top_reclaimed = diff_ex(dropped_wall_bands, one_wall_top_region);
             }
 
             // nest loops: holes first
@@ -1621,7 +1794,10 @@ void PerimeterGenerator::process_classic()
                     and use zigzag).  */
                 //FIXME Vojtech: This grows by a rounded extrusion width, not by line spacing,
                 // therefore it may cover the area, but no the volume.
-                last = diff_ex(last, gap_fill.polygons_covered_by_width(10.f));
+                const Polygons gap_fill_covered = gap_fill.polygons_covered_by_width(10.f);
+                last = diff_ex(last, gap_fill_covered);
+                if (!one_wall_top_reclaimed.empty())
+                    one_wall_top_reclaimed = diff_ex(one_wall_top_reclaimed, gap_fill_covered);
                 this->gap_fill->append(std::move(gap_fill.entities));
 
 			}
@@ -1665,10 +1841,14 @@ void PerimeterGenerator::process_classic()
             float(min_perimeter_infill_spacing / 2.));
         // append infill areas to fill_surfaces
         //if any top_fills, grow them by ext_perimeter_spacing/2 to have the real un-anchored fill
-        ExPolygons top_infill_exp = intersection_ex(fill_clip, offset_ex(top_fills, double(ext_perimeter_spacing / 2)));
+        ExPolygons top_infill_exp = top_fill_area(top_fills, fill_clip, ext_perimeter_spacing);
+        if (!one_wall_top_kept_bands.empty())
+            top_infill_exp = diff_ex(top_infill_exp, one_wall_top_kept_bands);
         if (!top_fills.empty()) {
             infill_exp = union_ex(infill_exp, offset_ex(top_infill_exp, double(top_infill_peri_overlap)));
         }
+        if (!one_wall_top_reclaimed.empty())
+            infill_exp = union_ex(infill_exp, one_wall_top_reclaimed);
         this->fill_surfaces->append(infill_exp, stInternal);
 
         apply_extra_perimeters(infill_exp);
@@ -1687,6 +1867,8 @@ void PerimeterGenerator::process_classic()
                     double(-inset - infill_peri_overlap));
             if (!top_fills.empty())
                 polyWithoutOverlap = union_ex(polyWithoutOverlap, top_infill_exp);
+            if (!one_wall_top_reclaimed.empty())
+                polyWithoutOverlap = union_ex(polyWithoutOverlap, one_wall_top_reclaimed);
             this->fill_no_overlap->insert(this->fill_no_overlap->end(), polyWithoutOverlap.begin(), polyWithoutOverlap.end());
         }
 
@@ -2340,9 +2522,18 @@ void PerimeterGenerator::process_arachne()
                 // Get final top ExPolygons.
                 top_expolygons = intersection_ex(top_expolygons, infill_contour);
 
-                const Polygons not_top_polygons = to_polygons(offset_ex(not_top_expolygons,wall_0_inset));
-                Arachne::WallToolPaths inner_wall_tool_paths(not_top_polygons, perimeter_spacing, perimeter_spacing, coord_t(inner_loop_number + 1), 0, layer_height, input_params_tmp);
+                const bool clip_walls_over_top = top_fill_replaces_inner_walls(*this->config);
+                const Polygons inner_region = to_polygons(offset_ex(
+                    clip_walls_over_top ? infill_contour : not_top_expolygons, wall_0_inset));
+                Arachne::WallToolPaths inner_wall_tool_paths(inner_region, perimeter_spacing, perimeter_spacing, coord_t(inner_loop_number + 1), 0, layer_height, input_params_tmp);
                 std::vector<Arachne::VariableWidthLines> inner_perimeters = inner_wall_tool_paths.getToolPaths();
+
+                if (clip_walls_over_top) {
+                    Polygons kept_over_top;
+                    clip_inner_walls_over_top(inner_perimeters, top_expolygons, perimeter_width, kept_over_top);
+                    if (!kept_over_top.empty())
+                        top_expolygons = diff_ex(top_expolygons, kept_over_top);
+                }
 
                 // Recalculate indexes of inner perimeters before merging them.
                 if (!perimeters.empty()) {
@@ -2354,7 +2545,7 @@ void PerimeterGenerator::process_arachne()
                     }
                 }
 
-                if (perimeters.size() == 1)
+                if (!clip_walls_over_top && perimeters.size() == 1)
                     renumber_inner_walls_by_depth(perimeters.front(), inner_perimeters,
                         apply_precise_outer_wall ? ext_perimeter_spacing + perimeter_spacing / 2
                             : (ext_perimeter_spacing + perimeter_spacing) / 2,

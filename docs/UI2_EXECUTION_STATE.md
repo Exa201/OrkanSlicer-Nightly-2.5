@@ -1,4 +1,105 @@
-# Aktueller Arbeitsstand — Nightly 0.8.493 — 2026-11-17
+# Orca Nightly-Upgrades — Fortsetzung 2026-11-17
+
+- Aktueller Nightly-Checkout: Branch `codex/ui-2.1-redesign`, HEAD `41f84dffced17c14302d997dc3cd428f69017c09`, App 0.8.501 / Code 536. Orca-Upgrade-Plan steht bei **56/100**. `orcaslicer-upstream/main` wurde frisch geholt und steht auf `07f38df2a4fd3439cffbf991ee41ee99ec71fbee`.
+- Maker-/Slicing-Iconpack aus Nutzer-ZIP umgesetzt: 18 Drawable-Nodpi-Assets, fünf Slice-Aktionen zentral auf Normal/Aktiv/Deaktiviert abgebildet; Maker-Aktionen und Gruppen verwenden ihre jeweiligen Assets. Bestehende Handler bleiben unverändert. `SliceMenuArtworkTest` **1/1**, Kotlin-Compile und Debug-Build erfolgreich. APK **0.8.501 / Code 536**, 281,312,005 Bytes, SHA-256 `55DB63F4E1C6C555642A3CCF7E758655CE4272A3FE3CFE90318160365CA9F1C6`; auf Honor installiert. Honor zeigt das wiederhergestellte Projekt mit **588/588** Schichten; Logcat ohne FATAL/ANR/OOM. Screenshot `artifacts/honor-nightly-0.8.501-stable.png`. Maker-/Slice-Menüseiten noch nicht eigens visuell abgenommen. Changelog und In-App-Update-Notizen de/en/ru auf 0.8.501 synchronisiert; kein GitHub-Release.
+- Orca `80bfb59837` ist als Gruppenrotation für die Orca-Druckerprofileinstellung `preferred_orientation` beim Import normaler Meshdateien portiert. Die native Funktion dreht die Anordnung als Ganzes um deren Mittelpunkt, erhält Z und relative Abstände und greift nicht in gespeicherte 3MF-Layouts ein. API-36-Regressionslauf `NativeSliceDeviceTest#preferredImportOrientationRotatesMultipleObjectsAsOneLayout`: **1/1**, XML `app/build/outputs/androidTest-results/connected/sliceTest/TEST-codex_api36_test(AVD) - 16-_app-.xml`; ARM64-Native-/Instrumentierungsbuild erfolgreich.
+- Neuer Orca-Port: `only_one_wall_top` berücksichtigt jetzt die tatsächliche Überdeckung der Innenwand durch Deckflächenfüllung sowohl im Classic- als auch im Arachne-Wandgenerator. ARM64-Native-Build erfolgreich; API-36-Slice-Geräteregressionen Classic **1/1**, Arachne **1/1** bestanden. Der Gradle-Gesamtlauf wurde anschließend durch zwei Honor-Wireless-ADB-Aliase ohne installiertes SliceTest-Instrumentierungspaket als fehlgeschlagen markiert; Emulator-XMLs belegen beide bestandenen Tests. Kein APK-Build/Upload oder Release; 100/100 bleibt das Gate.
+- Der App-Einstellungs-Iconpack-Schritt ist bereits enthalten: acht farbige Icons, `AppSettingsIconAssetsTest` **2/2**, Debug-Build 0.8.500 / Code 535 und Installation/Sichtkontrolle auf Honor; Screenshot `artifacts/honor-app-settings-0.8.500.png`.
+- Re-Abnahme des bereits portierten Orca-Fixes `320f1bb7fc` (Top-Supportkontakt bei synchronisierten variablen Layerhöhen): Die Instrumentierungs-Fixture verwendete einen entfernten generischen Druckprofilnamen und scheiterte deshalb vor dem Slicing. Sie verwendet jetzt das aktive Drucker-Standardprofil. `NativeSliceDeviceTest#variableLayerGapKeepsTopSupportInterfaceUnderBothSidesOfAnOverhang` lief danach auf API 36 **1/1** erfolgreich; Test-XML: `app/build/outputs/androidTest-results/connected/sliceTest/TEST-codex_api36_test(AVD) - 16-_app-.xml`. Kein neuer Orca-Port gezählt, da die Funktion bereits im dokumentierten Support-Batch enthalten ist.
+- API-36-Emulator: `supportedSparseInfillSmoothingChangesOnlyHilbertAndOctagramToolpaths` **1/1 bestanden**; `volumetricFeatureFlowsUseAssignedToolAndFirstLayerValuesWithPrimeTower` **1/1 bestanden**.
+- Die gezielte Baum-Support-Clearance-Regression deckte einen fehlerhaften Testvertrag auf, keinen Orca-Core-Fehler: Orca begrenzt die Mindest-Clearance auf die kleinere Overhang-Regel, aber unterschiedliche diskrete Baumgeometrien müssen nicht das gleiche globale Minimum ergeben. Zusätzlich war der Test auf einen veralteten Druckprofilnamen festgelegt. Die Fixture nutzt jetzt den Drucker-Default und prüft die Mindestabstands-Untergrenze je Konfiguration. API-36-Emulator: **1/1 bestanden**. Keine Produktionslogik wurde für diesen Testfehler verändert.
+- Honor-/Xiaomi-Hardwaretest in diesem Fortsetzungslauf nicht durchgeführt. Es wurde keine Nutzer-APK erstellt und kein GitHub-Release veröffentlicht; dafür bleibt der 100/100-Gate maßgeblich.
+- Nächster konkreter Schritt: nächste fehlende, Android-erreichbare Orca-Core-Funktion aus dem Upstream-Verlauf auswählen und am echten Slice-Aufrufpfad regressionsprüfen; keine vorhandenen Ports doppelt zählen.
+- Frischer Remote-Abgleich: Orca `main` und der annotierte bewegliche `nightly-builds`-Tag zeigen beide auf `07f38df2a4fd3439cffbf991ee41ee99ec71fbee` (Tag-Objekt `b4b54918dbbbd3e9dd10d17194947c2e1986eaa5`). Seit Schritt 56 gibt es keinen neueren Commit. Die jüngsten geeigneten Kandidaten wurden gegen den Nightly geprüft: `d7534d7fb9` (kein gemeinsamer Extruder-Druckbereich), `3bfabc9831` (Anker-M5/M5C-Zeitheader), `40f43febbd` (Zuordnung „Bett füllen“), `87cf1429ca` (Baumstützen-Cluster), `8b8d573a85`/`8a1cef365e` (Layerkühlung) und `97bf1f4d1d` (Nahtmarker) sind bereits umgesetzt und/oder früher gezählt. Andere jüngere Treffer sind Desktop-UI, Plugin oder Buildsystem. Nächste Arbeit: nächsten noch fehlenden Android-Core-Fix aus dem weiteren Orca-Verlauf auswählen und mit Regression verifizieren.
+
+# UI 2.2 Aktionsgrafiken — 2026-11-17
+
+### Druckerprofil-Zuordnung — 2026-11-17
+
+- In `Wanhao France.ini` zeigte der Drucker `D12 500 PRO M2 DIRECT 0.4 nozzle` fälschlich auf `D12 500 PRO SMARTPAD DIRECT`. Der Setup-Abschluss sucht Druckerprofile über Modellname und Düsendurchmesser; dadurch konnte das gewählte Modell ohne passenden Profiltreffer bleiben und wurde nicht in die aktive Druckerliste übernommen.
+- Modellzuordnung korrigiert. Regressionstest parst alle 72 gebündelten Orca-Herstellerdateien und prüft, dass jede im Setup angebotene Düsenvariante auf ein installierbares Druckerprofil zeigt.
+- API-36-Emulator-Profilabnahme **vor** der Datenkorrektur: **19/19** UI-Instrumentierungstests bestanden. Nach der Datenkorrektur bestanden die JVM-Tests **18/18** (Datenbankintegrität 1, Setup-Auswahl 8, Profilfilter 6, Datenbank-Updater 3). `git diff --check` ohne Whitespacefehler.
+- Das Honor ist in dieser ADB-Sitzung nicht verbunden; die Hardwarebestätigung auf dem HONOR PTP-N49 bleibt offen. Kein APK-Build oder Upload in diesem Schritt.
+
+### Profil-Datenbanknachprüfung auf verbundenem Honor — 2026-11-17
+
+- OrcaSlicer `main` bleibt bei `47c67e1c44eb83e27c56cff49b350bd579019dec`; die 72 gebündelten Herstellerkataloge sind der aktuelle Datenstand (1.284 Druckervarianten, 10.254 Druck-/Filamentprofile).
+- Das verbundene Honor führt noch Nightly 0.8.493 / Code 528. Seine gespeicherte Druckerauswahl enthält weiterhin `Anycubic Kobra 3 v2 0.4 nozzle - Stock`; die neue Datenbank ist noch nicht in dem auf dem Gerät installierten APK enthalten.
+- Upgrade-Regression ergänzt: ein vorhandenes Kobra-3-V2-Stockprofil wird mit seiner Auswahl auf `Anycubic Kobra 3 V2 0.4 nozzle` migriert. Profil-Datenbank- und Updater-Tests: **6/6 bestanden**. Ein aktualisiertes installierbares APK wurde in diesem Schritt nicht gebaut oder installiert.
+
+- Die fünf bereitgestellten Grafiktabellen sind als Quellen unter `docs/assets/ui22/source/` abgelegt. Ein reproduzierbares PowerShell-Crop-Skript erzeugt **56** beschriftungsfreie Button-Symbole unter `app/src/main/res/drawable-nodpi/ui22_*.png`; `MenuActionArtwork.kt` ordnet die Symbole den vorhandenen Modell-, Bearbeiten-, Datei- und Slicingaktionen zu. Handler, IDs und zugängliche lokale Beschriftungen bleiben unverändert.
+- Nightly **0.8.493 / Code 528**: `:app:assembleDebug --offline` erfolgreich. APK `app/build/outputs/apk/debug/OrkanSlicerNightly25_41f84dffce.apk`, 301,921,748 Bytes, SHA-256 `21E6C353E108942264BCE862A9040F0DB4357290A5CAF0479702B0ED99FD9D13`.
+- APK auf API-36-Emulator installiert und Workspace-Modellmenü visuell kontrolliert: mehrfarbige Symbole werden angezeigt, originale Aktionsnamen bleiben lesbar. Screenshot: `artifacts/ui22-model-menu-emulator.png`.
+- Keine Veröffentlichung in diesem Schritt.
+
+### Nachprüfung Workspace-Dashboard — API 36, 480 dp, Schrift 150 % — 2026-11-17
+
+- `WorkspaceDashboardIntegrationDeviceTest#printToolShortcutsAreVisibleAndOpenTheirActualEditors` bestanden: **1/1**. Der Test prüft über den echten `BedFragment`-Aufrufpfad die Sichtbarkeit von Filament-Sync, Turmposition, Spülvolumen, Plattenauswahl und Druckeraktion; Turmposition und Spülvolumen öffnen jeweils ihren tatsächlichen Editor.
+- Emulator-Konfiguration: **1080 × 2400 px**, 360 dpi Override (**480 dp** Gerätebreite), Schriftfaktor **1,5**. Sichtkontrolle bestätigt alle Dashboard-Shortcuts gleichzeitig in einer Reihe. Screenshot: `artifacts/dashboard-actions-api36-480dp-150.png`.
+- Nach dem Test im Emulator-Logcat keine Fatal-Exception, ANR oder OOM gefunden. ADB listet derzeit nur Xiaomi `192.168.68.56:37885` und `emulator-5554`; Honor-Verifikation ist deshalb noch offen.
+- Kein Orca-Funktionspunkt gezählt: die Kandidaten Spiral-Inset, Quarter-Cubic und Mehrteil-Importorientierung waren bereits umgesetzt oder haben keinen Android-Aufrufpfad. Der Zyklus bleibt **50/100**.
+
+### Honor-Nachprüfung — Nightly 0.8.493 / 480 dp / Schrift 150 % — 2026-11-17
+
+- HONOR PTP-N49 (Android 16) ist per Wireless ADB verbunden. Nightly `com.exa201.orkanslicer.nightly25`, Version **0.8.493 / Code 528**, war installiert und wurde nach dem Test erneut gestartet.
+- Gerätewerte: **1280 × 2800 px**, Dichte-Override **476 dpi** (ca. 480 dp Breite), Schriftfaktor **1,5**. Der reale Workspace zeigt Filamentsync, Reinigungsturm, Spülvolumen und Plattenauswahl in der Kopfzeile; die Platte bleibt mittig sichtbar.
+- `WorkspaceDashboardIntegrationDeviceTest#printToolShortcutsAreVisibleAndOpenTheirActualEditors`: **1/1 bestanden direkt auf dem Honor**. Verifiziert wurden die Sichtbarkeit der Filament-, Turm-, Spülvolumen-, Platten- und Druckeraktionen sowie das Öffnen der echten Turm- und Spülvolumen-Editoren.
+- Nachprüfung: Nightly-App gestartet und Screenshot aufgenommen unter `artifacts/honor-dashboard-0.8.493-480dp-150-posttest.png`. Im erfassten Logcat keine App-FATAL-Exception, ANR oder OOM.
+- Zusätzlich die Hauptbereiche Druck, Filament, Drucker und App geöffnet und Screenshots unter `artifacts/honor-{print,filament,printer,app}-0.8.493-480dp-150.png` aufgenommen. Die Menünavigation blieb stabil; Profilkarten, Filamentslots, Druckerverbindung und Einstellungsgruppen sind sichtbar und scrollbar. Kein Menü löste im Test einen Slice, Upload oder Druckstart aus.
+- Testinstallationslauf endete mit `BUILD SUCCESSFUL`; Build-/Instrumentierungslauf hat den Release-Zähler nicht verändert. Orca-Upstream-Zyklus bleibt **50/100**; kein Release erstellt.
+# Aktueller Arbeitsstand — Nightly 0.8.500 — 2026-11-17
+
+## Nightly-App-Einstellungen — Iconpack — 2026-11-17
+
+- Acht transparente PNG-Icons aus `OrkanSlicer_App_Einstellungen_Icons_Codex.zip` eingebunden: Einstellungen, Maker öffnen, Benutzeroberfläche, Druckerprofile, Konverter-Speicher, Ansicht, App-Informationen und Zurücksetzen. Vollfarbigkeit wird erhalten, auch beim Zurücksetzen. Alle vorhandenen Einstellungen, Aktionen und Callbacks bleiben bestehen.
+- Gezielte Tests: `AppSettingsIconAssetsTest` **2/2** bestanden; Kotlin-Kompilierung erfolgreich. Debug-Build **0.8.500 / Code 535** erfolgreich. APK auf HONOR PTP-N49 installiert und App-Einstellungsseite geöffnet; sichtbare Iconzuordnung geprüft. Im geprüften Logcat keine FATAL-Exception, ANR oder OOM.
+- Screenshot: `artifacts/honor-app-settings-0.8.500.png`. APK: `app/build/outputs/apk/debug/OrkanSlicerNightly25_41f84dffce.apk`, SHA-256 `1D13B1FC2EFC3ACF292EE4BA4C970894C346C5B00E57B45C3229BCB91428623D`.
+- In-App-Changelog wurde für Deutsch, Englisch und Russisch mit 0.8.500 synchronisiert. Kein GitHub-Release in diesem Schritt.
+
+## Nightly-Druckerprofile — Iconpack — 2026-11-17
+
+- Integriert: 33 PNG-Varianten (11 Motive × Normal/Aktiv/Deaktiviert) des Druckerprofil-Pakets in `drawable-nodpi`. Kopf, Verbindungsbereich, Kategorien, Suche, Druckerauswahl, Speichern und Zurücksetzen zeigen die passenden Druckerprofil-Assets. Ressourcen sind vom Druck- und Filamentprofil-Pack getrennt; Handler und Profilzustände blieben unverändert.
+- Das erneut gelieferte ZIP enthält dieselben 33 Android-Drawables bytegenau; keine Assets mussten dupliziert oder ersetzt werden. Dabei wurde die gemeinsame Compose-Kategoriezeile korrigiert: Sie wählte Aktivzustände bisher nur aus dem Filament-Pack, wodurch Druckerkategorien trotz vorhandener Varianten statisch blieben. Die Auswahl routet nun anhand der Resource-ID zum passenden Drucker- oder Filament-Pack.
+- Verifiziert: `PrinterProfileCategoryAssetsTest` **3/3** und `FilamentProfileCategoryAssetsTest` **2/2** bestanden; Kotlin-Kompilierung, Debug-Build und Honor-Installation erfolgreich. Keine Profil-Callbacks oder Druckerfunktionen geändert.
+- Nachtrag: Debug-APK **0.8.499 / Code 534** gebaut und auf HONOR PTP-N49 installiert (`adb install -r`: `Success`). Die Druckerprofilseite wurde geöffnet und als `artifacts/honor-printerprofile-screen-0.8.499.png` aufgenommen; Kategorien, Druckerauswahl, Verbindungsbereich und Speichern-Icon sind sichtbar. Logcat-Suche der letzten 2.500 Zeilen fand keine FATAL-Exception, ANR oder OOM. APK-SHA-256 `195A8B0F441E9C341F72A0195F233A07B7DA2268FFEBE3B79CEE2CB6BF233A4C`.
+- Verifikation: `PrinterProfileCategoryAssetsTest` **2/2** bestanden; `PrintProfileDropdownIntegrationDeviceTest#printerProfileCanBeClonedAndDeletedFromTheScrolledDropdown` auf API-36-Emulator **1/1** bestanden; Debug-Build erfolgreich.
+- APK **0.8.499 / Code 534**: `app/build/outputs/apk/debug/OrkanSlicerNightly25_41f84dffce.apk`, **280,269,597 Bytes**, SHA-256 `4F22D0B1DF9621A7B8F4DAE2829BE4C624B9EA300DDE4B0BC2189E153FB227D6`.
+- Honor-Installation offen: während des Installationsversuchs war das Gerät nicht mehr unter ADB erreichbar; aktuell ist nur `emulator-5554` verbunden. Nächster konkreter Schritt ist Installation und Sichtprüfung auf dem Honor, sobald Wireless ADB wieder online ist.
+
+### Navigations-Icon-Pack für die unteren Menüs — 2026-11-17
+
+- Die fünf vorhandenen Workspace-Navigationsziele Projekt, Modell, Ändern, Tools und Slicen verwenden jetzt die vom Nutzer gelieferten Fusion-CAD-Assets. Normal- und Aktivzustand sind getrennt; 15 Android-PNGs liegen unter `app/src/main/res/drawable-nodpi/`. SVG-Quellen und Asset-README sind unter `docs/assets/ui22/nav/` erhalten.
+- Die Compose-Klickflächen, Slot-IDs, Labels und Navigationshandler blieben unverändert. Symbolgröße auf 28 dp angepasst und Innenabstand reduziert, damit die bestehende Navigationsleiste ihre Höhe und Touchziele beibehält. `:app:compileDebugKotlin` erfolgreich; vorhandene, nicht zugehörige Warnung in `FilamentPaletteController.kt`.
+- Das ZIP enthält keine `CODEX_INTEGRATION.md`; die Einbindungsrichtlinien stehen in seiner `README.md`. Kein APK-Build oder Upload in diesem Schritt.
+
+### Honor-Version aktualisiert — 2026-11-17
+
+- HONOR PTP-N49 war tatsächlich noch auf Nightly **0.8.493 / Code 528**. Die aktuelle lokale Debug-APK wurde im Platz-Update installiert; `dumpsys package com.exa201.orkanslicer.nightly25` bestätigt jetzt **0.8.497 / Code 532**. App-Daten wurden durch die In-Place-Aktualisierung beibehalten.
+- Auf dem Honor gezielte Slice-Geräteregressionen ausgeführt. `treeSupportsKeepEveryOverhangThatJoinsAClusterOnTheSameLayer` bestand nach Anpassung seiner veralteten Profilreferenz an das aktuelle Anycubic-Standardprofil (im gemeinsamen Lauf 1/2 Tests bestanden).
+- Offen: `pressureAdvanceLineCalibrationUsesAssignedFilamentFlowAndVolumetricLimit` schlägt fehl: erzeugte PA-Linien laufen mit **11.280 mm/min** statt dem vom Fixture erwarteten Limit von ca. **2.100 mm/min**. Außerdem schlägt `supportedSparseInfillSmoothingChangesOnlyHilbertAndOctagramToolpaths` isoliert fehl, weil beim Vergleich der Außenwandpfade auf dem Honor unterschiedliche, weit außerhalb des 20-mm-Fixtures liegende Koordinaten ausgegeben werden. Noch keine Produktionskorrektur für diese beiden Punkte verifiziert.
+- Der Upgrade-Schrittzähler bleibt **54/100**; es wurde in diesem Update kein weiterer Orca-Port gezählt. APK-Build/Install belegt nur die Versionsaktualisierung; kein GitHub-Release. Nächster Schritt: PA-Fixture/Filamentindex auf dem realen Druckauftragspfad diagnostizieren und Smoothing-Test mit reproduzierbar isolierter Modell-/Output-Fixture gegen API-36 vergleichen.
+
+## Nightly-Orca-Upgrade — Schritt 53/100
+
+- Abgeschlossen: Orca `e098c933f0`-artige gepufferte G-Code-Ausgabe in `GCodeProcessor` portiert. Die Nachbearbeitung schreibt nun in begrenzten 64-KiB-Blöcken statt pro Flush alle Zeilen in einen neu wachsenden Zwischenstring zu kopieren. Die Bytepositionen der Zeilenenden werden während des Pufferns relativ zur endgültigen Datei erfasst; Move-/G-Code-Zuordnung und zeitbasierte Backtrace-Zwischenpuffer bleiben erhalten.
+- Verifikation: ARM64-Native- und Debug-APK-Build erfolgreich. `NativeSliceDeviceTest#estimatedFirstLayerCommentReportsLayerMotionTime` auf API-36-Emulator **1/1 bestanden**; der Test sliced ein Modell, liest den erzeugten G-Code erneut ein und prüft die Layerzeit-Ausgabe. Die aktuelle Debug-APK `app/build/outputs/apk/debug/OrkanSlicerNightly25_41f84dffce.apk` (Nightly **0.8.493 / Code 528**) wurde auf dem Emulator installiert und gestartet; MainActivity blieb im Vordergrund. SHA-256 `CD1568607E669CF73D5BB00EBE171519AB1C98954DAA90E38A9D50665796B02B`. Ein erster Testlauf deckte einen veralteten Testverweis auf ein nicht mehr vorhandenes generisches Anycubic-Profil auf; der Testhelper verwendet nun den Default-Prozess des aktuellen Druckerprofils.
+- Belastungsnachprüfung: `NativeSliceDeviceTest#qidiCompatibleType1AndType2TowersReportPerFilamentPurgeVolumes` **1/1 bestanden** auf API-36-Emulator. Beide Varianten schreiben jeweils >64 KiB und behalten Layer-Footer, abschließenden Zeilenumbruch, positive Layer-Zeitmetadaten, beide Werkzeug-/Filamentmengen und den Turmblock. Das belegt den Puffergenzfall für Mehrfarben/Mehrwerkzeug; eine dedizierte Mehrplatten-Fixture ist noch offen.
+- Es wurde kein belastbarer Prozentwert zur Laufzeitverbesserung auf Hardware gemessen. Der Honor-Endpunkt wird in der aktuellen ADB-Sitzung nicht angezeigt; verfügbar sind Xiaomi und API-36-Emulator. Kein Hardwaretest auf dem Honor, kein Drucker-Upload und kein Druckstart.
+- Zähler **53/100**. Nächster konkreter Schritt: den nächsten noch fehlenden Android-erreichbaren Orca-Core-Fix auswählen und regressionsprüfen; beim G-Code-Puffer bleibt eine konkrete Multi-Plate-Fixture als zusätzliche Verifikation offen. APK/Release erst nach 100/100.
+
+## Nightly-Orca-Upgrade — Schritt 52/100
+
+- Orca-Upstream wurde erneut geprüft: `main` und `nightly-builds` stehen auf `47c67e1c44eb83e27c56cff49b350bd579019dec`. Die seit dem letzten Abgleich relevanten Slice-Core-Fixes sind entweder bereits im Nightly vorhanden oder haben keinen Android-Aufrufpfad.
+- Abgeschlossen: Type-2-Reinigungsturm-Finalisierung reicht den Purgebedarf aus `Print::_make_wipe_tower()` an `WipeTowerIntegration` weiter. Dadurch kann die finale G-Code-Ausgabe keinen Ramming-Purge oberhalb eines physisch kürzeren Turms erzeugen; Prime- und Toolchange-Ausgaben bleiben aktiv.
+- Verifikation: ARM64-Native-Build erfolgreich; `NativeSliceDeviceTest#rammingToolChangerDoesNotPurgeAboveThePhysicalTowerWhenItStopsEarly` auf API-36-Emulator **1/1 bestanden**. Xiaomi war in ADB sichtbar, der Test wurde gezielt auf dem Emulator ausgeführt. Kein Drucker-Upload oder Druckstart.
+- Zähler **52/100**. Aktueller nächster Schritt: Orca `main` auf weitere noch fehlende, Android-erreichbare Kernänderungen prüfen. APK und GitHub-Release erst nach 100/100.
+
+## Neueste Druckprofil-Datenbank geprüft — 2026-11-17
+
+- Der explizite Orca-Upstream-Abgleich bestätigt, dass die vollständige gebündelte Factory-Datenbank bereits auf dem neuesten Profil-Commit `47c67e1c44eb83e27c56cff49b350bd579019dec` steht. `main` und der Tag `nightly-builds` zeigen auf denselben Commit; die 72 Hersteller-INI-Dateien stimmen mit `UPSTREAM_VERSION.txt` überein.
+- Gezielte JVM-Neuausführung erfolgreich: `OrcaProfileDatabaseTest` **1/1**, `FactoryProfileDatabaseUpdaterTest` **3/3**. Die Profilkataloge parsen, Vererbung ist aufgelöst und die Startmigration verarbeitet bestehende Factory- und Nutzerprofile.
+- Das Ersetzen der Datenbank erfolgte bereits in Schritt **51/100**. Diese Prüfung fügt keine neuen Profildaten hinzu und zählt nicht erneut. Kein APK-Build oder GitHub-Upload für diese reine Nachprüfung.
+- Nächster konkreter Schritt im Nightly-Zyklus: aktuellen Orca-Core auf den nächsten fehlenden, Android-erreichbaren Fix prüfen und mit einem gezielten Regressionstest portieren.
 
 - UI-Folgeänderungen aus der letzten Honor-Rückmeldung: Dashboard zeigt Filament-Synchronisierung, Reinigungsturm und Spülvolumen nebeneinander; Mindestbreite sichert die Aktionen im Portrait. Im Querformat klappt die Aktionsleiste beim Bereichswechsel und bei Rotation ein; die sichtbare Leiste ist auf 128 dp (bzw. 152 dp bei großer Schrift) begrenzt, damit der Renderer mehr Höhe erhält.
 - Orca-nahe Aktionsbeschriftungen beibehalten/ergänzt und 58 zugeschnittene Bildassets aus den gelieferten mehrfarbigen Aktionsgrafiken eingebunden. Die Aktionen behalten ihre bestehenden IDs und Handler.
@@ -45,7 +146,7 @@
 - Die vollständigen Debug-/SliceTest-Unit-Suiten (**812/812** je Suite) und native Slice-Instrumentierung (**214/214**) stammen aus der vorherigen 0.8.484-Prüfung; sie wurden für 0.8.485 nicht erneut vollständig ausgeführt.
 - Nächster Schritt: Orca-Upstream nach einer weiteren relevanten, noch fehlenden Android-Funktion durchsuchen und den 100-Punkte-Portierzyklus bei Schritt 41 fortsetzen.
 
-## Aktuelle Fortsetzung — Orca-Upgrade-Zyklus 40/100
+## Historischer Stand — Orca-Upgrade-Zyklus 40/100
 
 ### Schritt 40 — Anycubic-Uploaddatei gegen die Preflight-Werkzeuge prüfen
 
@@ -5766,3 +5867,115 @@ Phase 4 — workspace overlay migration is continuing. The model context menu an
 - Verifikation: ARM64 Native-Build `:app:externalNativeBuildSliceTest` und SliceTest-/Instrumentierungs-APK-Build erfolgreich; `NativeSliceDeviceTest#measuredPlaneNormalRemainsPerpendicularAfterNonuniformScaleAndShear` auf API-36-Emulator **1/1 bestanden**. Die Regression prüft zwei transformierte Tangenten sowie die Normlänge.
 - Keine Messung am Honor: der zuvor von mDNS gelistete Wireless-ADB-Port verweigerte die Verbindung. Es wurde kein Nutzer-APK oder Release gebaut; nur das SliceTest-Paket wurde zur Regression ausgeführt. Release-Gate bleibt bei Orca **100/100**.
 - Nächster konkreter Schritt: Orca-Upstream nach einem noch fehlenden Android-Aufrufpfad abgleichen und vor der Zählung sicherstellen, dass die Funktion tatsächlich über die Android-App erreichbar ist.
+
+## UI 2.1 — erneuter Header-/Gerätecheck — 2026-11-17
+
+- Nightly-Checkout: `codex/ui-2.1-redesign`, HEAD `41f84dffced17c14302d997dc3cd428f69017c09`, Version **0.8.493 / Code 528**. Debug-APK wurde erneut gebaut; SHA-256 `6CFA386F8B8C17A4C058A13AD633EC6B2AE854B618F04DAD77658A8DAE287E48`.
+- `WorkspaceModePanelHostDeviceTest` lief auf dem API-36-Emulator **15/15**; die fokussierten bestehenden Orca-Regressions `longExtrusionChainsAreRefinedWithoutIncreasingTravel` und `defaultObjectOrderUsesTheMinimumClosedTourForSmallProjects` bestanden jeweils **1/1**. Debug-Unit-Suite: **816/816**.
+- Laufzeitabweichung: der frische Emulator-Screenshot und die Accessibility-Hierarchie des installierten Nightly zeigen Filament, Plattenzähler und Drucker-Webaktion, aber keine erreichbaren Reinigungsturm-/Spülvolumen-Shortcuts. Die Tests prüfen derzeit die Header-Compose-Komponente mit einem injizierten Callback, nicht den gestarteten `BedFragment`-Pfad. Daher ist die Dashboard-Wiederherstellung **nicht als fertig abgenommen** zu werten.
+- Screenshot: `artifacts/nightly-ui21-current.png`; Accessibility-Dump: `artifacts/nightly-ui21-current.xml`. Kein Druck wurde gestartet.
+- ADB listet `emulator-5554` und Xiaomi 2211133G (`192.168.68.56:37885`), kein Honor. Der zuletzt dokumentierte Honor-Endpunkt `192.168.68.66:45073` verweigert die Verbindung; mDNS listet nur das Xiaomi. Es wurde nichts auf dem Xiaomi installiert.
+- Nächster konkreter Schritt: produktive Verdrahtung der Dashboard-Shortcuts vom gestarteten `BedFragment` bis zur sichtbaren Header-Hierarchie nachstellen und korrigieren; dafür einen Integrationstest des tatsächlichen Call-Sites ergänzen. Danach 480-dp-/150-%-Abnahme und Installation auf dem Honor, sobald es in ADB tatsächlich erscheint. Orca-Upstream-Zähler bleibt **50/100**.
+
+## UI 2.1 — Nightly-Dashboard erneut verifiziert — 2026-11-17
+
+- Korrektur zur vorherigen Laufzeitbeobachtung: Auf dem Emulator war zunächst die alte Paketkennung `com.codemastercody3d.orcaslicermobile` (0.8.432) geöffnet. Das aktuelle Nightly ist eine getrennte App (`com.exa201.orkanslicer.nightly25`, 0.8.493 / Code 528). Der alte Screenshot belegte daher nicht den Nightly-Zustand.
+- Nach Installation und Start des Nightly 0.8.493 sowie Schließen des Changelog-Dialogs zeigt der echte Workspace sichtbar Filamentsync, Turmposition und Spülvolumen vor der Plattenwahl. Screenshot: `artifacts/nightly-dashboard-493-verified.png`.
+- Neuer Integrationstest `WorkspaceDashboardIntegrationDeviceTest#printToolShortcutsAreVisibleAndOpenTheirActualEditors` durchläuft `MainActivity` → `BedFragment` → `WorkspaceShell`, prüft alle fünf Header-Aktionen und öffnet die echten Turmpositions- und Spülvolumen-Editoren: API-36-Emulator **1/1 bestanden**. Die erste Testausführung war durch den Erststart-Changelog blockiert; Testsetup unterdrückt ihn nun wie die übrigen Integrationstests und stellt gespeicherte Einstellungen anschließend wieder her.
+- Honor ist im mDNS sichtbar als `192.168.68.66:44439`, nimmt aber keine TCP-/ADB-Verbindung an (Connection refused); Ping antwortet. Geräteprüfung, Installation, 480-dp-/150-%-Abnahme und Querformatprüfung auf physischer Hardware bleiben deshalb **offen**. Xiaomi-Verbindung wurde nach dem Test wiederhergestellt.
+- Verifiziert am Emulator: aktuelle Dashboard-Buttons sichtbar und beide Dialogaktionen bedienbar. Keine Druckerkommunikation und kein Druckstart.
+- Nächster konkreter Schritt: Wireless Debugging am Honor wieder mit aktivem ADB-Connect-Port bereitstellen; anschließend Dichte/Schriftgröße auslesen, APK 0.8.493 installieren und Dashboard plus Querformat direkt am Gerät prüfen.
+- Ergänzende UI-Regression nach der Nightly-Korrektur: `WorkspaceModePanelHostDeviceTest` auf API 36 **15/15 bestanden** (Dashboard-Breite, Headeraktionen, Menühost und Querformatzustände). `git diff --check` sauber.
+
+## Nightly-Profile — aktive Auswahl sichtbar halten — 2026-11-17
+
+- Versionsprüfung am Honor: installiert war Nightly **0.8.493 / Code 528**. Dieser Stand war korrekt für den vorherigen Build. Für die Profilkorrektur wurde **0.8.494 / Code 529** erstellt und auf dem Honor PTP-N49 / Android 16 installiert (Dichte-Override 476 dp).
+- Read-only-Konfigurationsbefund: **0 Druckerprofile**, **1 Druckprofil**, **1.956 Filamentprofile**. Die Profiltypen bleiben in der Orca-Konfiguration getrennt. Ohne Druckerauswahl blendete der Filter ein aktives herstellerspezifisches Profil aus; außerdem ignorierte der Listen-Cache geänderte Profilnamen und ließ eine alte Liste stehen.
+- Behoben: ohne Druckerwahl bleiben das bereits aktive Druck- und Filamentprofil sichtbar, allgemeine Profile bleiben auswählbar und weitere Herstellerprofile werden ausgeblendet. Der Cache erneuert sich bei Drucker-, Druckprofil-, Filamentprofil- und Konfigurationswechsel. Mit gewähltem Drucker werden die Listen neu nach Kompatibilität gefiltert. Die Druckerprofilseite zeigt bei leerer Liste einen Hinweis samt „Drucker hinzufügen“.
+- Verifikation: Profilkompatibilität, Datenbank-, Dropdown- und Profiltransaktionstests bestanden; `:app:assembleDebug` erfolgreich; Version **0.8.494 / Code 529** auf Honor bestätigt; App-Start ohne Absturz. Das Gerät blieb im vorhandenen Ersteinrichtungsbildschirm, daher wurde kein Druckerprofil angelegt und keine Nutzerauswahl verändert.
+- Noch offen: direkte Auswahl-/Rückkehrprüfung der Profileditoren nach Abschluss des Drucker-Setups. Kein GitHub-Release wurde erstellt oder aktualisiert.
+
+## Nightly-Profile — Datenbankrevision ohne Drucker nicht festschreiben — 2026-11-17
+
+- Folgeprüfung am Honor PTP-N49 (Nightly 0.8.494): gespeicherte Konfiguration hatte **0 Druckerprofile**, **1 Druckprofil** („Benutzerdefiniertes Profil“) und **183 Anycubic-Filamentprofile**; in `[presets]` fehlte eine Druckerauswahl, während die aktuelle Orca-Datenbankrevision bereits gespeichert war. Die frühere 1.956-Angabe bezog sich auf die vorherige Read-only-Auswertung und wurde durch den gezielten Config-Auszug nicht bestätigt.
+- Ursache: `LoadSlic3rConfigTask` schrieb die Datenbankrevision auch dann, wenn noch kein Druckermodell und somit kein Hersteller-Bundle für Drucker-/Druckprofile vorhanden war. Nach späterer Einrichtung übersprang der nächste Start den Import fälschlich.
+- Behoben: Ohne anwendbares Hersteller-Bundle wird die Revision jetzt zurückgesetzt, damit der Orca-Profilimport nach der Druckereinrichtung erneut läuft. Die Revision gilt nur als abgeschlossen, wenn mindestens ein Bundle anwendbar war.
+- Regression: neue Policy-Tests decken „gleiche Revision, aber 0 Bundles“ sowie den normalen Skip nach erfolgreichem Bundle ab.
+- Verifikation: `FactoryProfileDatabaseRefreshPolicyTest` **2/2**, `ProfileCompatibilityTest` **5/5** und `OrcaProfileDatabaseTest` **3/3**; Gradle **BUILD SUCCESSFUL**. Debug-APK 0.8.495 / Code 530 wurde auf dem Honor installiert und gestartet. Danach war der verfrühte Revisionsmarker entfernt; Logcat zeigte keinen `FATAL EXCEPTION`.
+- APK: `app/build/outputs/apk/debug/OrkanSlicerNightly25_41f84dffce.apk`, SHA-256 `1F2E8607C44E18E557AD97E2CA0AC23F83C51B56AE3CDEBFC7CFEB7B95F6ACD0`.
+- Einschränkung: Das Honor hatte zum Testzeitpunkt weiterhin 0 Druckerprofile und keine ausgewählte Drucker-/Druckprofil-Voreinstellung. Deshalb konnte die geräteinterne Liste kompatibler Hersteller-Druckprofile noch nicht sichtbar gegengeprüft werden. Nach Auswahl/Einrichtung des Druckers lädt der nächste App-Start das passende Hersteller-Bundle.
+- Orca-Upstream-Fortschritt bleibt unverändert; dies ist eine Nightly-Profilinitialisierungsregression und zählt nicht als zusätzlicher Upstream-Port im 100-Schritte-Plan.
+
+## Nightly-Profile — Drucker hinzufügen und Filterzuordnung — 2026-11-17
+
+- Nightly auf dem Honor geprüft: **0.8.497 / Code 532**. Die Profilübersicht zeigte „Noch kein Druckerprofil eingerichtet“; im lokalen `slic3r.ini` waren keine `[printer:]`-Presets und keine Druckerauswahl vorhanden. Damit war die leere Druckerliste auf diesem Gerät durch fehlende Einrichtung verursacht, nicht durch einen falschen Druckprofilfilter.
+- Der Profilfilter bleibt druckergebunden: Ohne ausgewähltes Druckermodell werden Druck-/Filamentprofile nicht als kompatible Auswahl angeboten. Nach Druckerauswahl werden nur passende Profile angezeigt.
+- Fehler behoben: Bei bestehender Konfiguration wurden aus der Einrichtung hinzugefügte Profile zuvor nur ohne Cloud-API-Token zusammengeführt. Der Cloud-Login blockierte damit das lokale Speichern der Druckerauswahl. `SetupActivity` führt die Preset-Zusammenführung nun unabhängig vom Cloud-Token aus.
+- Verifikation: `WorkspaceProfileSelectionLogicTest` und `ProfileCompatibilityTest` bestanden; Debug-Build erfolgreich; APK auf Honor installiert und Version 0.8.497 bestätigt. Screenshot der echten Profilübersicht: `docs/images/ui21/honor-profile-sheet-current.png`.
+- Einschränkung: Es wurde kein Druckermodell für den Benutzer ausgewählt. Die Auswahlseite „Drucker aus Presets hinzufügen“ öffnet die Einrichtung; der gerätespezifische Speichervorgang nach Auswahl eines konkreten Druckers wurde daher auf diesem Gerät nicht bis zum Abschluss durchgeklickt. Die lokale Konfiguration des Benutzers blieb unverändert.
+
+## Nightly-Profile — Druckerauswahl gegen aktuelle Orca-Profile geprüft — 2026-11-17
+
+- Die Orca-Profilbank enthält die Druckerprofile getrennt von Druck- und Filamentprofilen. Der API-36-Emulator hatte 80 Drucker-, 404 Druck- und 1.978 Filamentprofile geladen; als aktiver Drucker war „Anycubic Kobra 3 0.4 nozzle“ gespeichert. Das Honor war bei der ADB-Abfrage nicht verbunden; per mDNS war nur Xiaomi `192.168.68.56:37885` sichtbar. Es wurde deshalb keine Installation oder Änderung auf einem Benutzergerät vorgenommen.
+- Gezielte JVM-Tests für Orca-Datenbank, Profilaktualisierung, Kompatibilitätsfilter, Workspace-Profilwahl und Setup-Auswahl bestanden. Zwei API-36-UI-Integrationstests bestanden: Druckerprofil über die echte Profilseite wählen und danach das passende Prozessprofil verwenden; aktives kompatibles Druckprofil im gefilterten Auswahlmenü anzeigen.
+- Der erste UI-Testlauf scheiterte noch vor dem Bildschirmaufbau, weil die Test-Fixture auf inzwischen umbenannte Orca-Profilnamen fest codiert war. Die Fixture verwendet jetzt die `default_print_profile`- und `default_filament_profile`-Werte des gewählten Druckers; die wiederholten Integrationstests bestanden. Es wurde kein Produktionsfehler in der Druckerauswahl reproduziert.
+- Noch offen: dieselbe Auswahl und Rückkehr aus „Drucker hinzufügen“ direkt am Honor nachvollziehen, sobald es per ADB erreichbar ist; insbesondere dessen gespeicherte `[printer:]`-Abschnitte und `[presets]` prüfen.
+
+## Orca-Upstream — Infill-Eckenglättung bei 5 µm begrenzen — 2026-11-17
+
+- Upstream frisch bestätigt: `main` und der aufgelöste `nightly-builds`-Tag zeigen auf `e76b4d676c74f43ee1736675e0e8894425179cc4`.
+- Orca `e76b4d676c` portiert: Rundungstoleranz der geglätteten Hilbert-/Octagram-Infillpfade wird in mm begrenzt und skaliert danach zurück in die interne Mustereinheit.
+- Native Regression im echten Slice-G-Code: Glättung bleibt auf die unterstützten Muster begrenzt; 0,001 mm wird auf 0,005 mm begrenzt, während 0,0125 mm einen eigenen Toolpath behält. API-36-Emulator **1/1 bestanden**, ARM64-Native-Build erfolgreich.
+- Orca `745207d3e3` wurde parallel klassifiziert; Filamentwahl in PA-Kalibrierung ist im Nightly bereits umgesetzt und wurde nicht doppelt portiert.
+- Nächster konkreter Schritt: nächsten noch fehlenden Android-erreichbaren Core-Commit aus dem aktuellen Orca-Änderungsverlauf prüfen; aktueller bestätigter Upgrade-Stand **54/100**. Kein APK-/Release-Schritt vor 100/100.
+
+## Nightly-Navigation — Fusion-CAD-Icons und aktueller Orca-Abgleich — 2026-11-17
+
+- Das gelieferte Navigationspaket ist im Nightly zugeordnet: Projekt, Modell, Ändern, Tools und Slicen verwenden je Normal-/Aktiv-Assets; die bestehende Compose-Navigation behält Labels, Touch-Flächen, Semantik und Handler. Die drei Navigationstest-Fixtures reichen jetzt ebenfalls die aktiven Assets durch, damit dieser Auswahlzustand im UI-Lauf mitgebaut wird.
+- Honor PTP-N49 / Android 16: AdaptiveWorkspaceNavigationDeviceTest 4/4 bestanden. Abgedeckt sind erreichbare Menüpunkte, Navigationstap, Zeilenlayout bei 320 dp und 150 % Schrift, global einreihige Navigation sowie scrollbare schmale Navigation. Gerätedaten während des Laufs: 1280×2800, 560 dpi, Dichte-Override 476 dpi, Schriftfaktor 1,5. :app:connectedSliceTestAndroidTest erfolgreich; kein App-APK/Release in diesem Schritt.
+- Der Orca-Upstream wurde frisch geholt; main bleibt e76b4d676c74f43ee1736675e0e8894425179cc4. Geprüfte Änderungen 0e8e95d516 (ein Werkzeug beim Type-2-Priming), 8b8d573a85 (Resonanzband/Layerkühlung) und 6268535d2f (Mehrlinien-Infill) sind bereits im Nightly-Produktionskern vorhanden; Android-Slice-Regressionspfade existieren. 9a285770d4 ist ein Desktop-GLCanvas-Eingabepfad; Nightly besitzt bereits einen Android-Raycaster-/Touch-Pinsel für variable Schichthöhe. Keine dieser Nachprüfungen wird doppelt als neuer Port gezählt.
+- Korrektur zur älteren AMS-Notiz: Orca 6839c9d344 ist keine offene Android-Portierung. Android setzt `print.is_BBL_printer() = false` im nativen Slice-Pfad; Orcas BBL-spezifische Filamentgruppierung wird damit für diese Anwendung deaktiviert. `beam_native.cpp` enthält bereits die Android-Regression für leere Tray-Optionen und zusätzliche Extruder-Payloads; der separate app-seitige ACE-Snapshot-Schutz vor Upload bleibt davon unabhängig.
+- Der Orca-Upgrade-Zähler bleibt 54/100; diese Prüfung und Test-Fixture-Korrektur erhöhen ihn nicht. Honor `NativeSliceDeviceTest#directVariableLayerHeightBrushChangesTheRealSliceProfile` besteht nach Anpassung der veralteten Druckprofil-Fixture **1/1**; der erste Lauf hatte vor Slice-Beginn am nicht mehr vorhandenen Profilnamen abgebrochen. ADB am Honor PTP-N49 ist wieder online; zwei Wireless-ADB-Endpunkte und der API-36-Emulator sind sichtbar. Frisch am Upstream `e76b4d676c` verifiziert: die jüngsten Measure-, Multi-line-Infill- und Layer-Cooling-Fixes sind bereits im Nightly, Kalibrierungs-Filamentwahl und mm³/s-Speed-Einstellungen liegen außerhalb des aktuellen Android-UI-/Config-Aufrufpfads. Nächster konkreter Schritt: Orca-Commits der letzten 35 Änderungen gegen Android-UI, Native-Wrapper und Produktions-Slice-Konfiguration weiter abgleichen; neue 100er-Schritte nur bei messbarem, noch fehlendem Nutzerverhalten. Keine APK/Veröffentlichung vor dem 100/100-Gate.
+
+
+## Nightly-Topnavigation — Einzelicons und gemeinsame Kopfzeile — 2026-11-17
+
+- Das bereitgestellte Top-Icon-Paket ist integriert: 21 PNG-Assets für fünf Hauptbereiche sowie Reinigungsturm und Spülvolumen. Die globale Compose-Navigation nutzt Standard-/Aktivvarianten; die vorhandenen Auswahl- und Navigationshandler bleiben unverändert. Die beiden Dashboard-Aktionen nutzen die passenden Symbole aus demselben Paket.
+- Topnavigation und Dashboard-Kopfzeile verwenden jetzt dieselbe Theme-Oberflächenfarbe, sodass die zwei Zeilen visuell als ein zusammenhängender Header erscheinen. Dashboard-Inhalte und Touch-Flächen bleiben erhalten.
+- Verifikation: Alle 21 Android-PNG-Dateien stimmen bytegenau mit dem gelieferten ZIP überein. `:app:compileDebugKotlin` erfolgreich; `AdaptiveNavigationPolicyTest` erfolgreich (Gradle meldete die Unit-Task als `UP-TO-DATE`). Auf Honor PTP-N49 / Android 16 liefen `WorkspaceDashboardIntegrationDeviceTest` und `AdaptiveWorkspaceNavigationDeviceTest` zusammen **5/5 bestanden**, bei 476-dpi-Override und 150 % Schriftgröße. Ein erster aggregierter Lauf wurde durch zwei ADB-mDNS-Aliase desselben Honor-Geräts mit `INSTALL_FAILED_DUPLICATE_PACKAGE` abgebrochen; nach Entfernung des doppelten ADB-Eintrags bestand der gezielte Honor-Lauf vollständig.
+- Für diese Änderung wurde keine APK erstellt oder hochgeladen. Der Debug-Installations-/Release-Schritt ist offen.
+
+## Nightly-Druckprofile — Iconpack integriert und auf Honor installiert — 2026-11-17
+
+- Die elf transparenten Icons aus `OrkanSlicer_Druckprofil_Icons_Codex.zip` sind im Nightly unter `drawable-nodpi` eingebunden. Die zehn Orca-Prozesskategorien zeigen jeweils ihr passendes Asset; der Druckprofil-Bildschirm nutzt das Druckprofil-Asset. Filament- und Druckerprofil-Icons behalten ihre bestehende Zuordnung, die Settings-Handler und Kategorien wurden nicht verändert.
+- Verifikation: neues `PrintProfileCategoryAssetsTest` **2/2 bestanden**. Honor PTP-N49 / Android 16: fokussierter Prozessprofil-Bearbeitungstest **1/1 bestanden**. Ein zusätzlicher Lauf der kompletten `PrintProfileDropdownIntegrationDeviceTest` führte 18/19 Tests erfolgreich aus; ein unabhängiger Druckerprofil-Back-Navigation-Test lief in ein bestehendes 5-s-Semantik-Timeout (`printerProfilePickerBackDismissesWithoutChangingAnyActivePreset`, Zeile 1155), außerhalb des geänderten Druckprofil-Icons. Ein falsch benannter, separat angeforderter Testfilter fand 0 Tests und zählt nicht als bestanden.
+- Debug-Build erfolgreich; Nightly `0.8.497` / Code `532` installiert und gestartet. APK: `app/build/outputs/apk/debug/OrkanSlicerNightly25_41f84dffce.apk`, SHA-256 `7EBD6C2EA1C5FD9EBF7AA23E087A854FDCF0544FDBD922E9E325629514BD9261`. Aktiver Zweig bleibt `codex/ui-2.1-redesign`; keine Veröffentlichung oder PR-Aktualisierung angefordert.
+
+## Nightly-Filamentprofile — Iconpack integriert und auf Honor installiert — 2026-11-17
+
+- Die 33 PNG-Varianten des Filamentprofil-Pakets (11 Motive × Normal/Aktiv/Deaktiviert) sind in `drawable-nodpi` aufgenommen. Filament, Kühlung, Erweitert und Filamentkorrekturen erhalten eigene Kategorie-Assets; Kategorieaktivierung wechselt auf die aktive Variante. Kopf, Filament-Slot-Auswahl, Slot-Hilfe, Speichern, Zurücksetzen, Notizen und Abhängigkeitshinweis nutzen passende Motive. Namenskollisionen für Kühlung/Erweitert sind Filament-spezifisch benannt, die Druckprofil-Icons bleiben getrennt.
+- Verifikation: `FilamentProfileCategoryAssetsTest` **2/2**, Filament-Profiländerung **1/1** und `OwnFilamentSlotBarDeviceTest` **1/1** auf Honor PTP-N49 / Android 16 bestanden. Debug-Build erfolgreich; APK `0.8.498` / Code `533` installiert und gestartet (Prozess nach Start vorhanden).
+- APK: `app/build/outputs/apk/debug/OrkanSlicerNightly25_41f84dffce.apk`; SHA-256 `DC6AC993988646A62BF4F8342A7C3346DC372005BB7A3D4446FED3E07F831C9F`. Nightly-Changelog und Versionshinweise für Deutsch/Englisch/Russisch aktualisiert. Keine Release-Veröffentlichung angefordert.
+
+### UI-Korrektur — Asset-/Icongrößen im Nightly — 2026-11-17
+
+- Die App-Menü-Icons wurden im Vergleich zu den übrigen farbigen Aktionskacheln zu klein gerendert. Die Bildfläche in den gemeinsamen `OrkanIconBadge`-Komponenten sowie die zentralen Navigations-/Workspace-Iconmaße wurden um rund 30 % erhöht; die Kachelbreite und das 4-Spaltenraster bleiben unverändert.
+- Die Aktionsbilder der Workspace-Menüs wurden ebenfalls um rund 30 % vergrößert. Kachelhöhen wachsen nur soweit nötig, damit die größere Grafik und vollständige Beschriftungen nicht abgeschnitten werden.
+- Geprüft im Nightly-Checkout `OrkanSlicer-Nightly-2.5-current`, Branch `codex/ui-2.1-redesign`, Quell-HEAD `41f84dffced17c14302d997dc3cd428f69017c09`; bestehende lokale Änderungen blieben erhalten.
+- `BedMenuActionTileWidthPolicyTest`: **5/5 bestanden**; `:app:compileDebugKotlin`: erfolgreich. Kein APK-Build, Gerätetest oder Release in diesem UI-Schritt.
+- Orca-Abgleich: `git fetch orcaslicer-upstream main` bestätigte `07f38df2a4fd3439cffbf991ee41ee99ec71fbee`; kein neuer Upstream-Commit seit dem dokumentierten Stand. Orca-Upgrade-Zähler bleibt **56/100**.
+
+## Nightly-Druckerstatus — Status-Iconpack — 2026-11-18
+
+- Die beiden Android-Assets aus `OrkanSlicer_Printer_Status_Icons_Codex.zip` ersetzen die Online-/Offline-Grafiken unter `app/src/main/res/drawable-nodpi/`. `PrinterWebOpenButton` wählt sie weiterhin anhand des bestehenden Erreichbarkeitsstatus; Beschriftung, Bedienaktion und TalkBack-Status bleiben unverändert.
+- Verifikation: `:app:assembleDebug`, `:app:assembleSliceTest` und `:app:assembleSliceTestAndroidTest` erfolgreich. `PrinterWebOpenButtonDeviceTest` auf dem API-36-Emulator **2/2 bestanden**. Der vollständige Debug-Unit-Lauf meldet **844/849**; die fünf Fehlschläge liegen in `BundledPrinterProfileIntegrityTest`, `QidiProfileFilenameTest` (3 Fälle) und `SnapmakerU1ClearanceProfileTest`, nicht in den Druckerstatus-Assets.
+- Debug-APK gebaut: Nightly `0.8.501` / Code `536`, `app/build/outputs/apk/debug/OrkanSlicerNightly25_41f84dffce.apk`, SHA-256 `B507D18B6BCD0BEAE9DF0534ADAFE9007E20007C7EDEE5BBA257D8BB9B17BADE`. Beide Drawable-Ressourcen sind im APK enthalten. Kein Gerät des Benutzers wurde aktualisiert; kein GitHub-Release veröffentlicht.
+
+## Nightly-Menütrennung und Modellimport — 2026-11-18
+
+- Workspace-Menüs geprüft und bereinigt: Drehen, Skalieren und Skalierung an Druckvolumen passen in „Ändern“; „Modell“ enthält Auswahl-, Platten- und Objektaktionen. „Auf Druckvolumen skalieren“ liegt jetzt bei den Transformationsaktionen.
+- Mehrfachimport unabhängiger Mesh-Dateien bietet vor dem Laden Orkan-kompaktes Nesting oder einen festen Objekt-Mindestabstand (0,5–50 mm, Standard 6 mm). Der Abstand wird an Orkas native Arrange-Funktion übergeben; gespeicherte 3MF-Projektlayouts bleiben davon unberührt.
+- Testnachweise: `ModelMenuActionScopeTest` 4/4, `ModelBatchImportPolicyTest` 3/3; Honor PTP-N49 / Android 16: Menütrennung 1/1, unabhängige Skalierungsachsen 1/1, Rotation samt Undo/Redo 1/1, Skalierung samt Undo/Redo 1/1 und Mehrfachimport mit Abstand 1/1. Der Debug-Build war erfolgreich; Nightly 0.8.501 / Code 536 wurde auf dem Honor installiert und gestartet, Logcat ohne `FATAL EXCEPTION`.
+- Importdialog-Einschränkung: Die native Android-Dialogauswahl (Radio/Input) konnte im Honor-Espresso-Lauf wegen fehlendem Fensterfokus nicht automatisiert bedient werden. Die Auswahl-/Validierungsverdrahtung wurde im Code geprüft; der reale Abstandspfad selbst wurde mit Mesh-Fixtures auf dem Gerät getestet.
+- APK: `app/build/outputs/apk/debug/OrkanSlicerNightly25_41f84dffce.apk`; SHA-256 `9C8854F121A19F3F03699644260689D75043A8BBA76A4365C7759809BB22111B`.
+- Nicht durchgeführt: Git-Commit, Push, GitHub-Upload oder Release. Der bestehende Nightly-Worktree enthält zahlreiche unabhängige lokale Änderungen; sie wurden nicht bereinigt oder veröffentlicht.

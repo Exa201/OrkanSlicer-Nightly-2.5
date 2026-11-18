@@ -6,32 +6,38 @@ import org.junit.Test
 import ru.ytkab0bp.slicebeam.R
 
 class ModelMenuActionScopeTest {
-    @Test fun selectedObjectPlacementAndEditActionsStayWithTheSelection() {
+    @Test fun modelSelectionActionsStayWithTheSelection() {
         listOf(
             R.string.WorkspaceObjects,
             R.string.ModelMenuDuplicate,
             R.string.ModelMenuMoveToPlate,
             R.string.ModelMenuCenterOnBed,
-            R.string.ModelScaleToBuildVolume,
             R.string.ModelMenuFillBed,
             R.string.ModelMenuAutoOrientSelected,
             R.string.ModelMenuFlatten,
             R.string.ModelMenuDeleteSelected,
+            R.string.ModelMenuSplit,
+        ).forEach { assertTrue("$it should be available in the selection group", ModelMenuActionScope.isSelectionScoped(it)) }
+    }
+
+    @Test fun geometryEditingActionsBelongToEditAndAreNotInjectedIntoModelSelection() {
+        listOf(
+            R.string.ModelScaleToBuildVolume,
             R.string.ModelContextResetRotation,
             R.string.ModelContextResetScale,
             R.string.MenuToolbarMove,
             R.string.MenuToolbarRotate,
             R.string.MenuTransformScale,
             R.string.ModelSimplify,
+            R.string.ModelSmoothMesh,
             R.string.MenuTransformCut,
-            R.string.ModelMenuSplit,
             R.string.MenuToolbarVariableLayerHeight,
             R.string.MenuToolbarSupportPaint,
             R.string.MenuToolbarSeamPaint,
             R.string.MenuToolbarFuzzyPaint,
             R.string.MenuToolbarColorPaint,
             R.string.MenuToolbarEmboss,
-        ).forEach { assertTrue("$it should be available in the selection group", ModelMenuActionScope.isSelectionScoped(it)) }
+        ).forEach { assertFalse("$it must not be shown in the model menu", ModelMenuActionScope.isSelectionScoped(it)) }
     }
 
     @Test fun selectionAndPlateWideActionsAreKeptSeparate() {

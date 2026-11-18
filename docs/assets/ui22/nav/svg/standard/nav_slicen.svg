@@ -1,0 +1,26 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="256" height="256" viewBox="0 0 256 256" role="img" aria-label="Slicen"><defs>
+<linearGradient id="orange" x1=".08" y1="0" x2=".92" y2="1" gradientUnits="objectBoundingBox"><stop stop-color="#ffde6b"/><stop offset=".42" stop-color="#ffb827"/><stop offset="1" stop-color="#e78003"/></linearGradient>
+<linearGradient id="amberSide" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#da8305"/><stop offset="1" stop-color="#9c5308"/></linearGradient>
+<linearGradient id="cyan" x1=".1" y1="0" x2=".8" y2="1"><stop stop-color="#89faff"/><stop offset=".35" stop-color="#31dafe"/><stop offset="1" stop-color="#0989d6"/></linearGradient>
+<linearGradient id="blueLeft" x1="0" y1="0" x2=".8" y2="1"><stop stop-color="#15bdeb"/><stop offset="1" stop-color="#1477bf"/></linearGradient>
+<linearGradient id="blueRight" x1="0" y1="0" x2=".8" y2="1"><stop stop-color="#168be1"/><stop offset="1" stop-color="#07578d"/></linearGradient>
+<linearGradient id="green" x1="0" y1="0" x2=".7" y2="1"><stop stop-color="#88f5ac"/><stop offset="1" stop-color="#1ca773"/></linearGradient>
+<linearGradient id="greenShade" x1="0" y1="0" x2=".9" y2="1"><stop stop-color="#24b98f"/><stop offset="1" stop-color="#096859"/></linearGradient>
+<linearGradient id="purple" x1="0" y1="0" x2=".8" y2="1"><stop stop-color="#e1b4ff"/><stop offset="1" stop-color="#9664db"/></linearGradient>
+<linearGradient id="purpleSide" x1="0" y1="0" x2=".8" y2="1"><stop stop-color="#9457ca"/><stop offset="1" stop-color="#603d9d"/></linearGradient>
+<linearGradient id="steel" x1="0" y1="0" x2=".8" y2="1"><stop stop-color="#fff"/><stop offset=".38" stop-color="#cce2f5"/><stop offset=".78" stop-color="#8da7c5"/><stop offset="1" stop-color="#6e849e"/></linearGradient>
+<linearGradient id="steelDark" x1="0" y1="0" x2=".7" y2="1"><stop stop-color="#879bb4"/><stop offset="1" stop-color="#3f536f"/></linearGradient>
+<linearGradient id="navy" x1="0" y1="0" x2=".9" y2="1"><stop stop-color="#335a80"/><stop offset="1" stop-color="#102a51"/></linearGradient>
+<linearGradient id="lightBlue" x1="0" y1="0" x2=".7" y2="1"><stop stop-color="#9feaff"/><stop offset="1" stop-color="#3fb5ff"/></linearGradient>
+<linearGradient id="paper" x1="0" y1="0" x2=".8" y2="1"><stop stop-color="#fff"/><stop offset="1" stop-color="#d1deee"/></linearGradient>
+<filter id="shadow" x="-40%" y="-40%" width="180%" height="190%"><feGaussianBlur in="SourceAlpha" stdDeviation="4" result="blur"/><feOffset in="blur" dy="5" dx="0" result="offset"/><feComponentTransfer in="offset" result="shadowAlpha"><feFuncA type="linear" slope=".38"/></feComponentTransfer><feMerge><feMergeNode in="shadowAlpha"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+<filter id="glow" x="-50%" y="-50%" width="200%" height="200%"><feGaussianBlur stdDeviation="5" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+<filter id="gray"><feColorMatrix type="saturate" values="0"/></filter>
+</defs><g><g filter="url(#shadow)"><polygon points="44,173 135,138 223,173 131,210" fill="url(#orange)" stroke="#ffefaa" stroke-width="3" stroke-linejoin="round"/><path d="M44 173 V183 L131 220 V210Z" fill="#e07d08" opacity=".98"/><path d="M131 210 L223 173 V183 L131 220Z" fill="#b86a08"/><polygon points="44,154 135,119 223,154 131,191" fill="url(#orange)" stroke="#ffefaa" stroke-width="3" stroke-linejoin="round"/><path d="M44 154 V164 L131 201 V191Z" fill="#e07d08" opacity=".98"/><path d="M131 191 L223 154 V164 L131 201Z" fill="#b86a08"/><polygon points="44,135 135,100 223,135 131,172" fill="url(#orange)" stroke="#ffefaa" stroke-width="3" stroke-linejoin="round"/><path d="M44 135 V145 L131 182 V172Z" fill="#e07d08" opacity=".98"/><path d="M131 172 L223 135 V145 L131 182Z" fill="#b86a08"/><polygon points="44,116 135,81 223,116 131,153" fill="url(#cyan)" stroke="#abf8ff" stroke-width="3" stroke-linejoin="round"/><path d="M44 116 V126 L131 163 V153Z" fill="#0e7daf" opacity=".98"/><path d="M131 153 L223 116 V126 L131 163Z" fill="#14649e"/>
+<path d="M44 116 L135 81 L223 116 L131 153Z" fill="url(#navy)" stroke="#a4e9ff" stroke-width="4" stroke-linejoin="round"/>
+<g opacity=".57" stroke="#56d7ff" stroke-width="2"><path d="M65 108 L149 143 M86 100 L170 134 M107 92 L191 125 M128 84 L211 117 M66 125 L158 89 M86 134 L177 99 M108 143 L200 109"/></g>
+<path d="M107 20 H176 V48 L162 64 L152 88 H133 L121 65 L107 49Z" fill="url(#steel)" stroke="#f5faff" stroke-width="3.3" stroke-linejoin="round"/>
+<path d="M124 52 H161 L150 71 H136Z" fill="url(#amberSide)"/>
+<path d="M137 81 L143 105 L149 81" fill="url(#orange)" stroke="#ffda65" stroke-width="2"/>
+<path d="M143 106 L143 122" stroke="#ffa313" stroke-width="6" stroke-linecap="round" opacity=".85"/>
+</g></g></svg>

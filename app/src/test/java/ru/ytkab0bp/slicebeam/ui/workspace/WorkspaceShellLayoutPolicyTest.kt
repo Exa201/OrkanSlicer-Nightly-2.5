@@ -7,7 +7,7 @@ import ru.ytkab0bp.slicebeam.ui.settings.TemporaryProjectSettingsBarLayoutPolicy
 class WorkspaceShellLayoutPolicyTest {
     @Test
     fun workspaceHeaderGeometryDoesNotChangeWithTextZoom() {
-        assertEquals(80, WorkspaceShellLayoutPolicy.workspaceHeaderHeightDp())
+        assertEquals(64, WorkspaceShellLayoutPolicy.workspaceHeaderHeightDp())
     }
 
     @Test

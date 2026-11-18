@@ -147,6 +147,7 @@ class MobileNavigationDelegate : DelegateSlotImpl() {
                                     if (compactLabels) compactNavigationTitle(slot) else fullTitle,
                                 ),
                                 icon = getSlotIcon(slot),
+                                selectedIcon = getSlotSelectedIcon(slot),
                                 // Keep complete destination names available when labels are compacted.
                                 accessibilityLabel = ctx.getString(fullTitle),
                                 accent = accentForSlot(slot),

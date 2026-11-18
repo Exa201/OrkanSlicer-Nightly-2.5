@@ -8,6 +8,34 @@ import org.junit.Test
 
 class WorkspaceProfileSelectionLogicTest {
     @Test
+    fun processAndFilamentProfilesStayHiddenUntilPrinterIsSelected() {
+        val sections = WorkspaceProfileSelectionLogic.visibleSections(
+            printerNames = emptyList(),
+            filamentNames = listOf("Generic PLA"),
+            processNames = listOf("0.20 mm"),
+        )
+
+        assertTrue(sections.showMissingPrinterNotice)
+        assertFalse(sections.showPrinter)
+        assertFalse(sections.showProcess)
+        assertFalse(sections.showFilament)
+    }
+
+    @Test
+    fun profileSelectorsRemainSeparatedByTheirOwnLists() {
+        val sections = WorkspaceProfileSelectionLogic.visibleSections(
+            printerNames = listOf("Qidi Q2"),
+            filamentNames = emptyList(),
+            processNames = listOf("0.16 mm Quality"),
+        )
+
+        assertFalse(sections.showMissingPrinterNotice)
+        assertTrue(sections.showPrinter)
+        assertTrue(sections.showProcess)
+        assertFalse(sections.showFilament)
+    }
+
+    @Test
     fun selectedProfilesStartAtTheirCurrentIndices() {
         assertEquals(1, WorkspaceProfileSelectionLogic.selectedIndex(listOf("Printer A", "Printer B"), "Printer B"))
         assertEquals(0, WorkspaceProfileSelectionLogic.selectedIndex(listOf("PLA"), "Missing filament"))

@@ -39,7 +39,7 @@ import kotlinx.coroutines.delay
 
 @Composable
 internal fun SetupIntroScreen(onNext: () -> Unit) {
-    Column(modifier = Modifier.fillMaxSize(), verticalArrangement = Arrangement.Bottom) {
+    Column(modifier = Modifier.fillMaxSize().navigationBarsPadding(), verticalArrangement = Arrangement.Bottom) {
         Spacer(modifier = Modifier.weight(1f))
         Text(
             text = stringResource(R.string.SetupOrcaCoreVersion),
@@ -60,7 +60,7 @@ internal fun SetupPresetSourceScreen(
     onNext: () -> Unit,
 ) {
     Column(
-        modifier = Modifier.fillMaxSize().padding(top = 42.dp),
+        modifier = Modifier.fillMaxSize().navigationBarsPadding().padding(top = 42.dp),
         verticalArrangement = Arrangement.Top,
     ) {
         Text(
@@ -137,7 +137,6 @@ internal fun SetupAboutScreen(
     updateStatus: String,
     downloadState: UpdateDownloadState,
     onCheckUpdate: () -> Unit,
-    onCheckPreviousVersion: () -> Unit,
     onInstallUpdate: () -> Unit,
     onRefreshDownload: () -> Unit,
     onClose: () -> Unit,
@@ -156,7 +155,8 @@ internal fun SetupAboutScreen(
         Surface(
             modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp),
             shape = RoundedCornerShape(16.dp),
-            color = MaterialTheme.colorScheme.surface,
+            // Keep the credits readable while letting the setup artwork show through.
+            color = MaterialTheme.colorScheme.surface.copy(alpha = 0.76f),
             shadowElevation = 6.dp,
         ) {
             Text(
@@ -174,16 +174,8 @@ internal fun SetupAboutScreen(
         Button(onClick = onCheckUpdate, modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp).heightIn(min = 52.dp)) {
             Text("Auf GitHub nach Updates suchen")
         }
-        Button(onClick = onCheckPreviousVersion, modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp).heightIn(min = 52.dp)) {
-            Text("Vorherige Nightly-Version laden")
-        }
-        Text(
-            "Android blockiert normalerweise ein Downgrade über eine installierte Version. Wenn der Installer die Vorversion ablehnt, muss sie nach vorheriger Datensicherung manuell neu installiert werden.",
-            modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 6.dp),
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            style = MaterialTheme.typography.bodySmall,
-        )
-        when (downloadState.status) {
+        // Do not expose stale rollback downloads through the About/settings screen.
+        if (!downloadState.isRollback) when (downloadState.status) {
             UpdateDownloadStatus.PENDING, UpdateDownloadStatus.RUNNING, UpdateDownloadStatus.PAUSED -> {
                 val progress = downloadState.progressPercent
                 Surface(
@@ -195,7 +187,7 @@ internal fun SetupAboutScreen(
                         val stateText = when (downloadState.status) {
                             UpdateDownloadStatus.PAUSED -> "Download pausiert${downloadState.version?.let { " · Version $it" }.orEmpty()}"
                             UpdateDownloadStatus.PENDING -> "Download wartet auf eine Verbindung${downloadState.version?.let { " · Version $it" }.orEmpty()}"
-                            else -> "${if (downloadState.isRollback) "Vorherige Version" else "Update"} wird im Hintergrund geladen${downloadState.version?.let { " · Version $it" }.orEmpty()}"
+                            else -> "Update wird im Hintergrund geladen${downloadState.version?.let { " · Version $it" }.orEmpty()}"
                         }
                         Text(stateText, color = MaterialTheme.colorScheme.onSurface)
                         Spacer(Modifier.height(8.dp))
@@ -221,7 +213,7 @@ internal fun SetupAboutScreen(
                 ) {
                     Column(Modifier.padding(horizontal = 16.dp, vertical = 12.dp)) {
                         Text(
-                            "${if (downloadState.isRollback) "Vorversion" else "Update"} ${downloadState.version?.let { "v$it " }.orEmpty()}heruntergeladen. Du kannst den Installer von hier öffnen.",
+                            "Update ${downloadState.version?.let { "v$it " }.orEmpty()}heruntergeladen. Du kannst den Installer von hier öffnen.",
                             color = MaterialTheme.colorScheme.onSecondaryContainer,
                         )
                         Text(
@@ -235,7 +227,7 @@ internal fun SetupAboutScreen(
                 Button(
                     onClick = onInstallUpdate,
                     modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp).heightIn(min = 52.dp),
-                    ) { Text(if (downloadState.isRollback) "Vorherige APK öffnen" else "Heruntergeladenes Update installieren") }
+                    ) { Text("Heruntergeladenes Update installieren") }
             }
             UpdateDownloadStatus.FAILED -> {
                 Text(
@@ -265,7 +257,7 @@ internal fun SetupAboutScreen(
 
 @Composable
 internal fun SetupFinishScreen(onFinish: () -> Unit) {
-    Column(modifier = Modifier.fillMaxSize(), verticalArrangement = Arrangement.Bottom) {
+    Column(modifier = Modifier.fillMaxSize().navigationBarsPadding(), verticalArrangement = Arrangement.Bottom) {
         Spacer(modifier = Modifier.weight(1f))
         Text(
             text = stringResource(R.string.IntroConfigured),

@@ -36,6 +36,7 @@ fun PrinterConnectionCard(
     configuredHost: String?,
     onOpenWeb: () -> Unit,
     modifier: Modifier = Modifier,
+    iconRes: Int = R.drawable.menu3d_printer,
 ) {
     val displayHost = PrinterWebOriginPolicy.dashboardUrl(configuredHost)
     val openWebDescription = stringResource(R.string.PrinterOpenWebDescription)
@@ -53,9 +54,9 @@ fun PrinterConnectionCard(
         ) {
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 Icon(
-                    painter = painterResource(R.drawable.menu3d_printer),
+                    painter = painterResource(iconRes),
                     contentDescription = null,
-                    modifier = Modifier.size(22.dp),
+                    modifier = Modifier.size(29.dp),
                     tint = Color.Unspecified,
                 )
                 Text(
@@ -88,7 +89,7 @@ fun PrinterConnectionCard(
                 Icon(
                     painter = painterResource(R.drawable.menu3d_printer_send),
                     contentDescription = null,
-                    modifier = Modifier.size(20.dp),
+                    modifier = Modifier.size(26.dp),
                     tint = Color.Unspecified,
                 )
                 if (!compactAction) {

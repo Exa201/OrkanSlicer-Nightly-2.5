@@ -77,6 +77,7 @@ import ru.ytkab0bp.slicebeam.slic3r.Bed3D
 import ru.ytkab0bp.slicebeam.slic3r.GCodeProcessorResult
 import ru.ytkab0bp.slicebeam.slic3r.replaceGCodeResult
 import ru.ytkab0bp.slicebeam.slic3r.Model
+import ru.ytkab0bp.slicebeam.slic3r.ModelBatchImportPlacement
 import ru.ytkab0bp.slicebeam.slic3r.BooleanOperation
 import ru.ytkab0bp.slicebeam.slic3r.LargeModelPick
 import ru.ytkab0bp.slicebeam.slic3r.ImportProgressCallback
@@ -140,6 +141,11 @@ private var activePrinterUploadProgress: PrinterUploadProgressDialog? = null
 private var menuToolsExpanded:Boolean
 get() = workspaceController.toolPanelExpanded
 set(value) { workspaceController.toolPanelExpanded = value }
+@Volatile private var workspaceMenuActionCount = 0
+
+fun updateWorkspaceMenuActionCount(count: Int) {
+    workspaceMenuActionCount = count.coerceAtLeast(0)
+}
 private var filamentPaletteRevision by mutableIntStateOf(0)
 private var currentMenuSlot:Int
 get() = workspaceController.selectedDestinationSlot
@@ -559,8 +565,9 @@ val produced = if (!DEBUG_VIEWER)
 val result = model.slice(cfg.getAbsolutePath(), gcode.getAbsolutePath(),
 { progress, text-> SliceBeam.EVENT_BUS.fireEvent(SlicingProgressEvent(progress, text)) },
 SliceBeam.PENDING_CALIB_MODE, SliceBeam.PENDING_CALIB_START,
-SliceBeam.PENDING_CALIB_END, SliceBeam.PENDING_CALIB_STEP)
+SliceBeam.PENDING_CALIB_END, SliceBeam.PENDING_CALIB_STEP, SliceBeam.PENDING_CALIB_FILAMENT)
 SliceBeam.PENDING_CALIB_MODE = 0
+SliceBeam.PENDING_CALIB_FILAMENT = 0
 SliceBeam.EVENT_BUS.fireEvent(SlicingProgressEvent(100, ""))
 result
 }
@@ -1482,17 +1489,16 @@ private fun showPaintModePanel(currentGlView: GLView, mode: Int) {
         ::cancelPaintMode,
         WorkspacePanelSize(
             portrait = WorkspacePanelDimension.ClampedFraction(
-                // The color selector itself is a single 48 dp palette row. Reserve enough
-                // height to keep it visible, then let secondary brush controls scroll. A
-                // large 30–32% dock made the plate feel cropped on short phones even though
-                // the renderer technically retained 60% of its viewport.
-                fraction = if (ctx.resources.configuration.fontScale >= 1.3f) 0.26f else 0.24f,
+                // Keep every paint mode in the same compact dock. The GL canvas stays
+                // directly touchable and WorkspaceShell reserves at least 60% of the tool
+                // area for the model; secondary brush options scroll inside this limit.
+                fraction = if (ctx.resources.configuration.fontScale >= 1.3f) 0.32f else 0.30f,
                 minDp = 72f,
-                maxDp = if (ctx.resources.configuration.fontScale >= 1.3f) 148f else 136f,
+                maxDp = if (ctx.resources.configuration.fontScale >= 1.3f) 208f else 192f,
             ),
             landscape = WorkspacePanelDimension.Fixed(280f),
         ),
-        dockPanel = mode == GLRenderer.PAINT_MODE_COLOR,
+        dockPanel = true,
     ) {
         PaintModePanel(
             glView = currentGlView,
@@ -1566,6 +1572,15 @@ workspaceController.dismissActivePanel()
 showWorkspaceModePanel(
     toolId = "variable-layer-height",
     onDismiss = ::exitVariableLayerHeightMode,
+    panelSize = WorkspacePanelSize(
+        portrait = WorkspacePanelDimension.ClampedFraction(
+            fraction = 0.30f,
+            minDp = 112f,
+            maxDp = 192f,
+        ),
+        landscape = WorkspacePanelDimension.Fixed(300f),
+    ),
+    dockPanel = true,
     allowBackgroundInteraction = true,
 ) {
     VariableLayerHeightPanel(currentGlView, ::exitVariableLayerHeightMode, ::updateModel)
@@ -2123,12 +2138,11 @@ private fun createWorkspaceContent(ctx: Context, portrait: Boolean): View {
                 WorkspaceShell(
                     portrait = portrait,
                     toolPanelExpanded = menuToolsExpanded,
-                    // Every portrait workspace menu shares the same 4×2 action surface.
-                    // Reserve its height consistently so routes do not jump when switched.
-                    toolPanelNeedsTwoRows = portrait || currentMenuSlot == WorkspaceDestination.MODEL.ordinal ||
-                        currentMenuSlot == WorkspaceDestination.EDIT.ordinal ||
-                        currentMenuSlot == WorkspaceDestination.CAMERA.ordinal ||
-                        currentMenuSlot == WorkspaceDestination.TOOLS.ordinal,
+                    // One row of four actions stays compact; show a second row only for
+                    // menus that actually contain more than four visible commands.
+                    toolPanelNeedsTwoRows = portrait && currentMenuSlot != WorkspaceDestination.PROJECT.ordinal &&
+                        currentMenuSlot != WorkspaceDestination.CAMERA.ordinal,
+                    menuActionCount = workspaceMenuActionCount,
                     toolPanelAdditionalChromeDp = if (currentMenuSlot == WorkspaceDestination.MODEL.ordinal) {
                         if (ctx.resources.configuration.fontScale >= 1.3f) 72 else 56
                     } else 0,
@@ -2171,6 +2185,7 @@ private fun createWorkspaceContent(ctx: Context, portrait: Boolean): View {
                                 WorkspaceFilamentButton(
                                     slots = Prefs.getFilamentSlots(),
                                     enabled = true,
+                                    active = workspaceController.activePanel == WorkspaceOverlayPanel.FILAMENT_PALETTE,
                                     onClick = ::showWorkspaceFilamentPalette,
                                 )
                             }
@@ -2835,12 +2850,17 @@ private fun loadModelInternal(
         Model(f, currentPlateIndex + 1, ImportProgressCallback { fraction -> callback.onProgress(fraction) })
     else Model(f, currentPlateIndex + 1)
     val reduction = try { simplifyImportedModel(imported) } catch (e: Exception) { imported.release(); throw e }
-    loadImportedModelOnRenderer(imported, reduction, preserveProjectLayout, callback, autoOrientImportedModels, f)
+        loadImportedModelOnRenderer(imported, reduction, preserveProjectLayout, callback, autoOrientImportedModels, f)
 }
 
 /** Import independent mesh files as one model batch so the native nest runs once. */
 @JvmOverloads
-fun loadModelBatch(files:List<File>, callback:ModelLoadCallback? = null, autoOrientImportedModels:Boolean = true) {
+fun loadModelBatch(
+    files:List<File>,
+    callback:ModelLoadCallback? = null,
+    autoOrientImportedModels:Boolean = true,
+    placement:ModelBatchImportPlacement = ModelBatchImportPlacement(),
+) {
     if (files.isEmpty()) {
         callback?.onFailed(IllegalArgumentException("No supported mesh files selected"))
         return
@@ -2849,10 +2869,15 @@ fun loadModelBatch(files:List<File>, callback:ModelLoadCallback? = null, autoOri
         callback?.onCancelled()
         return
     }
-    enqueueModelLoadRequest { startModelBatch(files, callback, autoOrientImportedModels) }
+    enqueueModelLoadRequest { startModelBatch(files, callback, autoOrientImportedModels, placement) }
 }
 
-private fun startModelBatch(files:List<File>, callback:ModelLoadCallback?, autoOrientImportedModels:Boolean) {
+private fun startModelBatch(
+    files:List<File>,
+    callback:ModelLoadCallback?,
+    autoOrientImportedModels:Boolean,
+    placement:ModelBatchImportPlacement,
+) {
     val terminalCallback = trackedModelLoadCallback(callback)
     val importGeneration = ++modelImportGeneration
     platePreviewRevision++
@@ -2902,7 +2927,7 @@ private fun startModelBatch(files:List<File>, callback:ModelLoadCallback?, autoO
                 override fun onFailed(error:Exception) = terminalCallback.onFailed(error)
                 override fun onCancelled() = terminalCallback.onCancelled()
                 override fun onProgress(fraction:Float):Boolean = terminalCallback.onProgress(fraction)
-            }, autoOrientImportedModels, null)
+            }, autoOrientImportedModels, null, placement)
         } catch (error:Exception) {
             batch.release()
             if (error is ImportCancelledException || error is java.util.concurrent.CancellationException) {
@@ -2922,6 +2947,7 @@ private fun loadImportedModelOnRenderer(
     callback:ModelLoadCallback?,
     autoOrientImportedModels:Boolean,
     sourceFile:File?,
+    placement:ModelBatchImportPlacement = ModelBatchImportPlacement(),
 ) {
 
     glView!!.queueEvent(object : Runnable {
@@ -2986,6 +3012,21 @@ private fun loadImportedModelOnRenderer(
             val footprintAreas = DoubleArray(sourceCount)
             for (index in 0 until sourceCount) {
                 if (autoOrientImportedModels || preserveProjectLayout) imported.autoOrient(index)
+            }
+
+            // Orca's preferred_orientation is a Z rotation for a freshly imported mesh file.
+            // Apply it to the whole incoming layout before per-object normalization and bed packing;
+            // authored 3MF plate layouts must retain their saved coordinates and orientation.
+            val isThreeMfImport = sourceFile?.extension?.equals("3mf", ignoreCase = true) == true
+            if (autoOrientImportedModels && !isThreeMfImport) {
+                val preferredDegrees = SliceBeam.buildCurrentConfigObject()
+                    .get("preferred_orientation")?.toDoubleOrNull()
+                if (preferredDegrees != null && preferredDegrees.isFinite() && preferredDegrees != 0.0) {
+                    imported.rotateAndCenterObjects(Math.toRadians(preferredDegrees))
+                }
+            }
+
+            for (index in 0 until sourceCount) {
                 imported.getTranslation(index, translation)
                 imported.getBoundingBoxExact(index, min, max)
                 footprintAreas[index] = (max.x - min.x) * (max.y - min.y)
@@ -3007,7 +3048,7 @@ private fun loadImportedModelOnRenderer(
             val bedBoundsArea = if (bedMin != null && bedMax != null)
                 (bedMax.x - bedMin.x) * (bedMax.y - bedMin.y) else 0.0
             val batchFootprintArea = footprintAreas.sum()
-            val shouldTryJointBatch = currentPlateIsEmpty && sourceCount in 2..24 &&
+            val shouldTryJointBatch = !placement.usesPerObjectDistance && currentPlateIsEmpty && sourceCount in 2..24 &&
                 batchTriangleCount in 1..100_000 && bedBoundsArea > 0.0 &&
                 batchFootprintArea <= bedBoundsArea * 0.70
             if (shouldTryJointBatch) {
@@ -3061,7 +3102,7 @@ private fun loadImportedModelOnRenderer(
                     val objectIndex = plate.objectsCount
                     plate.addObject(imported, sourceIndex)
                     val placed = plate.objectsCount == objectIndex + 1 &&
-                        bed.arrangeImportedObject(plate, objectIndex, 2.0) &&
+                        bed.arrangeImportedObject(plate, objectIndex, placement.minimumObjectDistanceMm ?: 2.0) &&
                         isObjectInsideBuildVolume(plate, objectIndex, bed) &&
                         !hasMeshIntersectionForObject(plate, objectIndex)
                     if (!placed) {
@@ -3091,7 +3132,12 @@ private fun loadImportedModelOnRenderer(
                 }
                 if (!placed) {
                     val nextPlate = Model().also { it.addObject(imported, sourceIndex) }
-                    if (!bed.arrangeCompact(nextPlate) ||
+                    val arranged = if (placement.usesPerObjectDistance) {
+                        bed.arrangeWithDistance(nextPlate, placement.minimumObjectDistanceMm ?: 2.0)
+                    } else {
+                        bed.arrangeCompact(nextPlate)
+                    }
+                    if (!arranged ||
                         !isModelInsideBuildVolume(nextPlate, bed)) {
                         centerObjectOnBed(nextPlate, 0, bed)
                         if (!isObjectInsideBuildVolume(nextPlate, 0, bed)) objectsTooLargeForBed++

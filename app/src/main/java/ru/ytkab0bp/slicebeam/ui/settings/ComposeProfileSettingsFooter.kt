@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
@@ -29,6 +30,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
@@ -40,6 +42,8 @@ import ru.ytkab0bp.slicebeam.R
 fun ComposeProfileSettingsFooter(
     portrait: Boolean,
     resetEnabled: Boolean,
+    useFilamentAssets: Boolean = false,
+    usePrinterAssets: Boolean = false,
     currentTitle: () -> String,
     pendingSummary: () -> String,
     onApply: (String) -> Unit,
@@ -72,6 +76,14 @@ fun ComposeProfileSettingsFooter(
                 vertical = if (portrait) 8.dp else 12.dp,
             ),
         ) {
+            if (useFilamentAssets || usePrinterAssets) Icon(
+                painter = painterResource(
+                    if (usePrinterAssets) R.drawable.printerprofile_speichern else R.drawable.ic_speichern,
+                ),
+                contentDescription = null,
+                modifier = Modifier.padding(end = 8.dp).size(20.dp),
+                tint = Color.Unspecified,
+            )
             Text(stringResource(R.string.SettingsSave))
         }
         IconButton(
@@ -79,7 +91,21 @@ fun ComposeProfileSettingsFooter(
             enabled = resetEnabled,
             modifier = Modifier.alpha(resetAlpha),
         ) {
-            Icon(
+            if (useFilamentAssets || usePrinterAssets) Icon(
+                painter = painterResource(
+                    if (usePrinterAssets) {
+                        PrinterProfileCategoryAssets.stateIcon(
+                            R.drawable.printerprofile_zuruecksetzen,
+                            active = false,
+                            enabled = resetEnabled,
+                        )
+                    } else {
+                        FilamentProfileCategoryAssets.stateIcon(R.drawable.ic_zuruecksetzen, active = false, enabled = resetEnabled)
+                    },
+                ),
+                contentDescription = stringResource(R.string.SettingsResetProfileAction),
+                tint = Color.Unspecified,
+            ) else Icon(
                 painter = painterResource(R.drawable.refresh_outline_28),
                 contentDescription = stringResource(R.string.SettingsResetProfileAction),
                 modifier = Modifier.graphicsLayer(scaleX = -1f),

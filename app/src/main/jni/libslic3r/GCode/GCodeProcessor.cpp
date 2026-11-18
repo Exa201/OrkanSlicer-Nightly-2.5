@@ -614,6 +614,57 @@ template<typename T>
     }
 }
 
+// Writes G-code in bounded blocks instead of repeatedly rebuilding one large
+// std::string for every post-processing flush. Keep newline offsets in terms
+// of the final file so preview and progress indexing remain unchanged.
+class GCodeFileWriter
+{
+    static constexpr size_t BlockSize = 64 * 1024;
+
+    FilePtr& m_out;
+    const std::string& m_out_path;
+    std::vector<size_t>& m_lines_ends;
+    std::string m_buffer;
+    size_t m_file_pos{0};
+
+public:
+    GCodeFileWriter(FilePtr& out, const std::string& out_path, std::vector<size_t>& lines_ends)
+        : m_out(out), m_out_path(out_path), m_lines_ends(lines_ends)
+    {
+        m_buffer.reserve(BlockSize);
+    }
+
+    void append(std::string_view data)
+    {
+        if (data.empty())
+            return;
+
+        const size_t line_start = m_file_pos + m_buffer.size();
+        for (size_t i = 0; i < data.size(); ++i) {
+            if (data[i] == '\n')
+                m_lines_ends.emplace_back(line_start + i + 1);
+        }
+        m_buffer.append(data.data(), data.size());
+        if (m_buffer.size() >= BlockSize)
+            flush();
+    }
+
+    void flush()
+    {
+        if (m_buffer.empty())
+            return;
+
+        const size_t written = fwrite(m_buffer.data(), 1, m_buffer.size(), m_out.f);
+        if (written != m_buffer.size() || ferror(m_out.f)) {
+            m_out.close();
+            boost::nowide::remove(m_out_path.c_str());
+            throw Slic3r::RuntimeError("GCode processor post process export failed.\nIs the disk full?");
+        }
+        m_file_pos += written;
+        m_buffer.clear();
+    }
+};
+
 // Helper class to modify and export gcode to file
 class ExportLines
 {
@@ -628,16 +679,6 @@ public:
     enum class EWriteType { BySize, ByTime };
 
 private:
-    static void update_lines_ends_and_out_file_pos(const std::string& out_string, std::vector<size_t>& lines_ends, size_t* out_file_pos)
-    {
-        for (size_t i = 0; i < out_string.size(); ++i) {
-            if (out_string[i] == '\n')
-                lines_ends.emplace_back((out_file_pos != nullptr) ? *out_file_pos + i + 1 : i + 1);
-        }
-        if (out_file_pos != nullptr)
-            *out_file_pos += out_string.size();
-    }
-
     struct LineData
     {
         std::string                                                                        line;
@@ -675,6 +716,7 @@ private:
 #endif // NDEBUG
 
     EWriteType m_write_type{EWriteType::BySize};
+    GCodeFileWriter& m_writer;
     // Time machines containing g1 times cache
     const std::array<GCodeProcessor::TimeMachine, static_cast<size_t>(PrintEstimatedStatistics::ETimeMode::Count)>& m_machines;
     // Current time
@@ -690,16 +732,17 @@ private:
     std::vector<std::pair<size_t, size_t>> m_gcode_lines_map;
 
     size_t m_times_cache_id{0};
-    size_t m_out_file_pos{0};
 
 public:
-    ExportLines(EWriteType type, const std::array<GCodeProcessor::TimeMachine, static_cast<size_t>(PrintEstimatedStatistics::ETimeMode::Count)>& machines)
+    ExportLines(EWriteType type, const std::array<GCodeProcessor::TimeMachine, static_cast<size_t>(PrintEstimatedStatistics::ETimeMode::Count)>& machines,
+                GCodeFileWriter& writer)
 #ifndef NDEBUG
         : m_statistics(*this)
         , m_write_type(type)
+        , m_writer(writer)
         , m_machines(machines){}
 #else
-        : m_write_type(type), m_machines(machines)
+        : m_write_type(type), m_writer(writer), m_machines(machines)
     {}
 #endif // NDEBUG
 
@@ -826,51 +869,38 @@ public:
     // write to file:
     // m_write_type == EWriteType::ByTime - all lines older than m_time - backtrace_time
     // m_write_type == EWriteType::BySize - all lines if current size is greater than 65535 bytes
-    void write(FilePtr& out, float backtrace_time, GCodeProcessorResult& result, const std::string& out_path)
+    void write(float backtrace_time)
     {
         if (m_lines.empty())
             return;
 
-        // collect lines to write into a single string
-        std::string out_string;
-        if (!m_lines.empty()) {
-            if (m_write_type == EWriteType::ByTime) {
-                while (m_lines.front().times[Normal] < m_times[Normal] - backtrace_time) {
-                    const LineData& data = m_lines.front();
-                    out_string += data.line;
-                    m_size -= data.line.length();
-                    m_lines.pop_front();
+        if (m_write_type == EWriteType::ByTime) {
+            while (!m_lines.empty() && m_lines.front().times[Normal] < m_times[Normal] - backtrace_time) {
+                const LineData& data = m_lines.front();
+                m_writer.append(data.line);
+                m_size -= data.line.length();
+                m_lines.pop_front();
 #ifndef NDEBUG
-                    m_statistics.remove_line();
+                m_statistics.remove_line();
 #endif // NDEBUG
-                }
-            } else {
-                if (m_size > 65535) {
-                    while (!m_lines.empty()) {
-                        out_string += m_lines.front().line;
-                        m_lines.pop_front();
-                    }
-                    m_size = 0;
-#ifndef NDEBUG
-                    m_statistics.remove_all_lines();
-#endif // NDEBUG
-                }
             }
-        }
-
-        {
-            write_to_file(out, out_string, result, out_path);
-            update_lines_ends_and_out_file_pos(out_string, result.lines_ends, &m_out_file_pos);
+        } else if (m_size > 65535) {
+            while (!m_lines.empty()) {
+                m_writer.append(m_lines.front().line);
+                m_lines.pop_front();
+            }
+            m_size = 0;
+#ifndef NDEBUG
+            m_statistics.remove_all_lines();
+#endif // NDEBUG
         }
     }
 
     // flush the current content of the cache to file
-    void flush(FilePtr& out, GCodeProcessorResult& result, const std::string& out_path)
+    void flush()
     {
-        // collect lines to flush into a single string
-        std::string out_string;
         while (!m_lines.empty()) {
-            out_string += m_lines.front().line;
+            m_writer.append(m_lines.front().line);
             m_lines.pop_front();
         }
         m_size = 0;
@@ -878,10 +908,7 @@ public:
         m_statistics.remove_all_lines();
 #endif // NDEBUG
 
-        {
-            write_to_file(out, out_string, result, out_path);
-            update_lines_ends_and_out_file_pos(out_string, result.lines_ends, &m_out_file_pos);
-        }
+        m_writer.flush();
     }
 
     void synchronize_moves(GCodeProcessorResult& result) const
@@ -896,22 +923,7 @@ public:
         }
     }
 
-    size_t get_size() const { return m_size; }
-
-private:
-    void write_to_file(FilePtr& out, const std::string& out_string, GCodeProcessorResult& result, const std::string& out_path)
-    {
-        if (!out_string.empty()) {
-            if (true) {
-                fwrite((const void*) out_string.c_str(), 1, out_string.length(), out.f);
-                if (ferror(out.f)) {
-                    out.close();
-                    boost::nowide::remove(out_path.c_str());
-                    throw Slic3r::RuntimeError("GCode processor post process export failed.\nIs the disk full?");
-                }
-            }
-        }
-    }
+size_t get_size() const { return m_size; }
 };
 
 void GCodeProcessor::run_post_process()
@@ -1007,8 +1019,10 @@ void GCodeProcessor::run_post_process()
         last_exported_stop[i] = time_in_minutes(m_time_processor.machines[i].time);
     }
 
+    m_result.lines_ends.clear();
+    GCodeFileWriter file_writer(out, out_path, m_result.lines_ends);
     ExportLines export_line(m_result.backtrace_enabled ? ExportLines::EWriteType::ByTime : ExportLines::EWriteType::BySize,
-        m_time_processor.machines);
+        m_time_processor.machines, file_writer);
 
     // replace placeholder lines with the proper final value
     // gcode_line is in/out parameter, to reduce expensive memory allocation
@@ -1325,9 +1339,6 @@ void GCodeProcessor::run_post_process()
         }
     };
 
-    m_result.lines_ends.clear();
-    // m_result.lines_ends.emplace_back(std::vector<size_t>());
-
     unsigned int line_id = 0;
     // Backtrace data for Tx gcode lines
     const ExportLines::Backtrace backtrace_T = { m_preheat_time, m_preheat_steps };
@@ -1415,7 +1426,7 @@ void GCodeProcessor::run_post_process()
 
                     if (!gcode_line.empty())
                         export_line.append_line(gcode_line);
-                    export_line.write(out, 1.1f * max_backtrace_time, m_result, out_path);
+                    export_line.write(1.1f * max_backtrace_time);
                     gcode_line.clear();
                 }
             }
@@ -1424,7 +1435,7 @@ void GCodeProcessor::run_post_process()
         }
     }
 
-    export_line.flush(out, m_result, out_path);
+    export_line.flush();
 
     out.close();
     in.close();

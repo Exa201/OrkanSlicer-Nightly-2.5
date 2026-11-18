@@ -5,12 +5,14 @@ import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.remember
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.wrapContentHeight
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Text
@@ -18,6 +20,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
 import ru.ytkab0bp.slicebeam.R
 import ru.ytkab0bp.eventbus.EventHandler
@@ -30,7 +33,6 @@ class ModelMenu : ListBedMenu() {
     private val composeActions = mutableStateOf<List<BedComposeMenuAction>>(emptyList())
     private val selectedScope = mutableIntStateOf(0)
     private var menuItems: ModelMenuItems? = null
-    private var transformItems: TransformMenuItems? = null
 
     override fun onCreateItems(portrait: Boolean): List<BedMenuItem> = emptyList()
 
@@ -38,16 +40,18 @@ class ModelMenu : ListBedMenu() {
     override fun WorkspaceContent(portrait: Boolean) {
         val bed = fragment ?: return
         val items = remember(this, bed) { ModelMenuItems(bed, ::refreshActionItems) }
-        val transforms = remember(this, bed) { createTransformMenuItems(bed, ::refreshActionItems) }
-        LaunchedEffect(items, transforms, portrait) {
+        LaunchedEffect(items, portrait) {
             menuItems = items
-            transformItems = transforms
             items.invalidateSelectionState()
-            transforms.invalidateSelectionState()
             refreshActionItems()
         }
         val selectedActions = composeActions.value.filter { ModelMenuActionScope.isSelectionScoped(it.titleRes) }
         val allActions = composeActions.value.filterNot { ModelMenuActionScope.isSelectionScoped(it.titleRes) }
+        androidx.compose.runtime.SideEffect {
+            bed.updateWorkspaceMenuActionCount(
+                if (selectedScope.intValue == 0) selectedActions.size else allActions.size,
+            )
+        }
         Column(Modifier.fillMaxWidth().wrapContentHeight()) {
             Row(
                 Modifier.fillMaxWidth().heightIn(min = 48.dp).padding(horizontal = 4.dp),
@@ -57,12 +61,26 @@ class ModelMenu : ListBedMenu() {
                     selected = selectedScope.intValue == 0,
                     onClick = { selectedScope.intValue = 0 },
                     label = { Text(stringResource(R.string.ModelMenuSelectedObjectGroup)) },
+                    leadingIcon = {
+                        Image(
+                            painterResource(if (selectedScope.intValue == 0) R.drawable.cad_auswahl_active else R.drawable.cad_auswahl),
+                            contentDescription = null,
+                            modifier = Modifier.size(31.dp),
+                        )
+                    },
                     modifier = Modifier.weight(1f).testTag("model-menu-scope-object"),
                 )
                 FilterChip(
                     selected = selectedScope.intValue == 1,
                     onClick = { selectedScope.intValue = 1 },
                     label = { Text(stringResource(R.string.ModelMenuAllObjectsGroup)) },
+                    leadingIcon = {
+                        Image(
+                            painterResource(if (selectedScope.intValue == 1) R.drawable.cad_druckplatte_active else R.drawable.cad_druckplatte),
+                            contentDescription = null,
+                            modifier = Modifier.size(31.dp),
+                        )
+                    },
                     modifier = Modifier.weight(1f).testTag("model-menu-scope-all"),
                 )
             }
@@ -79,7 +97,6 @@ class ModelMenu : ListBedMenu() {
     fun onObjectsChanged(event: ObjectsListChangedEvent) {
         menuItems?.resetFlattenMode()
         menuItems?.invalidateSelectionState()
-        transformItems?.invalidateSelectionState()
         refreshActionItems()
     }
 
@@ -87,7 +104,6 @@ class ModelMenu : ListBedMenu() {
     fun onSelectionChanged(event: SelectedObjectChangedEvent) {
         menuItems?.resetFlattenMode()
         menuItems?.invalidateSelectionState()
-        transformItems?.invalidateSelectionState()
         refreshActionItems()
     }
 
@@ -98,10 +114,7 @@ class ModelMenu : ListBedMenu() {
     }
 
     private fun refreshActionItems() {
-        val objectTransforms = transformItems?.createItems()
-            ?.filter { ModelMenuActionScope.isSelectionScoped(it.titleRes) }
-            .orEmpty()
-        composeActions.value = menuItems?.createItems().orEmpty() + objectTransforms
+        composeActions.value = menuItems?.createItems().orEmpty()
     }
 }
 
@@ -118,7 +131,6 @@ internal object ModelMenuActionScope {
         R.string.ModelMenuAlignPrimaryAxes,
         R.string.ModelMenuDistributeSelected,
         R.string.ModelMenuCenterOnBed,
-        R.string.ModelScaleToBuildVolume,
         R.string.ModelMenuPlaceGroupOnBed,
         R.string.ModelMenuCombineSelected,
         R.string.ModelMenuBoolean,
@@ -126,20 +138,6 @@ internal object ModelMenuActionScope {
         R.string.ModelMenuAutoOrientSelected,
         R.string.ModelMenuFlatten,
         R.string.ModelMenuDeleteSelected,
-        R.string.ModelContextResetRotation,
-        R.string.ModelContextResetScale,
-        R.string.MenuToolbarMove,
-        R.string.MenuToolbarRotate,
-        R.string.MenuTransformScale,
-        R.string.ModelSimplify,
-        R.string.ModelSmoothMesh,
-        R.string.MenuTransformCut,
-        R.string.MenuToolbarVariableLayerHeight,
-        R.string.MenuToolbarSupportPaint,
-        R.string.MenuToolbarSeamPaint,
-        R.string.MenuToolbarFuzzyPaint,
-        R.string.MenuToolbarColorPaint,
-        R.string.MenuToolbarEmboss,
     )
 
     fun isSelectionScoped(titleRes: Int): Boolean = titleRes in selectionActions

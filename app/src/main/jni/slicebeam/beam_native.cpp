@@ -119,6 +119,45 @@ struct GLModelRef {
     std::mutex picking_mutex;
 
 };
+
+// Flatten candidate planes are expressed in the flattening coordinate space,
+// while their support mesh is in object space. Undo the instance and flattening
+// transforms before comparing candidate samples against the source surface.
+static bool flatten_candidate_has_surface_support(
+    const Pointf3s& polygon,
+    const Transform3d& flatten,
+    const Transform3d& instance,
+    const AABBMesh& source_surface_index,
+    double max_surface_distance_squared)
+{
+    if (polygon.size() < 3) return false;
+    Vec3d center = Vec3d::Zero();
+    for (const Vec3d& point : polygon) center += point;
+    center /= static_cast<double>(polygon.size());
+
+    size_t sample_count = 0;
+    size_t supported_count = 0;
+    // Candidate polygons are transformed by the instance matrix before they are
+    // rotated into the flattening plane. The support mesh is in object space
+    // (volume transforms applied, instance transform excluded), so undo both
+    // transforms before querying it.
+    const Transform3d flat_to_object = instance.inverse() * flatten.inverse();
+    const auto sample = [&](const Vec3d& flat_point) {
+        ++sample_count;
+        if (source_surface_index.squared_distance(flat_to_object * flat_point) <= max_surface_distance_squared)
+            ++supported_count;
+    };
+    sample(center);
+    for (const Vec3d& vertex : polygon) {
+        for (const double fraction : {0.25, 0.5, 0.75})
+            sample(center * (1.0 - fraction) + vertex * fraction);
+    }
+
+    // A hull plane may approximate a gently curved printable surface. Keep it if
+    // at least half of its interior samples are supported; this still rejects
+    // planes spanning large concave gaps while exposing useful face targets.
+    return sample_count > 0 && supported_count * 2 >= sample_count;
+}
 // A paint draft owns one selector and ray tree per model-part volume. A 3MF assembly is a single
 // ModelObject, but every constituent part stores independent facet annotations.
 struct PaintVolumeRef {
@@ -2450,7 +2489,14 @@ extern "C" {
 
     JNIEXPORT void JNICALL Java_ru_ytkab0bp_slicebeam_slic3r_Native_model_1translate_1global(JNIEnv* env, jclass, jlong ptr, jdouble x, jdouble y, jdouble z) {
         ModelRef* model = (ModelRef *) (intptr_t) ptr;
+        if (model == nullptr || !std::isfinite(x) || !std::isfinite(y) || !std::isfinite(z)) return;
         model->model.translate(x, y, z);
+    }
+
+    JNIEXPORT void JNICALL Java_ru_ytkab0bp_slicebeam_slic3r_Native_model_1rotate_1and_1center_1objects(JNIEnv*, jclass, jlong ptr, jdouble angle_z) {
+        ModelRef* model = (ModelRef *) (intptr_t) ptr;
+        if (model == nullptr || !std::isfinite(angle_z)) return;
+        model->model.rotate_and_center_objects(angle_z);
     }
 
     JNIEXPORT jdoubleArray JNICALL Java_ru_ytkab0bp_slicebeam_slic3r_Native_model_1get_1bounding_1box_1approx(JNIEnv* env, jclass, jlong ptr, jint i) {
@@ -2683,32 +2729,11 @@ extern "C" {
 
         // Let's prepare transformation of the normal vector from mesh to instance coordinates.
         const Matrix3d normal_matrix = inst_matrix.matrix().block(0, 0, 3, 3).inverse().transpose();
-        const Transform3d flat_to_source = inst_matrix.inverse();
-
-        // A convex hull can bridge concave gaps and produce large, visible planes
-        // floating beside the real model. Keep a candidate only if the points it
-        // proposes still lie close to triangles in the source mesh.
-        const auto has_source_surface_support = [&](const Pointf3s& polygon, const Transform3d& flatten) {
-            if (polygon.size() < 3) return false;
-            Vec3d center = Vec3d::Zero();
-            for (const Vec3d& point : polygon) center += point;
-            center /= static_cast<double>(polygon.size());
-            size_t sample_count = 0;
-            size_t supported_count = 0;
-            constexpr double max_surface_distance_squared = 0.75 * 0.75;
-            for (const Vec3d& vertex : polygon) {
-                // These samples stay inside the convex candidate polygon while
-                // checking its center and each region between center and boundary.
-                for (const double fraction : {0.25, 0.5, 0.75}) {
-                    const Vec3d flat_point = center * (1.0 - fraction) + vertex * fraction;
-                    const Vec3d source_point = flat_to_source * flatten.inverse() * flat_point;
-                    ++sample_count;
-                    if (source_surface_index.squared_distance(source_point) <= max_surface_distance_squared)
-                        ++supported_count;
-                }
-            }
-            return sample_count > 0 && supported_count * 4 >= sample_count * 3;
-        };
+        // Scale the tolerance with the object so large meshes can expose broad,
+        // gently curved faces while small parts retain a precise surface check.
+        const double source_diagonal = source_surface.bounding_box().size().norm();
+        const double support_tolerance = std::clamp(source_diagonal * 0.015, 0.75, 3.0);
+        const double max_surface_distance_squared = support_tolerance * support_tolerance;
 
         // Now we'll go through all the polygons, transform the points into xy plane to process them:
         for (unsigned int polygon_id=0; polygon_id < m_planes.size(); ++polygon_id) {
@@ -2766,7 +2791,8 @@ extern "C" {
                 continue;
             }
 
-            if (!has_source_surface_support(polygon, m)) {
+            if (!flatten_candidate_has_surface_support(
+                    polygon, m, inst_matrix, source_surface_index, max_surface_distance_squared)) {
                 m_planes[polygon_id--] = std::move(m_planes.back());
                 m_planes.pop_back();
                 continue;
@@ -3911,9 +3937,35 @@ extern "C" {
         return (jdouble) ref->model.objects[objectIndex]->get_object_stl_stats().volume;
     }
 
-    JNIEXPORT jlong JNICALL Java_ru_ytkab0bp_slicebeam_slic3r_Native_model_1slice(JNIEnv* env, jclass, jlong ptr, jstring configPath, jstring path, jobject listener, jint numFilaments, jintArray colorsArr, jint calibMode, jdouble calibStart, jdouble calibEnd, jdouble calibStep) {
+    JNIEXPORT jlong JNICALL Java_ru_ytkab0bp_slicebeam_slic3r_Native_model_1slice(JNIEnv* env, jclass, jlong ptr, jstring configPath, jstring path, jobject listener, jint numFilaments, jintArray colorsArr, jint calibMode, jdouble calibStart, jdouble calibEnd, jdouble calibStep, jint calibFilament) {
         try {
             ModelRef* model = (ModelRef*) (intptr_t) ptr;
+            if (calibMode != 0)
+                numFilaments = std::max(numFilaments, calibFilament + 1);
+
+            // Calibration temporarily prints every object with the selected material. Restore the
+            // editor assignments as soon as Print has copied them so a calibration never edits the project.
+            struct CalibrationExtruderRestore {
+                struct Entry { ModelConfigObject* config; bool hadValue; int value; };
+                std::vector<Entry> entries;
+                bool restored = false;
+                void set(ModelConfigObject* config, int extruder) {
+                    if (!config) return;
+                    const bool hadValue = config->has("extruder");
+                    const int value = hadValue ? config->opt_int("extruder") : 0;
+                    entries.push_back({config, hadValue, value});
+                    config->set("extruder", extruder);
+                }
+                void restore() {
+                    if (restored) return;
+                    restored = true;
+                    for (auto it = entries.rbegin(); it != entries.rend(); ++it) {
+                        if (it->hadValue) it->config->set("extruder", it->value);
+                        else it->config->erase("extruder");
+                    }
+                }
+                ~CalibrationExtruderRestore() { restore(); }
+            } calibrationExtruderRestore;
 
             Print print;
             DynamicPrintConfig config;
@@ -4144,6 +4196,14 @@ extern "C" {
                 }
             }
 
+            if (calibMode != 0) {
+                const int selectedExtruder = std::max(0, (int) calibFilament) + 1;
+                for (auto* mo : model->model.objects) {
+                    calibrationExtruderRestore.set(&mo->config, selectedExtruder);
+                    for (auto* volume : mo->volumes)
+                        calibrationExtruderRestore.set(&volume->config, selectedExtruder);
+                }
+            }
             for (auto* mo : model->model.objects) {
                 print.auto_assign_extruders(mo);
             }
@@ -4169,12 +4229,20 @@ extern "C" {
             }
             __android_log_print(ANDROID_LOG_WARN, "BeamPaint", "step: config valid, applying");
             print.apply(model->model, config);
+            calibrationExtruderRestore.restore();
 
             // OrcaSlicer calibration: when a calib mode is requested, set the params on the print so
             // the engine generates the calibration test (e.g. PA line pattern) instead of a normal print.
             if (calibMode != 0) {
                 Slic3r::Calib_Params cp;
                 cp.mode = static_cast<Slic3r::CalibMode>(calibMode);
+                cp.filament_id = std::max(0, (int) calibFilament);
+                cp.extruder_id = cp.filament_id;
+                if (const auto* filamentMap = dynamic_cast<const ConfigOptionInts*>(config.option("filament_map", false));
+                    filamentMap && cp.filament_id < (int) filamentMap->values.size()) {
+                    // Orca stores filament_map as a 1-based physical nozzle index.
+                    cp.extruder_id = std::max(0, filamentMap->get_at(cp.filament_id) - 1);
+                }
                 cp.start = calibStart;
                 cp.end = calibEnd;
                 cp.step = calibStep;
@@ -7903,6 +7971,47 @@ extern "C" {
         }
     }
 
+    // Candidate-face support queries must undo both flattening and the active
+    // instance transform before comparing against the object-local source mesh.
+    JNIEXPORT jintArray JNICALL Java_ru_ytkab0bp_slicebeam_slic3r_Native_flatten_1candidate_1support_1transform_1regression(
+        JNIEnv* env, jclass)
+    {
+        try {
+            TriangleMesh source = make_cube(20.f, 20.f, 20.f);
+            const AABBMesh source_index(source);
+
+            Transform3d instance = Transform3d::Identity();
+            instance.linear() = Eigen::AngleAxisd(0.47, Vec3d::UnitZ()).toRotationMatrix() *
+                Eigen::DiagonalMatrix<double, 3>(1.4, 0.8, 1.15);
+            instance.translation() = Vec3d(31., -17., 9.);
+
+            const Vec3d face_normal_instance = instance.linear().inverse().transpose() * Vec3d::UnitX();
+            Transform3d flatten = Transform3d::Identity();
+            flatten.linear() = Eigen::Quaterniond()
+                .setFromTwoVectors(face_normal_instance.normalized(), Vec3d::UnitZ()).toRotationMatrix();
+
+            Pointf3s polygon;
+            for (const Vec3d& point : {Vec3d(20., 2., 2.), Vec3d(20., 18., 2.),
+                                       Vec3d(20., 18., 18.), Vec3d(20., 2., 18.)})
+                polygon.emplace_back(flatten * instance * point);
+
+            const double max_distance_squared = 0.75 * 0.75;
+            const bool transformed_instance_is_supported = flatten_candidate_has_surface_support(
+                polygon, flatten, instance, source_index, max_distance_squared);
+            const bool missing_instance_inverse_is_rejected = !flatten_candidate_has_surface_support(
+                polygon, flatten, Transform3d::Identity(), source_index, max_distance_squared);
+            const jint values[] = {transformed_instance_is_supported ? 1 : 0,
+                missing_instance_inverse_is_rejected ? 1 : 0};
+            jintArray result = env->NewIntArray(2);
+            if (result != nullptr) env->SetIntArrayRegion(result, 0, 2, values);
+            return result;
+        } catch (const std::exception& error) {
+            jclass runtime_error = env->FindClass("ru/ytkab0bp/slicebeam/slic3r/Slic3rRuntimeError");
+            if (runtime_error != nullptr) env->ThrowNew(runtime_error, error.what());
+            return nullptr;
+        }
+    }
+
     // Loads a four-tool project that stores only two filament slots through the
     // same PresetBundle project-config path used by imported 3MF projects.
     JNIEXPORT jintArray JNICALL Java_ru_ytkab0bp_slicebeam_slic3r_Native_short_1project_1filament_1arrays_1regression(
@@ -8303,7 +8412,18 @@ extern "C" {
         TextureDisplacementFacetsData masks{};
         masks[0] = selector.serialize();
         const std::vector<TextureDisplacementLayer> layers{ layer };
-        const indexed_triangle_set baked = build_texture_displacement(mesh.its, layers, masks, options);
+        // Exercise the same ModelVolume convenience entry point used by Orca's bake action. This
+        // verifies that the adapter collects every paint mask and forwards the volume transform,
+        // layer options, and optional model UV channel to the core baker.
+        Model model;
+        ModelObject *object = model.add_object();
+        if (object == nullptr) return nullptr;
+        ModelVolume *volume = object->add_volume(TriangleMesh(mesh), ModelVolumeType::MODEL_PART, false);
+        if (volume == nullptr) return nullptr;
+        volume->texture_displacement_layers = layers;
+        volume->texture_displacement_options = options;
+        if (!volume->texture_displacement_facet(0).set(selector)) return nullptr;
+        const indexed_triangle_set baked = build_texture_displacement(*volume);
         float max_z = -std::numeric_limits<float>::infinity();
         for (const Vec3f &v : baked.vertices) max_z = std::max(max_z, v.z());
 
