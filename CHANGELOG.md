@@ -2,6 +2,9 @@
 
 ## 0.8.503 — App-Branding — 2026-11-18
 
+- Korrekturhinweis: Die erste APK am Nightly-Release-Tag war versehentlich aus Version 0.8.493 / Code 528. Sie wurde durch den geprüften Build aus Commit `06cca6128403` (0.8.503 / Code 538) ersetzt.
+- Korrigierte APK: `OrkanSlicerNightly25_06cca61284.apk`, SHA-256 `016ea9005089a8f679a71eb119faaec3f12ff96444e362b18075a72ccdf2686a`; Debug- und SliceTest-Suiten jeweils 851/851. Honor-Installation wartet auf aktive ADB-Verbindung.
+
 - Das App-Symbol verwendet jetzt das neue OrkanSlicer-Branding als adaptives Android-Icon mit passendem statischem Fallback für ältere Android-Versionen.
 - Der Android-Startbildschirm nutzt die neue dunkelblaue Markenfarbe; der Setup-/Info-Hintergrund verwendet das bereitgestellte Hochformat-Artwork.
 - GitHub-README und Dokumentation zeigen das Feature-Banner und die Branding-Vorschau. Bestehende Slicer-Funktionen und Zustandslogik bleiben unberührt.

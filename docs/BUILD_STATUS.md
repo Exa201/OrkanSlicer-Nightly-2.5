@@ -1,10 +1,11 @@
-## OrkanSlicer Nightly 2.5 — App-Branding und aktualisierte Profile — 2026-11-18 — 0.8.503
+## OrkanSlicer Nightly 2.5 — Branding-APK korrigiert — 2026-11-18 — 0.8.503
 
-- Branch `codex/ui-2.1-redesign`, Paket `com.exa201.orkanslicer.nightly25`, Version **0.8.503 / Code 538**. Das neue Branding-Pack liefert adaptives App-Icon, Launcher-Fallback, Splash-Hintergrund und Cover-/Vorschaubilder für die GitHub-Projektseite.
-- OrcaSlicer-Druckerprofile wurden aktualisiert; Qidi-Q2/Q2C-Mapping im Start-G-Code erhalten und Wanhao-Druckermodellzuordnung berichtigt. Debug- und SliceTest-Unit-Suiten jeweils **851/851** bestanden; Debug-APK-Build erfolgreich.
-- APK: `app/build/outputs/apk/debug/OrkanSlicerNightly25_41f84dffce.apk`, **283,264,118 Bytes**, SHA-256 `51F62784434210A88C101F2DD3C9C86C9D5A0006626B7A0A10BBD7F31BB4890D`.
-- Das HONOR Magic7 Pro war beim Installationsversuch nicht per ADB erreichbar (nur `emulator-5554` offline); Installation und Gerätetest stehen daher aus. Es wurde kein Druck gestartet.
-- Nightly-Prerelease: [https://github.com/Exa201/OrkanSlicer-Nightly-2.5/releases/tag/v0.8.503-nightly.1](https://github.com/Exa201/OrkanSlicer-Nightly-2.5/releases/tag/v0.8.503-nightly.1). APK-Asset-Digest stimmt mit dem lokalen SHA-256 überein. Source-Commit: 06cca61284; Stable-Projekt bleibt unberührt.
+- Branch `codex/ui-2.1-redesign`, Paket `com.exa201.orkanslicer.nightly25`, Version **0.8.503 / Code 538**. Das Branding-Pack liefert adaptives App-Icon, Launcher-Fallback, Splash-Hintergrund und Cover-/Vorschaubilder für die GitHub-Projektseite.
+- Die vorherige Datei am Release-Tag war versehentlich ein älterer Build (**0.8.493 / Code 528**). Sie wurde entfernt und durch die APK aus dem getaggten Source-Commit `06cca6128403` ersetzt.
+- Verifiziert: Debug- und SliceTest-Unit-Suiten jeweils **851/851** (insgesamt 1702 Tests, keine Fehler/Skips); Debug-APK-Build erfolgreich. APK-Manifest bestätigt Version und Paket; APK-Signatur ist gültig.
+- APK `OrkanSlicerNightly25_06cca61284.apk`, **283,241,087 Bytes**, SHA-256 `016ea9005089a8f679a71eb119faaec3f12ff96444e362b18075a72ccdf2686a`. GitHub meldet dieselbe Größe und denselben SHA-256.
+- Honor Magic7 Pro ist derzeit nicht in `adb devices` verfügbar (Xiaomi 2211133G ist online, Emulator offline); Installation und Gerätetest stehen aus. Kein Druck gestartet.
+- Nightly-Prerelease: [v0.8.503-nightly.1](https://github.com/Exa201/OrkanSlicer-Nightly-2.5/releases/tag/v0.8.503-nightly.1). Stable-Projekt bleibt unberührt.
 ## OrkanSlicer Nightly 2.5 — Profilfilter 200%-Lesbarkeit — 2026-11-15 — 0.8.470
 
 - Branch `codex/ui-2.1-redesign`, Code 505, Paket `com.exa201.orkanslicer.nightly25`. Filtertitel und Ebenenauswahl umbrechen auf kleinen Displays bei vergrößerter Schrift vollständig, statt abgeschnitten zu werden.

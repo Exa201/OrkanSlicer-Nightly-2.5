@@ -10,7 +10,7 @@ The branch starts from OrkanSlicer 0.8.409 and applies reviewed, selective OrcaS
 
 For the stable app APK use [OrkanSlicer Releases](https://github.com/Exa201/OrkanSlicer/releases). The Nightly APK and its limitations are listed in [this repository's prereleases](https://github.com/Exa201/OrkanSlicer-Nightly-2.5/releases). Android 6.0 or newer and a 64-bit ARM device are required; always inspect the G-code preview and printer/material assignments before printing.
 
-The app includes STL, OBJ, STEP and 3MF import, Orca profiles, multi-color painting, on-device slicing and G-code preview, printer upload, and offline maker tools. Imported 3MF process and filament values are kept as temporary project settings; saved user profiles remain separate. A model's logical T0/T1 colors can be assigned to physical ACE slots before slicing, and the model preview shows the selected slot colors.
+The current Nightly build is [0.8.503 (Code 538)](https://github.com/Exa201/OrkanSlicer-Nightly-2.5/releases/tag/v0.8.503-nightly.1); the APK and verification details are on the release page and in [`docs/BUILD_STATUS.md`](docs/BUILD_STATUS.md). The app includes STL, OBJ, STEP and 3MF import, Orca profiles, multi-color painting, on-device slicing and G-code preview, printer upload, and offline maker tools. Imported 3MF process and filament values are kept as temporary project settings; saved user profiles remain separate. A model's logical T0/T1 colors can be assigned to physical ACE slots before slicing, and the model preview shows the selected slot colors.
 
 ## Source and builds
 
