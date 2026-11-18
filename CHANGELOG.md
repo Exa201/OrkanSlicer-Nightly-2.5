@@ -6,7 +6,8 @@
 - Der Android-Startbildschirm nutzt die neue dunkelblaue Markenfarbe; der Setup-/Info-Hintergrund verwendet das bereitgestellte Hochformat-Artwork.
 - GitHub-README und Dokumentation zeigen das Feature-Banner und die Branding-Vorschau. Bestehende Slicer-Funktionen und Zustandslogik bleiben unberührt.
 - Qidi-Q2/Q2C-Start-G-Code behält das Filament-Slot-Mapping; Wanhao D12 500 PRO M2 Druckermodellzuordnung korrigiert.
-- Verifiziert: Debug- und SliceTest-Unit-Suiten jeweils **851/851**, Debug-APK-Build erfolgreich. Honor-Installation wartet auf eine aktive Wireless-ADB-Verbindung.\n- Versionscode **538**.
+- Verifiziert: Debug- und SliceTest-Unit-Suiten jeweils **851/851**, Debug-APK-Build erfolgreich. Honor-Installation wartet auf eine aktive Wireless-ADB-Verbindung.
+- Versionscode **538**.
 
 ## 0.8.502 — Malen per Wischgeste — 2026-11-18
 
