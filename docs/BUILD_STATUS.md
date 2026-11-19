@@ -1,5 +1,12 @@
 # Build Status
 
+## Nightly 2.5 current APK — 2026-11-19 — 0.8.505
+
+- Version bump commit `ff7472fd09`; app version 0.8.505 / code 540; package `com.exa201.orkanslicer.nightly25`.
+- ARM64 debug APK `OrkanSlicerNightly25_ff7472fd09.apk`, 240,448,025 bytes, SHA-256 `3C1A8F59CF6D26BC17E6BF95A9971FF275184357AA70B1D456104D8365C8781F`. `aapt` verified package ID, version, min SDK 23 and target SDK 36.
+- `:app:assembleDebug` succeeded from source. Reuse of the prebuilt native bundle was refused by its integrity check, so the APK was rebuilt with the source-native configuration. Only app version metadata changed since the 0.8.504 code checkpoint; no functional change is claimed.
+- No tests or physical-device run were performed for this metadata-only rebuild. ADB is unavailable in this shell. Published as experimental prerelease [v0.8.505-nightly.1](https://github.com/Exa201/OrkanSlicer-Nightly-2.5/releases/tag/v0.8.505-nightly.1), with APK and SHA-256 sidecar.
+
 ## Nightly 2.5 Orca upgrade experimental prerelease — 2026-11-19 — 0.8.504
 
 - Upgrade branch `codex/nightly-orca-2.5.1-upgrade`; code commit `e428183d56`; app version 0.8.504 / code 539; package `com.exa201.orkanslicer.nightly25`.

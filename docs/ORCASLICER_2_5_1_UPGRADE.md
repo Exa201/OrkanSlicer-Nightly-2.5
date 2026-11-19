@@ -2,6 +2,13 @@
 
 Updated: 2026-11-19
 
+## Current Nightly package checkpoint — 0.8.505
+
+- App/package version: 0.8.505 / code 540, `com.exa201.orkanslicer.nightly25`.
+- Version bump commit: `ff7472fd09`. APK: `OrkanSlicerNightly25_ff7472fd09.apk`, 240,448,025 bytes, SHA-256 `3C1A8F59CF6D26BC17E6BF95A9971FF275184357AA70B1D456104D8365C8781F`.
+- Source-native `:app:assembleDebug` passed; the prebuilt native bundle was rejected by its integrity check. `aapt` confirmed the package/version and SDK levels. This rebuild only increments package version metadata; it does not add a functional Orca port.
+- Published as experimental prerelease [v0.8.505-nightly.1](https://github.com/Exa201/OrkanSlicer-Nightly-2.5/releases/tag/v0.8.505-nightly.1), with APK and checksum sidecar. No unit suite, device installation, Honor validation, or printer test was run for this metadata-only rebuild; ADB is not available in the current shell.
+
 ## Scope and branch
 
 - Target: OrkanSlicer Nightly 2.5 only.
