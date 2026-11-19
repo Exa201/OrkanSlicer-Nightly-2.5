@@ -377,6 +377,13 @@ void SkeletalTrapezoidation::constructFromPolygons(const Polygons& polys)
     VD voronoi_diagram;
     voronoi_diagram.construct_voronoi(segments.cbegin(), segments.cend());
 
+    // A diagram that could not be repaired may contain edges without twins. Later stages
+    // dereference those twins, so leave the skeletal graph empty and skip this outline.
+    if (!voronoi_diagram.is_valid()) {
+        BOOST_LOG_TRIVIAL(error) << "Arachne: invalid Voronoi diagram, no toolpaths generated for this outline.";
+        return;
+    }
+
 #ifdef ARACHNE_DEBUG_VORONOI
     {
         static int iRun = 0;

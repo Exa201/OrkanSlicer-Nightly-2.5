@@ -4303,10 +4303,7 @@ extern "C" {
                         static_cast<float>(config.opt_int("skirt_loops")) * nozzle_width;
                 }
 
-                arrangement::update_arrange_params(arrange_cfg, &config, input);
-                arrangement::update_selected_items_inflation(input, &config, arrange_cfg);
-                if (selected_object_index >= 0)
-                    arrangement::update_unselected_items_inflation(fixed_objects, &config, arrange_cfg);
+                arrangement::update_arrange_items(input, fixed_objects, &config, arrange_cfg);
                 bed = arrangement::get_shrink_bedpts(&config, arrange_cfg);
             } else {
                 const coord_t inflation = arrange_cfg.min_obj_distance / 2;
@@ -5407,10 +5404,8 @@ extern "C" {
             params.clearance_height_to_lid = 16.f;
             params.bed_shrink_x = BED_SHRINK_SEQ_PRINT;
             params.bed_shrink_y = BED_SHRINK_SEQ_PRINT;
-            arrangement::update_arrange_params(params, &config, items);
-            arrangement::update_selected_items_inflation(items, &config, params);
             arrangement::ArrangePolygons fixed;
-            arrangement::update_unselected_items_inflation(fixed, &config, params);
+            arrangement::update_arrange_items(items, fixed, &config, params);
             const Points arrange_bed = arrangement::get_shrink_bedpts(&config, params);
             arrangement::arrange(items, fixed, arrange_bed, params);
         };
@@ -5489,19 +5484,65 @@ extern "C" {
             arrangement::ArrangeParams params;
             params.parallel = false;
             params.progressind = [](unsigned, std::string) {};
-            arrangement::update_arrange_params(params, &config, items);
-            arrangement::update_selected_items_inflation(items, &config, params);
+            arrangement::ArrangePolygons fixed;
+            arrangement::update_arrange_items(items, fixed, &config, params);
             const Points arrange_bed = arrangement::get_shrink_bedpts(&config, params);
             arrangement::arrange(items, arrange_bed, params);
 
             const BoundingBox physical_bounds(get_bed_shape(config));
             const BoundingBox packed_bounds = items.front().transformed_poly().contour.bounding_box();
             const bool inside = items.front().bed_idx == 0 && physical_bounds.contains(packed_bounds);
+            DynamicPrintConfig spacing_config;
+            spacing_config.set_key_value("printable_area", new ConfigOptionPoints({
+                Vec2d(0., 0.), Vec2d(200., 0.), Vec2d(200., 200.), Vec2d(0., 200.)
+            }));
+            spacing_config.set_key_value("skirt_distance", new ConfigOptionFloat(0.));
+            spacing_config.set_key_value("skirt_loops", new ConfigOptionInt(0));
+            auto make_rect = [](double width, double depth) {
+                Polygon polygon({Point(0, 0), Point(scaled(width), 0),
+                    Point(scaled(width), scaled(depth)), Point(0, scaled(depth))});
+                arrangement::ArrangePolygon item;
+                item.poly = ExPolygon(std::move(polygon));
+                item.bed_idx = 0;
+                item.height = 10.;
+                item.extrude_ids = {1};
+                return item;
+            };
+            arrangement::ArrangePolygons spaced{make_rect(190., 20.), make_rect(190., 20.)};
+            arrangement::ArrangeParams spacing_params;
+            spacing_params.parallel = false;
+            spacing_params.progressind = [](unsigned, std::string) {};
+            spacing_params.min_obj_distance = scaled(20.);
+            arrangement::ArrangePolygons spacing_fixed;
+            arrangement::update_arrange_items(spaced, spacing_fixed, &spacing_config, spacing_params);
+            const Points spacing_bed = arrangement::get_shrink_bedpts(&spacing_config, spacing_params);
+            arrangement::arrange(spaced, spacing_fixed, spacing_bed, spacing_params);
+            int spaced_inside_count = 0;
+            for (const auto& item : spaced)
+                if (item.bed_idx == 0 && physical_bounds.contains(item.transformed_poly().contour.bounding_box()))
+                    ++spaced_inside_count;
+            const BoundingBox first_bounds = spaced[0].transformed_poly().contour.bounding_box();
+            const BoundingBox second_bounds = spaced[1].transformed_poly().contour.bounding_box();
+            const coord_t gap_x = std::max<coord_t>(0, std::max(second_bounds.min.x() - first_bounds.max.x(),
+                first_bounds.min.x() - second_bounds.max.x()));
+            const coord_t gap_y = std::max<coord_t>(0, std::max(second_bounds.min.y() - first_bounds.max.y(),
+                first_bounds.min.y() - second_bounds.max.y()));
+            const double gap_mm = unscale<double>(std::sqrt(double(gap_x) * gap_x + double(gap_y) * gap_y));
+
+            DynamicPrintConfig percent_width_config;
+            percent_width_config.set_key_value("skirt_loops", new ConfigOptionInt(1));
+            percent_width_config.set_key_value("skirt_height", new ConfigOptionInt(1));
+            percent_width_config.set_key_value("skirt_distance", new ConfigOptionFloat(2.));
+            percent_width_config.set_key_value("nozzle_diameter", new ConfigOptionFloats({0.4}));
+            percent_width_config.set_key_value("initial_layer_line_width", new ConfigOptionFloatOrPercent(100., true));
+            const double percent_skirt_distance = get_real_skirt_dist(percent_width_config);
+
             const jdouble values[] = {inside ? 1. : 0., static_cast<double>(items.front().bed_idx),
                 params.bed_shrink_x, params.bed_shrink_y,
-                unscale<double>(packed_bounds.size().x()), unscale<double>(packed_bounds.size().y())};
-            jdoubleArray result = env->NewDoubleArray(6);
-            if (result != nullptr) env->SetDoubleArrayRegion(result, 0, 6, values);
+                unscale<double>(packed_bounds.size().x()), unscale<double>(packed_bounds.size().y()),
+                spaced_inside_count == 2 ? 1. : 0., gap_mm, percent_skirt_distance};
+            jdoubleArray result = env->NewDoubleArray(9);
+            if (result != nullptr) env->SetDoubleArrayRegion(result, 0, 9, values);
             return result;
         } catch (const std::exception &error) {
             jclass runtime_error = env->FindClass("ru/ytkab0bp/slicebeam/slic3r/Slic3rRuntimeError");

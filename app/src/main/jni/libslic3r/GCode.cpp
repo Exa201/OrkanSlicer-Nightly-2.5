@@ -2888,7 +2888,11 @@ void GCode::_do_export(Print& print, GCodeOutputStream &file, ThumbnailsGenerato
         std::vector<int> physicial_first_filaments;
         physicial_first_filaments.resize(filaments.size());
         for (int extruder_id = 0; extruder_id < filaments.size(); extruder_id++) {
-            physicial_first_filaments[config.physical_extruder_map.get_at(extruder_id)] = filaments[extruder_id];
+            // This is a firmware tool number, so it can be outside the local table. Preserve
+            // the mapping elsewhere, but never use it as an unchecked write index here.
+            const int physical_id = config.physical_extruder_map.get_at(extruder_id);
+            if (physical_id >= 0 && physical_id < static_cast<int>(physicial_first_filaments.size()))
+                physicial_first_filaments[physical_id] = filaments[extruder_id];
         }
         filaments = physicial_first_filaments;
     };

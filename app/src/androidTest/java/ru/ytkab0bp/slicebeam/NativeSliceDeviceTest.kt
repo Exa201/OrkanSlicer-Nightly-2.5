@@ -1245,6 +1245,12 @@ class NativeSliceDeviceTest {
         assertEquals("the packer should reduce only the unused default margin", 0.5, result[2], 0.01)
         assertEquals("the square footprint remains intact", 197.0, result[4], 0.01)
         assertEquals("the square footprint remains intact", 197.0, result[5], 0.01)
+        assertEquals("two 190 mm parts with 20 mm spacing must fit on one physical 200 mm bed",
+            1.0, result[6], 0.0)
+        assertTrue("the full configured object spacing must be preserved: ${result.contentToString()}",
+            result[7] >= 19.5)
+        assertEquals("100% first-layer line width at a 0.4 mm nozzle is 0.4 mm, not 100 mm",
+            2.4, result[8], 0.01)
     }
 
     @Test(timeout = 30_000)
@@ -2671,6 +2677,43 @@ class NativeSliceDeviceTest {
         } finally {
             firstResult?.release()
             secondResult?.release()
+            model.release()
+            source.delete()
+            output.delete()
+            SliceBeam.getCurrentConfigFile().delete()
+        }
+    }
+
+    @Test
+    fun invalidFilamentAndPhysicalExtruderMapsDoNotCrashNativeSliceOrExport() = withToolChangerProfile {
+        val context = InstrumentationRegistry.getInstrumentation().targetContext
+        val printer = requireNotNull(SliceBeam.CONFIG?.findPrinter("MyToolChanger 0.4 nozzle"))
+        // The physical firmware tool number is intentionally outside the local nozzle table.
+        printer.put("physical_extruder_map", "999,0,0,0,0")
+        printer.put("layer_change_gcode", "; PHYSICAL=[most_used_physical_extruder_id]")
+        val source = copyCube(context, "invalid-extruder-maps-source.stl")
+        val output = File(context.cacheDir, "invalid-extruder-maps.gcode")
+        val model = Model(source)
+        var result: GCodeProcessorResult? = null
+        try {
+            model.setUniformFilament(0, 1)
+            SliceBeam.genCurrentConfig(model)
+            val configFile = SliceBeam.getCurrentConfigFile()
+            var configText = configFile.readText()
+            configText = configText.replace(
+                Regex("(?m)^filament_map\\s*=.*$"),
+                "filament_map = 0",
+            )
+            configFile.writeText(configText)
+
+            result = model.slice(configFile.absolutePath, output.absolutePath, null)
+            val gcode = output.readText()
+            assertHasExtrusion(gcode)
+            assertTrue("firmware tool number is preserved in G-code metadata", gcode.contains("PHYSICAL=999"))
+            assertTrue("normalization applies to the print copy and leaves the project config untouched",
+                configFile.readText().contains("filament_map = 0"))
+        } finally {
+            result?.release()
             model.release()
             source.delete()
             output.delete()

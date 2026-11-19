@@ -1185,6 +1185,25 @@ Print::ApplyStatus Print::apply(const Model &model, DynamicPrintConfig new_full_
         BOOST_LOG_TRIVIAL(info) << __FUNCTION__ << ", has_scarf_joint_seam:" << has_scarf_joint_seam;
     }
 
+    // Keep malformed project/profile mappings from reaching nozzle-indexed engine tables.
+    // Orca treats an unmappable filament as nozzle 1, and normalizes only this print's config
+    // copy so the saved project/profile is not mutated.
+    if (auto* filament_map_opt = new_full_config.option<ConfigOptionInts>("filament_map")) {
+        const auto* nozzle_diameter_opt = new_full_config.option<ConfigOptionFloats>("nozzle_diameter");
+        const int nozzle_count = nozzle_diameter_opt ?
+            std::max(1, static_cast<int>(nozzle_diameter_opt->values.size())) : 1;
+        bool out_of_range = false;
+        for (int& nozzle : filament_map_opt->values) {
+            if (nozzle < 1 || nozzle > nozzle_count) {
+                nozzle = 1;
+                out_of_range = true;
+            }
+        }
+        if (out_of_range)
+            BOOST_LOG_TRIVIAL(error) << __FUNCTION__ << ": filament_map names a nozzle outside 1.."
+                                     << nozzle_count << ", using nozzle 1 for those filaments";
+    }
+
     //apply extruder related values
     if (!extruder_applied) {
         new_full_config.update_values_to_printer_extruders(new_full_config, printer_options_with_variant_1, "printer_extruder_id", "printer_extruder_variant");

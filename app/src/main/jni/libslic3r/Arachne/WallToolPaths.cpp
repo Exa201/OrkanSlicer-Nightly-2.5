@@ -171,8 +171,11 @@ void simplify(Polygon &thiss, const int64_t smallest_line_segment_squared, const
                 bool has_intersection = Line(previous_previous, previous).intersection_infinite(Line(current, next), &intersection_point);
                 if (!has_intersection
                     || Line::distance_to_infinite_squared(intersection_point, previous, current) > double(allowed_error_distance_squared)
-                    || (intersection_point - previous).cast<int64_t>().squaredNorm() > smallest_line_segment_squared  // The intersection point is way too far from the 'previous'
-                    || (intersection_point - next).cast<int64_t>().squaredNorm() > smallest_line_segment_squared)     // and 'next' points, so it shouldn't replace 'current'
+                    // Nearly parallel lines can intersect metres away. Keep the squared distances in
+                    // floating point: casting to int64 before squaring can overflow and accept that
+                    // distant intersection as a replacement for the current vertex.
+                    || (intersection_point - previous).cast<double>().squaredNorm() > double(smallest_line_segment_squared)  // The intersection point is way too far from the 'previous'
+                    || (intersection_point - next).cast<double>().squaredNorm() > double(smallest_line_segment_squared))     // and 'next' points, so it shouldn't replace 'current'
                 {
                     // We can't find a better spot for it, but the size of the line is more than 5 micron.
                     // So the only thing we can do here is leave it in...
