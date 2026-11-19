@@ -1,5 +1,13 @@
 # Build Status
 
+## Nightly 2.5 Orca upgrade experimental prerelease — 2026-11-19 — 0.8.504
+
+- Upgrade branch `codex/nightly-orca-2.5.1-upgrade`; code commit `e428183d56`; app version 0.8.504 / code 539; package `com.exa201.orkanslicer.nightly25`.
+- ARM64 debug APK `OrkanSlicerNightly25_e428183d56.apk`, 240,448,042 bytes, SHA-256 `DCE13E44BB4FE55AB920C597A6365E127692F3505C61FC733C311BD90DB88187`. `aapt` verified package ID, version, min SDK 23 and target SDK 36.
+- `:app:assembleDebug` succeeded. The focused ARM64 Slice instrumentation APK build also succeeded. Xiaomi 2211133G refused installation of the instrumentation APK (`INSTALL_FAILED_USER_RESTRICTED`); no device test body ran. Do not interpret this prerelease as hardware-verified.
+- This is a selective OrcaSlicer 2.5.1 fix port, not a complete engine replacement. Arachne's exact upstream geometry fixtures, broad unit/instrumentation suites, Honor validation and performance benchmarks remain open. See [OrcaSlicer upgrade checkpoint](ORCASLICER_2_5_1_UPGRADE.md).
+- GitHub prerelease: pending upload.
+
 ## Nightly 2.5 verified prerelease — 2026-11-03 — 0.8.429
 
 - Code commit `59313276b9a70c50e1faeb46590b9fafead04d60`; app 0.8.429/code 464; package `com.exa201.orkanslicer.nightly25`.
