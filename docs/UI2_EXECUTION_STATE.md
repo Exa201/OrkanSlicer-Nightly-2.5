@@ -1884,6 +1884,14 @@ Batch 11 stand bei 3/10; Punkt 4 war noch nicht getestet.
 - ARM64 `:app:externalNativeBuildDebug` erfolgreich; Laufzeittest mit zwei verschieden zugewiesenen Objekten, abweichenden Düsen-Grenzen und Prime Tower steht noch aus.
 
 
+# Fortsetzungsstand — 2026-11-19 — Nightly 0.8.508
+
+- Aktueller Branch: `codex/advanced-manufacturing`; Release-Quellcommit `68ec1b77f7`; Version **0.8.508 / Code 543**.
+- Debug- und Slice-Unit-Suiten: jeweils **943/943 bestanden**. ARM64 Debug-APK und SliceTest-Instrumentierungs-APK erfolgreich gebaut.
+- Xiaomi 13 (`2211133G`) Installation und App-Start bestätigt; keine Fatal-Exception/ANR im abgefragten Logcat-Ausschnitt. Honor ist in diesem Lauf nicht geprüft.
+- APK SHA-256: `FBECA60C50B18453DB0A50E308E4C39491AFBCB904A663E14232A2D1CD5FED5D`; GitHub-Pre-Release `v0.8.508-nightly.1`.
+- Nächster konkreter Schritt: Orca-Nightly-Upgradeplan und 100-Schritte-Plan mit neuen Gerätetest-Ergebnissen fortsetzen; keine stabile Veröffentlichung oder Merge vorgenommen.
+
 # Aktueller Fortsetzungsstand — 2026-10-24, OrkanSlicer 0.8.367 veröffentlicht
 
 ## Erneute Modellierungs- und STEP/STP-Abnahme — 2026-10-24, HEAD `940d4788`

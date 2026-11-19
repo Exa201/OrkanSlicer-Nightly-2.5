@@ -1,5 +1,13 @@
 # OrcaSlicer 2.5 Android-core integration
 
+## Nightly APK checkpoint — 2026-11-19 — 0.8.508
+
+- Quellstand: `68ec1b77f7` (`codex/advanced-manufacturing`), Nightly package `com.exa201.orkanslicer.nightly25`, version code **543**.
+- Debug JVM suite: **943/943** bestanden; Slice JVM suite: **943/943** bestanden. `:app:assembleSliceTestAndroidTest` und der ARM64 Debug-APK-Build erfolgreich.
+- APK: `OrkanSlicerNightly25_68ec1b77f7.apk`, 283,297,848 bytes, SHA-256 `FBECA60C50B18453DB0A50E308E4C39491AFBCB904A663E14232A2D1CD5FED5D`.
+- Installation und Start auf Xiaomi 13 (`2211133G`, ADB `192.168.68.56:42641`) erfolgreich; Android meldet Version 0.8.508 / Code 543, App-Prozess aktiv. Im abgefragten Logcat-Ausschnitt keine Fatal-Exception oder ANR gefunden. Kein Honor-Gerätetest in diesem Lauf.
+- GitHub pre-release: [v0.8.508-nightly.1](https://github.com/Exa201/OrkanSlicer-Nightly-2.5/releases/tag/v0.8.508-nightly.1). Diese Nightly ist keine stabile/offizielle Release-Version.
+
 ## Nightly app validation — 2026-11-03 — 0.8.428
 
 - Built from code commit `9e4f4da68bc1776ebd483ee5fde1015ea170ecc9`; app 0.8.428 / code 463; isolated package `com.exa201.orkanslicer.nightly25`.
