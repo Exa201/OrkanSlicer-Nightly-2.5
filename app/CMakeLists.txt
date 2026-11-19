@@ -99,6 +99,7 @@ include_directories(src/main/occt/include/${ANDROID_ABI})
 # Expat config
 set(XML_CONTEXT_BYTES 1024)
 set(XML_DTD ON)
+set(XML_GE 1)
 set(XML_DEV_URANDOM ON)
 configure_file(${CMAKE_CURRENT_SOURCE_DIR}/src/main/jni/expat/expat_config.h.cmake ${CMAKE_CURRENT_SOURCE_DIR}/src/main/jni/expat/expat_config.h)
 
@@ -488,6 +489,8 @@ add_library(slic3r
         src/main/jni/clipper/clipper_z.cpp
         src/main/jni/clipper/clipper_z.hpp
 
+        src/main/jni/expat/random_dev_urandom.c
+        src/main/jni/expat/xcs.c
         src/main/jni/expat/xmlparse.c
         src/main/jni/expat/xmlrole.c
         src/main/jni/expat/xmltok.c

@@ -55,6 +55,7 @@ internal sealed interface PrintPreparationWarning {
     data class MaterialMismatch(val tool: Int, val source: String, val slot: Int, val loaded: String) : PrintPreparationWarning
     data class EmptyAceSlots(val slots: List<Int>) : PrintPreparationWarning
     data class SpiralVaseOverride(val message: String) : PrintPreparationWarning
+    data class SparseInfillCrossing(val message: String) : PrintPreparationWarning
     data object ExternalSpoolMultiTool : PrintPreparationWarning
 }
 
@@ -89,6 +90,7 @@ object SlicePrintPreparationDialog {
         sourceFilamentTypes: List<String>,
         pressureAdvance: SlicePreparationTools.PressureAdvanceCommands,
         slicingWarning: String? = null,
+        sparseInfillWarning: String? = null,
         externalSpool: Boolean = false,
         activateProfile: PrinterProfileAction,
         reopenAfterReslice: (ConfigObject) -> Unit,
@@ -102,6 +104,7 @@ object SlicePrintPreparationDialog {
             }
         }.getOrDefault(listOf(printer))
         var spiralVaseWarningAcknowledged = false
+        var sparseInfillWarningAcknowledged = false
         fun warningFor(targetPrinter: ConfigObject): PrintPreparationWarning? {
             val selectedPrinterUsesExternalSpool = isAnycubicKobra(targetPrinter) &&
                 (MmuFilamentSync.externalSpoolReady(targetPrinter.title.orEmpty()) ||
@@ -154,6 +157,9 @@ object SlicePrintPreparationDialog {
             return slicingWarning
                 ?.takeIf { it.isNotBlank() && !spiralVaseWarningAcknowledged }
                 ?.let(PrintPreparationWarning::SpiralVaseOverride)
+                ?: sparseInfillWarning
+                    ?.takeIf { it.isNotBlank() && !sparseInfillWarningAcknowledged }
+                    ?.let(PrintPreparationWarning::SparseInfillCrossing)
         }
 
         fun send(targetPrinter: ConfigObject, shouldPrint: Boolean, qidiBoxSlots: IntArray? = null) {
@@ -183,6 +189,8 @@ object SlicePrintPreparationDialog {
                 onWarningAcknowledged = { acknowledged ->
                     if (acknowledged is PrintPreparationWarning.SpiralVaseOverride)
                         spiralVaseWarningAcknowledged = true
+                    if (acknowledged is PrintPreparationWarning.SparseInfillCrossing)
+                        sparseInfillWarningAcknowledged = true
                 },
                 onSubmit = { targetPrinter, printerChanged, qidiBoxSlots, showWarning ->
                     val targetHost = targetPrinter.get("print_host") ?: return@PrintPreparationDialog
@@ -439,6 +447,7 @@ internal fun PrintPreparationWarningDialog(
         is PrintPreparationWarning.MaterialMismatch -> R.string.PrintPrepareMaterialMismatchTitle
         is PrintPreparationWarning.EmptyAceSlots -> R.string.PrintPrepareAceGapTitle
         is PrintPreparationWarning.SpiralVaseOverride -> R.string.PrintPrepareSpiralVaseOverrideTitle
+        is PrintPreparationWarning.SparseInfillCrossing -> R.string.PrintPrepareSparseInfillCrossingTitle
         is PrintPreparationWarning.ExternalSpoolMultiTool -> R.string.MmuExternalSpoolTitle
     }
     val message = when (warning) {
@@ -455,6 +464,7 @@ internal fun PrintPreparationWarningDialog(
             R.string.PrintPrepareAceGapWarning, warning.slots.joinToString(", "),
         )
         is PrintPreparationWarning.SpiralVaseOverride -> warning.message
+        is PrintPreparationWarning.SparseInfillCrossing -> warning.message
         is PrintPreparationWarning.ExternalSpoolMultiTool -> stringResource(R.string.MmuExternalSpoolMultiTool)
     }
     ComposeAlertDialog(
@@ -468,6 +478,7 @@ internal fun PrintPreparationWarningDialog(
                 is PrintPreparationWarning.MaterialMismatch -> R.string.PrintPrepareUploadOnly
                 is PrintPreparationWarning.EmptyAceSlots -> R.string.PrintPrepareAceGapFirmwareChecked
                 is PrintPreparationWarning.SpiralVaseOverride -> android.R.string.ok
+                is PrintPreparationWarning.SparseInfillCrossing -> android.R.string.ok
                 is PrintPreparationWarning.ExternalSpoolMultiTool -> android.R.string.ok
             }
             TextButton(
@@ -477,6 +488,7 @@ internal fun PrintPreparationWarningDialog(
                     is PrintPreparationWarning.MaterialMismatch -> onUploadOnly
                     is PrintPreparationWarning.EmptyAceSlots -> onFirmwareChecked
                     is PrintPreparationWarning.SpiralVaseOverride -> onAcknowledge
+                    is PrintPreparationWarning.SparseInfillCrossing -> onAcknowledge
                     is PrintPreparationWarning.ExternalSpoolMultiTool -> onAcknowledge
                 },
                 modifier = Modifier.heightIn(min = 48.dp).then(
@@ -506,6 +518,7 @@ internal fun PrintPreparationWarningDialog(
                 }
             }
             is PrintPreparationWarning.SpiralVaseOverride -> null
+            is PrintPreparationWarning.SparseInfillCrossing -> null
             is PrintPreparationWarning.ExternalSpoolMultiTool -> null
         },
     )

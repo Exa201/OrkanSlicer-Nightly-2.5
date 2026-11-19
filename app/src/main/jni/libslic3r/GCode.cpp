@@ -5304,7 +5304,10 @@ LayerResult GCode::process_layer(
     // Extrude the skirt, brim, support, perimeters, infill ordered by the extruders.
     // Orca: Print unified global brim before any object.
     // Only do this if `combine_brims` is enabled and we are printing by layer.
-    if (first_layer && sequence_by_layer && m_config.combine_brims && !print.m_brimMap.empty()) {
+    const bool has_selected_object_brim = std::any_of(layers.begin(), layers.end(), [](const LayerToPrint &ltp) {
+        return ltp.original_object != nullptr && ltp.original_object->config().brim_filament_id.value > 0;
+    });
+    if (first_layer && sequence_by_layer && m_config.combine_brims && !has_selected_object_brim && !print.m_brimMap.empty()) {
         const ObjectID unified_object_id = [&]() -> ObjectID {
             ObjectID id;
             bool     found = false;
@@ -5404,6 +5407,30 @@ LayerResult GCode::process_layer(
         }
         
         gcode += std::move(gcode_toolchange);
+
+        // A selected brim belongs to this filament pass. Emit it only after the
+        // tool-change command above, otherwise a T1 brim can physically extrude
+        // while T0 is still active even though it is ordered in T1's pass.
+        if (first_layer) {
+            const Vec2d saved_origin = m_origin;
+            for (const LayerToPrint &ltp : layers) {
+                const PrintObject *object = ltp.original_object;
+                if (object == nullptr || object->config().brim_filament_id.value != static_cast<int>(extruder_id + 1) ||
+                    m_objsWithBrim.find(object->id()) == m_objsWithBrim.end())
+                    continue;
+                const auto brim = print.m_brimMap.find(object->id());
+                if (brim == print.m_brimMap.end()) continue;
+                this->set_origin(0., 0.);
+                m_avoid_crossing_perimeters.use_external_mp();
+                for (const ExtrusionEntity *entity : brim->second.entities)
+                    if (entity != nullptr)
+                        gcode += this->extrude_entity(*entity, "brim", m_config.support_speed.value);
+                m_avoid_crossing_perimeters.use_external_mp(false);
+                m_avoid_crossing_perimeters.disable_once();
+                m_objsWithBrim.erase(object->id());
+            }
+            this->set_origin(saved_origin);
+        }
 
         // let analyzer tag generator aware of a role type change
         if (layer_tools.has_wipe_tower && m_wipe_tower) {
@@ -5584,7 +5611,8 @@ LayerResult GCode::process_layer(
                     const auto& by_region_specific = is_anything_overridden ? island.by_region_per_copy(by_region_per_copy_cache, static_cast<unsigned int>(instance_to_print.instance_id), extruder_id, print_wipe_extrusions != 0) : island.by_region;
                     //BBS: add brim by obj by extruder
                     if (first_layer) {
-                        if (this->m_objsWithBrim.find(instance_to_print.print_object.id()) != this->m_objsWithBrim.end() && !print_wipe_extrusions) {
+                        if (instance_to_print.print_object.config().brim_filament_id.value <= 0 &&
+                            this->m_objsWithBrim.find(instance_to_print.print_object.id()) != this->m_objsWithBrim.end() && !print_wipe_extrusions) {
                             this->set_origin(0., 0.);
                             m_avoid_crossing_perimeters.use_external_mp();
                             for (const ExtrusionEntity* ee : print.m_brimMap.at(instance_to_print.print_object.id()).entities) {

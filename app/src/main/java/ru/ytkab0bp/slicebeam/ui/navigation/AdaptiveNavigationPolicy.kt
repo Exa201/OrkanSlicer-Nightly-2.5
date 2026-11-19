@@ -52,19 +52,39 @@ object AdaptiveNavigationPolicy {
 
 /** Reserves the plate viewport by keeping portrait action menus collapsed until requested. */
 object WorkspaceToolPanelPolicy {
-    const val COMPACT_MENU_HEIGHT_DP = 68
-    const val TWO_ROW_MENU_HEIGHT_DP = 192
-    const val LARGE_TEXT_TWO_ROW_MENU_HEIGHT_DP = 236
+    private const val GRID_ROW_SPACING_DP = 2
+
+    /** Must match the tile heights used by BedMenuActionsContent. */
+    @JvmStatic
+    fun actionTileHeightDp(fontScale: Float): Int = when {
+        fontScale >= 1.5f -> (150 * 0.8f).toInt()
+        fontScale >= 1.3f -> (160 * 0.8f).toInt()
+        else -> (165 * 0.8f).toInt()
+    }
+
+    @JvmStatic
+    fun visibleActionRows(actionCount: Int): Int =
+        ((actionCount.coerceAtLeast(1) + 3) / 4).coerceIn(1, 2)
+
+    @JvmStatic
+    fun actionGridHeightDp(actionCount: Int, fontScale: Float): Int {
+        val rows = visibleActionRows(actionCount)
+        return actionTileHeightDp(fontScale) * rows + GRID_ROW_SPACING_DP * (rows - 1)
+    }
 
     @JvmStatic
     fun menuHeightDp(needsTwoRows: Boolean, fontScale: Float, additionalChromeDp: Int = 0): Int {
-        val base = if (!needsTwoRows) {
-            if (fontScale >= 1.3f) 88 else COMPACT_MENU_HEIGHT_DP
-        } else {
-            if (fontScale >= 1.15f) LARGE_TEXT_TWO_ROW_MENU_HEIGHT_DP else TWO_ROW_MENU_HEIGHT_DP
-        }
+        val base = actionGridHeightDp(if (needsTwoRows) 5 else 4, fontScale)
         return base + additionalChromeDp.coerceAtLeast(0)
     }
+
+    /**
+     * A route can briefly receive the previous menu's action count during AnimatedContent.
+     * Destination-specific layout requirements must therefore win over that stale count.
+     */
+    @JvmStatic
+    fun menuNeedsTwoRows(actionCount: Int, destinationNeedsTwoRows: Boolean): Boolean =
+        destinationNeedsTwoRows || actionCount > 4
 
     @JvmStatic
     fun reservedHeightDp(isPortrait: Boolean, expanded: Boolean, menuHeightDp: Int): Int =

@@ -388,7 +388,8 @@ std::string CoolingBuffer::process_layer(std::string &&gcode, size_t layer_id, b
             std::vector<PerExtruderAdjustments> held = unslowed;
             hold_outer_walls(held, per_extruder_adjustments, ra_min, ra_max, ra_max);
             float held_time = this->slow_down_layer(m_gcode, held);
-            if (held_time < 0.998f * std::min(layer_time_stretched, longest_minimum_layer_time(unslowed))) {
+            const float required_layer_time = std::min(layer_time_stretched, longest_minimum_layer_time(unslowed));
+            if (held_time < 0.998f * required_layer_time) {
                 held = unslowed;
                 hold_outer_walls(held, per_extruder_adjustments, ra_min, ra_max, ra_min);
                 held_time = this->slow_down_layer(m_gcode, held);
@@ -879,8 +880,9 @@ float CoolingBuffer::slow_down_layer(const std::string &gcode, std::vector<PerEx
     for (const unsigned int extruder_id : m_extruder_ids)
         longest_threshold = std::max({ longest_threshold, float(m_config.fan_cooling_layer_time.get_at(extruder_id)),
                                        float(m_config.slow_down_layer_time.get_at(extruder_id)) });
-    if (time_at_feed_rates > 1.1f * longest_threshold)
+    if (time_at_feed_rates > 1.1f * longest_threshold) {
         return time_at_feed_rates;
+    }
 
     const float time = this->estimate_layer_time(gcode, per_extruder_adjustments);
     if (time <= 0.f || time_at_feed_rates <= 0.f)

@@ -81,22 +81,22 @@ class WorkspaceShellLayoutPolicyTest {
     }
 
     @Test
-    fun portraitMenuUsesTwoThreeColumnRowsWhenTheViewportCanFitThem() {
-        assertEquals(112, WorkspaceShellLayoutPolicy.portraitMenuOverlayHeightDp(200, 236, 1.5f))
+    fun portraitMenuUsesMeasuredContentWithinTheViewportCeiling() {
+        assertEquals(160, WorkspaceShellLayoutPolicy.portraitMenuOverlayMaxHeightDp(200))
         assertEquals(1, WorkspaceShellLayoutPolicy.portraitMenuRows(160, 1.5f))
-        assertEquals(80, WorkspaceShellLayoutPolicy.portraitMenuOverlayHeightDp(100, 236, 1.5f))
+        assertEquals(80, WorkspaceShellLayoutPolicy.portraitMenuOverlayMaxHeightDp(100))
         assertEquals(1, WorkspaceShellLayoutPolicy.portraitMenuRows(80, 1.5f))
         assertEquals(2, WorkspaceShellLayoutPolicy.portraitMenuRows(224, 1.15f))
         assertEquals(1, WorkspaceShellLayoutPolicy.portraitMenuRows(200, 1.15f))
-        assertEquals(112, WorkspaceShellLayoutPolicy.portraitMenuOverlayHeightDp(200, 236, 1.15f))
-        assertEquals(192, WorkspaceShellLayoutPolicy.portraitMenuOverlayHeightDp(320, 192, 1f))
+        assertEquals(160, WorkspaceShellLayoutPolicy.portraitMenuOverlayMaxHeightDp(200))
+        assertEquals(256, WorkspaceShellLayoutPolicy.portraitMenuOverlayMaxHeightDp(320))
         assertEquals(2, WorkspaceShellLayoutPolicy.portraitMenuRows(192, 1f))
     }
 
     @Test
     fun portraitMenuNeverConsumesMoreThanItsRendererViewport() {
-        assertEquals(0, WorkspaceShellLayoutPolicy.portraitMenuOverlayHeightDp(0, 176, 1.5f))
-        assertEquals(40, WorkspaceShellLayoutPolicy.portraitMenuOverlayHeightDp(50, 176, 1.5f))
+        assertEquals(0, WorkspaceShellLayoutPolicy.portraitMenuOverlayMaxHeightDp(0))
+        assertEquals(40, WorkspaceShellLayoutPolicy.portraitMenuOverlayMaxHeightDp(50))
     }
 
     @Test

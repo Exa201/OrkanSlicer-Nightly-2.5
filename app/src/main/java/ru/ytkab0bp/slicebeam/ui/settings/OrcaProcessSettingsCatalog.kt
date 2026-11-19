@@ -36,7 +36,7 @@ object OrcaProcessSettingsCatalog {
         ),
         OrcaSettingsCategory(
             "Infill", R.drawable.print_infill_28, listOf(
-                section("Infill", "sparse_infill_density", "sparse_infill_pattern", "sparse_infill_smooth_factor", "fill_multiline", "infill_direction", "solid_infill_direction", "infill_combination", "infill_combination_max_layer_height", "minimum_sparse_infill_area", "infill_wall_overlap", "infill_lock_depth", "detect_narrow_internal_solid_infill", "gyroid_optimized"),
+                section("Infill", "sparse_infill_density", "sparse_infill_pattern", "sparse_infill_strategy", "sparse_infill_smooth_factor", "fill_multiline", "infill_direction", "solid_infill_direction", "infill_combination", "infill_combination_max_layer_height", "minimum_sparse_infill_area", "infill_wall_overlap", "infill_lock_depth", "detect_narrow_internal_solid_infill", "gyroid_optimized"),
                 section("Infill anchors", "infill_anchor", "infill_anchor_max"),
                 section("Flush into infill", "flush_into_infill"),
                 section("Lightning infill", "lightning_overhang_angle", "lightning_prune_angle", "lightning_straightening_angle"),

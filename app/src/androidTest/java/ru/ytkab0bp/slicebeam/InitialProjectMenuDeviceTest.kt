@@ -6402,6 +6402,54 @@ class InitialProjectMenuDeviceTest {
     }
 
     @Test
+    fun fileToModelRouteMeasuresCompleteScopeAndActionGrid() {
+        val activity = compose.activity
+        assumeTrue("This transition test targets the compact phone layout", usesCompactPortraitLayout(activity))
+        activity.getSharedPreferences("workspace_menu_customization", 0).edit().clear().commit()
+
+        // Reproduce the reported route change through the actual bottom navigation taps.
+        openWorkspaceMenu(activity, WorkspaceDestination.PROJECT, R.string.MenuFile)
+        openWorkspaceMenu(activity, WorkspaceDestination.MODEL, R.string.MenuModel)
+
+        compose.onNodeWithTag("model-menu-scope-object").assertIsDisplayed()
+        val panel = compose.onNodeWithTag("workspace-menu-panel").fetchSemanticsNode().boundsInWindow
+        val grid = compose.onNodeWithTag("workspace-menu-actions-grid").fetchSemanticsNode().boundsInWindow
+        val density = activity.resources.displayMetrics.density
+        val visiblePanelHeightDp = (panel.bottom - grid.top) / density
+        val fileToModelGridHeightDp = grid.height / density
+        assertTrue(
+            "File → Model must reveal its scope controls and full action rows; panel=$panel grid=$grid (${visiblePanelHeightDp}dp)",
+            visiblePanelHeightDp >= 200f,
+        )
+        assertTrue("The model action grid must be visible inside the panel", grid.top >= panel.top && grid.bottom <= panel.bottom + 1f)
+        assertTrue(
+            "File → Model must show both action rows instead of clipping the second row; grid=${fileToModelGridHeightDp}dp",
+            fileToModelGridHeightDp >= 200f,
+        )
+        assertTrue(
+            "Model actions beyond the first rows remain scrollable",
+            compose.onNodeWithTag("workspace-menu-actions-grid").fetchSemanticsNode().config[
+                SemanticsProperties.VerticalScrollAxisRange
+            ].maxValue() > 0f,
+        )
+
+        // The same route must measure identically after Edit; this catches stale height
+        // state leaking from whichever menu was previously open.
+        openWorkspaceMenu(activity, WorkspaceDestination.EDIT, R.string.MenuToolbarNavigation)
+        openWorkspaceMenu(activity, WorkspaceDestination.MODEL, R.string.MenuModel)
+        val editToModelGrid = compose.onNodeWithTag("workspace-menu-actions-grid")
+            .fetchSemanticsNode().boundsInWindow
+        assertTrue(
+            "Edit → Model must keep both action rows visible; grid=$editToModelGrid",
+            editToModelGrid.height / density >= 200f,
+        )
+        assertTrue(
+            "File → Model and Edit → Model should have the same measured action grid height",
+            kotlin.math.abs(editToModelGrid.height / density - fileToModelGridHeightDp) <= 2f,
+        )
+    }
+
+    @Test
     fun toolsMenuProfileImportBuildsCorrectDocumentPickerRequest() {
         val activity = compose.activity
         val requestCode = MainActivity.REQUEST_CODE_IMPORT_PROFILES
@@ -12122,6 +12170,23 @@ class InitialProjectMenuDeviceTest {
         compose.waitUntil(timeoutMillis = 5_000) {
             controller.javaClass.getMethod("getSelectedDestinationSlot").invoke(controller) == destinationSlot &&
                 (!compactPortrait || controller.javaClass.getMethod("getToolPanelExpanded").invoke(controller) as Boolean) &&
+                !(controller.javaClass.getMethod("isNavigationTransitionInProgress").invoke(controller) as Boolean)
+        }
+        compose.waitForIdle()
+    }
+
+    private fun navigateWorkspaceRoute(activity: MainActivity, destination: WorkspaceDestination) {
+        val bed = activity.navigationDelegate.getCurrentFragment() as BedFragment
+        val controller = BedFragment::class.java.getDeclaredField("workspaceController")
+            .apply { isAccessible = true }.get(bed)
+        val navigationCallback = BedFragment::class.java
+            .getDeclaredMethod("onMenuNavigationSelected", Boolean::class.javaPrimitiveType, Int::class.javaPrimitiveType)
+            .apply { isAccessible = true }
+        activity.runOnUiThread {
+            navigationCallback.invoke(bed, true, destination.ordinal)
+        }
+        compose.waitUntil(timeoutMillis = 5_000) {
+            controller.javaClass.getMethod("getSelectedDestinationSlot").invoke(controller) == destination.ordinal &&
                 !(controller.javaClass.getMethod("isNavigationTransitionInProgress").invoke(controller) as Boolean)
         }
         compose.waitForIdle()

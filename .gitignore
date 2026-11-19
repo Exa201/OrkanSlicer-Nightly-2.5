@@ -59,7 +59,9 @@ app/src/main/assets/kromacut/
 
 # Local tooling / transient files (not part of the app)
 venv/
-.agents/
+.agents/*
+!.agents/skills/
+!.agents/skills/**
 scratch/
 orcaslicer_mobile_assets/
 logcat.txt

@@ -3,6 +3,13 @@ package ru.ytkab0bp.slicebeam.slic3r
 import ru.ytkab0bp.slicebeam.SliceBeam
 import ru.ytkab0bp.slicebeam.config.AdaptivePAModelValidator
 import ru.ytkab0bp.slicebeam.config.ProfileStringVectorCodec
+import ru.ytkab0bp.slicebeam.manufacturing.ToolAccessibilityAnalysisFailure
+import ru.ytkab0bp.slicebeam.manufacturing.ToolAccessibilityAnalysisResult
+import ru.ytkab0bp.slicebeam.manufacturing.ToolAccessibilityAnalyzer
+import ru.ytkab0bp.slicebeam.manufacturing.ToolAccessibilityRequest
+import ru.ytkab0bp.slicebeam.manufacturing.ManufacturingFaceFrame
+import ru.ytkab0bp.slicebeam.manufacturing.ThroughHoleFaceValidator
+import ru.ytkab0bp.slicebeam.manufacturing.ThroughHolePlacementResult
 import ru.ytkab0bp.slicebeam.utils.Prefs
 import ru.ytkab0bp.slicebeam.utils.SliceFilamentColorResolver
 import ru.ytkab0bp.slicebeam.utils.Vec3d
@@ -353,6 +360,66 @@ open class Model private constructor(@JvmField var pointer: Long) {
     open fun getObjectPreviewMesh(i: Int, maxTriangles: Int = 96): FloatArray =
         if (!hasObject(i) || maxTriangles !in 4..256 || getTriangleCount(i) > 5_000) FloatArray(0)
         else Native.model_get_object_preview_mesh(pointer, i, maxTriangles)
+
+    /**
+     * Returns exact, merged object triangles for bounded geometric analysis. This is a read-only
+     * copy in the same model-space frame as object bounds; large meshes are rejected, never
+     * silently simplified. The returned array is capped at [maxTriangles] triangles.
+     */
+    open fun getObjectTrianglesForAnalysis(i: Int, maxTriangles: Int = 50_000): FloatArray =
+        if (!hasObject(i) || maxTriangles !in 1..50_000) FloatArray(0)
+        else Native.model_get_object_triangles_bounded(pointer, i, maxTriangles)
+
+    /** Runs bounded read-only tool-access analysis against this object's exact merged mesh. */
+    open fun analyzeToolAccessibility(i: Int, request: ToolAccessibilityRequest): ToolAccessibilityAnalysisResult {
+        if (!hasObject(i)) return ToolAccessibilityAnalysisResult(
+            emptyList(), null, null, ToolAccessibilityAnalysisFailure.INVALID_INPUT,
+        )
+        if (getTriangleCount(i) > 4_096) return ToolAccessibilityAnalysisResult(
+            emptyList(), null, null, ToolAccessibilityAnalysisFailure.TOO_LARGE,
+        )
+        val triangles = getObjectTrianglesForAnalysis(i, maxTriangles = 4_096)
+        return ToolAccessibilityAnalyzer.analyze(triangles, request)
+    }
+
+    /**
+     * Checks whether a through-hole can fit on a planar face of this object's exact mesh.
+     * This is read-only geometric placement validation; it does not cut or alter the model.
+     */
+    open fun validateThroughHolePlacement(
+        i: Int,
+        face: ManufacturingFaceFrame,
+        diameterMm: Double,
+        minimumWallMm: Double,
+    ): ThroughHolePlacementResult {
+        // Face-boundary extraction is quadratic in boundary-map overhead on highly tessellated
+        // models; keep this opt-in mobile preview below a conservative native-mesh ceiling.
+        val triangles = getObjectTrianglesForAnalysis(i, maxTriangles = 10_000)
+        return ThroughHoleFaceValidator.validate(triangles, face, diameterMm, minimumWallMm)
+    }
+
+    /**
+     * Builds a bounded, non-mutating render mesh for a cylindrical through-hole preview.
+     * The result is only for visualization; the source model remains untouched and must be
+     * revalidated/recomputed at any future explicit apply operation.
+     */
+    open fun previewThroughHole(
+        i: Int,
+        face: ManufacturingFaceFrame,
+        diameterMm: Double,
+        minimumWallMm: Double,
+        maxTriangles: Int = 4_096,
+    ): FloatArray {
+        if (!hasObject(i) || maxTriangles !in 16..4_096 || getTriangleCount(i) > 10_000) return FloatArray(0)
+        val placement = validateThroughHolePlacement(i, face, diameterMm, minimumWallMm)
+        if (!placement.isSupported) return FloatArray(0)
+        return Native.model_through_hole_preview_mesh(
+            pointer, i,
+            face.origin.xMm, face.origin.yMm, face.origin.zMm,
+            face.normal.x, face.normal.y, face.normal.z,
+            diameterMm, maxTriangles,
+        )
+    }
 
     open fun simplify(i: Int, keepRatio: Float): Int {
         if (!hasObject(i) || !keepRatio.isFinite() || keepRatio <= 0f || keepRatio > 1f) return 0
@@ -768,6 +835,13 @@ open class Model private constructor(@JvmField var pointer: Long) {
             var count = 1
             for (i in 0 until objectsCount) {
                 count = maxOf(count, getUsedFilaments(i).maxOrNull() ?: 1)
+                // A brim may use a filament that is not assigned to any model region.
+                // Include it in the generated print palette or native validation clamps
+                // brim_filament_id back to the model's (smaller) filament count.
+                val brimFilament = getObjectConfigOption(i, "brim_filament_id")
+                    ?.toIntOrNull()
+                    ?: 0
+                if (brimFilament > 0) count = maxOf(count, brimFilament)
             }
             return count
         }
@@ -909,7 +983,9 @@ open class Model private constructor(@JvmField var pointer: Long) {
             "wall_loops", "sparse_infill_density", "top_shell_layers", "sparse_infill_pattern",
             "top_surface_pattern", "bottom_surface_pattern",
         )
-        private val OBJECT_OVERRIDE_KEYS = PART_OVERRIDE_KEYS + setOf("enable_support", "support_type", "seam_position", "raft_layers")
+        private val OBJECT_OVERRIDE_KEYS = PART_OVERRIDE_KEYS + setOf(
+            "enable_support", "support_type", "seam_position", "raft_layers", "brim_filament_id",
+        )
 
         private fun readModelPointer(
             path: String,

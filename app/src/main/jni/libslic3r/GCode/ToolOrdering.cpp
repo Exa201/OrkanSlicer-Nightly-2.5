@@ -772,6 +772,15 @@ void ToolOrdering::collect_extruders(const PrintObject &object, const std::vecto
     sort_remove_duplicates(firstLayerExtruders);
     const_cast<PrintObject&>(object).object_first_layer_wall_extruders = firstLayerExtruders;
 
+    // The selected brim may be the only feature printed by this tool on layer 1.
+    // Keep its pass in the tool order even when model walls use other filaments.
+    const int brim_filament = object.config().brim_filament_id.value;
+    if (brim_filament > 0 && object.has_brim() &&
+        !object.layers().empty() && static_cast<size_t>(brim_filament) <= object.print()->config().filament_diameter.size())
+        // collect_extruders stores 1-based IDs until handle_dontcare_extruder()
+        // normalizes the complete ordering to zero-based IDs.
+        this->tools_for_layer(object.layers().front()->print_z).extruders.push_back(static_cast<unsigned int>(brim_filament));
+
     // Collect the support extruders.
     for (auto support_layer : object.support_layers()) {
         LayerTools   &layer_tools   = this->tools_for_layer(support_layer->print_z);

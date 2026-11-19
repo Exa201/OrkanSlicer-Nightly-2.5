@@ -2,7 +2,7 @@
 
 OrkanSlicer Nightly's offline factory profiles are generated from the current
 `OrcaSlicer/OrcaSlicer` `main` branch. The bundled database was refreshed from
-upstream revision `07f38df2a4fd3439cffbf991ee41ee99ec71fbee` on 2026-11-17.
+upstream profile revision `0c80c412a1fd3236f1e753433c29d5050683da6b` on 2026-11-19.
 This is a source revision, not a claim that every vendor's own profile version
 uses the same version number.
 
@@ -52,14 +52,18 @@ and the selected Kobra profile migrates to Orca's current printer name.
 `FactoryProfileDatabaseUpdaterTest` checks refresh, stale-profile removal,
 preservation of user edits, and Kobra 3 V2 profile-name migration.
 
-Verified on 2026-11-17: OrcaSlicer `main` resolves to
-`07f38df2a4fd3439cffbf991ee41ee99ec71fbee`. The refreshed factory catalog
-retains the latest Anker M5/M5C `file_start_gcode` total-duration header and
-the Android printer-profile loader now preserves that upstream key. The
-targeted profile database and migration tests passed after this refresh. At
-that database-refresh checkpoint, the connected Honor still ran
-0.8.493 / code 528; the profile-picker correction and updated APK are recorded
-below.
+Verified on 2026-11-19: OrcaSlicer `main` resolves to
+`4f71398a0fc9719aeda72cc6a32997f304ca9da9`; the latest profile-data commit in
+that delta is `0c80c412a1fd3236f1e753433c29d5050683da6b`. The refresh corrects
+Prusa CORE One overhang speed slots. `OrcaProfileDatabaseTest` passed **4/4**,
+including the current revision marker, profile parsing/inheritance, and the
+representative CORE One speed values. No real Prusa printer was available for
+an on-device slice check.
+
+The refreshed factory catalog retains the Anker M5/M5C
+`file_start_gcode` total-duration header, and the Android printer-profile
+loader preserves that upstream key. Earlier profile-picker and Honor install
+checkpoints are recorded below.
 
 ## Profile picker diagnosis — 2026-11-17
 

@@ -529,6 +529,14 @@ std::vector<unsigned int> Print::extruders(bool conside_custom_gcode) const
 {
     std::vector<unsigned int> extruders = this->object_extruders();
     append(extruders, this->support_material_extruders());
+    // A selected brim filament may not be used by any model region, but still
+    // needs its own first-layer tool pass.
+    for (const PrintObject *object : m_objects) {
+        const int brim_filament = object->config().brim_filament_id.value;
+        if (brim_filament > 0 && object->has_brim() &&
+            static_cast<size_t>(brim_filament) <= m_config.filament_diameter.size())
+            extruders.push_back(static_cast<unsigned int>(brim_filament - 1));
+    }
 
     if (conside_custom_gcode) {
         //BBS
@@ -1275,6 +1283,9 @@ StringObjectException Print::check_multi_filament_valid(const Print& print)
                 if (print_object->config().support_interface_filament >= 1 && (unsigned int)print_object->config().support_interface_filament < num_extruders + 1)
                     obj_used_extruder_ids.insert((unsigned int) print_object->config().support_interface_filament - 1);
             }
+            if (print_object->has_brim() && print_object->config().brim_filament_id.value > 0 &&
+                static_cast<size_t>(print_object->config().brim_filament_id.value) <= print_config.filament_diameter.size())
+                obj_used_extruder_ids.insert(print_object->config().brim_filament_id.value - 1);
             std::vector<std::string> filament_types;
             std::vector<int> nozzle_temperatures;
             std::vector<int> nozzle_temperature_range_lows;
@@ -1474,6 +1485,33 @@ StringObjectException Print::validate(StringObjectException *warning, Polygons* 
                 }
                 if (warning->is_warning) break;
             }
+        }
+    }
+
+    // Orca warns when Crossing sparse infill uses more than three parallel lines:
+    // the repeated intersections can over-extrude and cause nozzle collisions.
+    // Print::validate exposes only one non-fatal warning, so keep an earlier
+    // warning (for example the spiral-vase override) if it already exists.
+    if (warning != nullptr && warning->string.empty()) {
+        for (const PrintObject *object : m_objects) {
+            for (const PrintRegion &region : object->all_regions()) {
+                const PrintRegionConfig &cfg = region.config();
+                if (cfg.sparse_infill_strategy.value == InfillStrategy::Crossing &&
+                    cfg.fill_multiline.value > 3 &&
+                    has_infill_strategy(cfg.sparse_infill_pattern.value) &&
+                    cfg.sparse_infill_density.value > 0. && cfg.sparse_infill_density.value < 100.) {
+                    warning->string = Slic3r::format(
+                        _u8L("The sparse infill of the object %1% uses the Crossing strategy with more than 3 lines. "
+                             "Its walls overlap over a large area at every crossing, which can over-extrude there "
+                             "and make the nozzle scrape the infill. Use the Non-crossing strategy or fewer lines."),
+                        object->model_object()->name);
+                    warning->object = object;
+                    warning->opt_key = "sparse_infill_strategy";
+                    warning->is_warning = true;
+                    break;
+                }
+            }
+            if (warning->is_warning) break;
         }
     }
 
@@ -2092,11 +2130,14 @@ Flow Print::brim_flow() const
        extruders and take the one with, say, the smallest index.
        The same logic should be applied to the code that selects the extruder during G-code
        generation as well. */
+    const int selected_brim_filament = m_objects.empty() ? 0 : m_objects.front()->config().brim_filament_id.value;
+    const int width_filament = selected_brim_filament > 0 ? selected_brim_filament :
+        m_print_regions.front()->config().outer_wall_filament_id.value;
     return Flow::new_from_config_width(
         frPerimeter,
         // Flow::new_from_config_width takes care of the percent to value substitution
 		width,
-        (float)m_config.nozzle_diameter.get_at(m_print_regions.front()->config().outer_wall_filament_id-1),
+		(float)m_config.nozzle_diameter.get_at(std::max(0, width_filament - 1)),
 		(float)this->skirt_first_layer_height());
 }
 
@@ -2224,6 +2265,11 @@ BoundingBox PrintObject::get_first_layer_bbox(float& a, float& layer_height, std
 std::map<ObjectID, unsigned int> getObjectExtruderMap(const Print& print) {
     std::map<ObjectID, unsigned int> objectExtruderMap;
     for (const PrintObject* object : print.objects()) {
+        const int selected_brim_filament = object->config().brim_filament_id.value;
+        if (selected_brim_filament > 0) {
+            objectExtruderMap.insert(std::make_pair(object->id(), static_cast<unsigned int>(selected_brim_filament)));
+            continue;
+        }
         // BBS
         if (object->object_first_layer_wall_extruders.empty()){
             unsigned int objectFirstLayerFirstExtruder = print.config().filament_diameter.size();

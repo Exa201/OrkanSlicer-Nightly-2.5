@@ -27,8 +27,10 @@ import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Slider
 import androidx.compose.material3.Surface
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -56,6 +58,8 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.sp
@@ -88,6 +92,13 @@ import ru.ytkab0bp.slicebeam.ui.settings.AppSettingsIconAssets
 import ru.ytkab0bp.slicebeam.ui.workspace.WorkspaceMessageDialog
 import ru.ytkab0bp.slicebeam.utils.ConverterStorage
 import ru.ytkab0bp.slicebeam.utils.Prefs
+import ru.ytkab0bp.slicebeam.manufacturing.AdvancedManufacturingFeature
+import ru.ytkab0bp.slicebeam.manufacturing.ManufacturingFeatureGroup
+import ru.ytkab0bp.slicebeam.manufacturing.ManufacturingFeatureAvailability
+import ru.ytkab0bp.slicebeam.manufacturing.ManufacturingFeatureCommandRegistry
+import ru.ytkab0bp.slicebeam.manufacturing.ManufacturingOperationCoordinator
+import ru.ytkab0bp.slicebeam.manufacturing.CncFitCalibration
+import ru.ytkab0bp.slicebeam.manufacturing.CncFitCalibrationInput
 
 /** App settings rendered in Compose, separate from the profile editing screens. */
 class SettingsFragment : Fragment() {
@@ -97,6 +108,8 @@ class SettingsFragment : Fragment() {
     private var showUiTextScaleDialog by mutableStateOf(false)
     private var showFolderPickerError by mutableStateOf(false)
     private var showResetConfirmation by mutableStateOf(false)
+    private var manufacturingFeatureRevision by mutableIntStateOf(0)
+    private var cncCalibrationDialog by mutableStateOf<CncCalibrationDialogState?>(null)
 
     override fun onCreate() {
         super.onCreate()
@@ -108,6 +121,7 @@ class SettingsFragment : Fragment() {
         showUiTextScaleDialog = false
         showFolderPickerError = false
         showResetConfirmation = false
+        cncCalibrationDialog = null
         SliceBeam.EVENT_BUS.unregisterListener(this)
         super.onDestroy()
     }
@@ -125,6 +139,15 @@ class SettingsFragment : Fragment() {
                     Box(Modifier.fillMaxSize()) {
                         SettingsContent(
                             expandedSections = expandedSections,
+                            manufacturingFeatures = AdvancedManufacturingFeature.all,
+                            manufacturingFeatureStates = AdvancedManufacturingFeature.all.associateWith(Prefs::isAdvancedManufacturingFeatureEnabled),
+                            onManufacturingFeatureChanged = { feature, enabled ->
+                                Prefs.setAdvancedManufacturingFeatureEnabled(feature, enabled)
+                                if (!enabled) ManufacturingOperationCoordinator.cancelFeature(feature)
+                                manufacturingFeatureRevision++
+                            },
+                            manufacturingFeatureRevision = manufacturingFeatureRevision,
+                            onCncCalibration = ::showCncCalibrationDialog,
                             cloudAvailable = BeamServerData.isCloudAvailable(),
                             boostyAvailable = BeamServerData.isBoostyAvailable(),
                             uiTextScale = "${(Prefs.getUiTextScale() * 100).toInt()}%",
@@ -183,6 +206,17 @@ class SettingsFragment : Fragment() {
                                 onConfirm = {
                                     showResetConfirmation = false
                                     performReset()
+                                },
+                            )
+                        }
+                        cncCalibrationDialog?.let { calibration ->
+                            CncFitCalibrationDialog(
+                                state = calibration,
+                                onDismiss = { cncCalibrationDialog = null },
+                                onSave = { saved ->
+                                    Prefs.setCncFitCalibration(saved)
+                                    cncCalibrationDialog = null
+                                    themeRevision++
                                 },
                             )
                         }
@@ -314,6 +348,24 @@ class SettingsFragment : Fragment() {
 
     private fun selectCameraPreset(preset: CameraPreset) {
         SliceBeam.EVENT_BUS.fireEvent(CameraPresetRequestedEvent(preset))
+    }
+
+    private fun showCncCalibrationDialog() {
+        val config = SliceBeam.CONFIG ?: return
+        val printerTitle = config.presets?.get("printer")?.let(config::findPrinter)?.title
+            ?.takeIf(String::isNotBlank) ?: return
+        val materialTitle = config.presets?.get("filament")?.let(config::findFilament)?.title
+            ?.takeIf(String::isNotBlank) ?: return
+        val nozzle = config.findPrinter(config.presets?.get("printer"))?.get("nozzle_diameter")
+            ?.substringBefore(',')?.trim()?.toDoubleOrNull() ?: return
+        val existing = Prefs.getCncFitCalibration(printerTitle, nozzle, materialTitle)
+        cncCalibrationDialog = CncCalibrationDialogState(
+            printerId = printerTitle,
+            nozzleDiameterMm = nozzle,
+            materialId = materialTitle,
+            innerValue = existing?.innerCompensationMm?.toString().orEmpty(),
+            outerValue = existing?.outerCompensationMm?.toString().orEmpty(),
+        )
     }
 
     private fun chooseConverterFolder() {
@@ -485,6 +537,11 @@ internal fun SettingsTextScaleDialog(
 @Composable
 internal fun SettingsContent(
     expandedSections: Set<Int>,
+    manufacturingFeatures: List<AdvancedManufacturingFeature> = emptyList(),
+    manufacturingFeatureStates: Map<AdvancedManufacturingFeature, Boolean> = emptyMap(),
+    onManufacturingFeatureChanged: (AdvancedManufacturingFeature, Boolean) -> Unit = { _, _ -> },
+    manufacturingFeatureRevision: Int = 0,
+    onCncCalibration: () -> Unit = {},
     cloudAvailable: Boolean,
     boostyAvailable: Boolean,
     uiTextScale: String,
@@ -716,6 +773,42 @@ internal fun SettingsContent(
                 }
             }
 
+            val manufacturingSection: @Composable () -> Unit = {
+                SettingsSection(
+                    index = 6,
+                    expandedSections = expandedSections,
+                    onToggle = onToggleSection,
+                    iconRes = R.drawable.ic_app_information,
+                    title = stringResource(R.string.SettingsAdvancedManufacturing),
+                    compactLayout = compactLayout,
+                    denseLandscape = shortLandscapeLayout,
+                ) {
+                    Text(
+                        text = stringResource(R.string.SettingsAdvancedManufacturingDescription),
+                        modifier = Modifier.padding(horizontal = 14.dp, vertical = 8.dp),
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                    manufacturingFeatures.forEach { feature ->
+                        AdvancedManufacturingStatusRow(
+                            feature,
+                            enabled = manufacturingFeatureStates[feature] ?: feature.enabledByDefault,
+                            compactLayout = compactLayout,
+                            onEnabledChange = { onManufacturingFeatureChanged(feature, it) },
+                        )
+                    }
+                    if (manufacturingFeatureStates[AdvancedManufacturingFeature.CNC_PRECISION_ENGINE] == true) {
+                        SettingsActionRow(
+                            R.drawable.ic_app_information,
+                            R.string.AdvancedFeatureCncCalibration,
+                            stringResource(R.string.AdvancedFeatureCncCalibrationDescription),
+                            onCncCalibration,
+                            compactLayout = compactLayout,
+                            denseLandscape = shortLandscapeLayout,
+                        )
+                    }
+                }
+            }
+
             if (shortLandscapeLayout) {
                 Row(horizontalArrangement = Arrangement.spacedBy(10.dp), verticalAlignment = Alignment.Top) {
                     Column(modifier = Modifier.weight(1f)) {
@@ -727,6 +820,7 @@ internal fun SettingsContent(
                         converterSection()
                         cameraSection()
                         informationSection()
+                        manufacturingSection()
                     }
                 }
             } else {
@@ -736,6 +830,7 @@ internal fun SettingsContent(
                 converterSection()
                 cameraSection()
                 informationSection()
+                manufacturingSection()
             }
 
             SettingsActionRow(
@@ -750,6 +845,85 @@ internal fun SettingsContent(
             )
         }
     }
+}
+
+private data class CncCalibrationDialogState(
+    val printerId: String,
+    val nozzleDiameterMm: Double,
+    val materialId: String,
+    val innerValue: String,
+    val outerValue: String,
+)
+
+@Composable
+private fun CncFitCalibrationDialog(
+    state: CncCalibrationDialogState,
+    onDismiss: () -> Unit,
+    onSave: (CncFitCalibration) -> Unit,
+) {
+    var inner by remember(state) { mutableStateOf(state.innerValue) }
+    var outer by remember(state) { mutableStateOf(state.outerValue) }
+    var validationError by remember(state) { mutableStateOf(false) }
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(stringResource(R.string.AdvancedFeatureCncCalibration)) },
+        text = {
+            Column(
+                modifier = Modifier.heightIn(max = 480.dp).verticalScroll(rememberScrollState()),
+                verticalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                Text(
+                    stringResource(
+                        R.string.AdvancedFeatureCncCalibrationIdentity,
+                        state.printerId,
+                        state.nozzleDiameterMm,
+                        state.materialId,
+                    ),
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                Text(stringResource(R.string.AdvancedFeatureCncCalibrationHelp))
+                OutlinedTextField(
+                    value = inner,
+                    onValueChange = { inner = it; validationError = false },
+                    label = { Text(stringResource(R.string.AdvancedFeatureCncInnerCorrection)) },
+                    suffix = { Text("mm") },
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth(),
+                )
+                OutlinedTextField(
+                    value = outer,
+                    onValueChange = { outer = it; validationError = false },
+                    label = { Text(stringResource(R.string.AdvancedFeatureCncOuterCorrection)) },
+                    suffix = { Text("mm") },
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth(),
+                )
+                if (validationError) {
+                    Text(
+                        stringResource(R.string.AdvancedFeatureCncCalibrationInvalid),
+                        color = MaterialTheme.colorScheme.error,
+                    )
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = {
+                val calibration = CncFitCalibrationInput.parse(
+                    state.printerId,
+                    state.nozzleDiameterMm,
+                    state.materialId,
+                    inner,
+                    outer,
+                )
+                if (calibration == null) validationError = true else onSave(calibration)
+            }) { Text(stringResource(R.string.SettingsSave)) }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) { Text(stringResource(android.R.string.cancel)) }
+        },
+    )
 }
 
 @Composable
@@ -774,6 +948,70 @@ internal fun SettingsSection(
         content = content,
         onToggle = { onToggle(index) },
     )
+}
+
+@Composable
+private fun AdvancedManufacturingStatusRow(
+    feature: AdvancedManufacturingFeature,
+    enabled: Boolean,
+    compactLayout: Boolean,
+    onEnabledChange: (Boolean) -> Unit,
+) {
+    val titleRes = when (feature) {
+        AdvancedManufacturingFeature.CNC_PRECISION_ENGINE -> R.string.AdvancedFeatureCnc
+        AdvancedManufacturingFeature.SMART_ASSEMBLY_CUTTER -> R.string.AdvancedFeatureAssemblyCutter
+        AdvancedManufacturingFeature.TOOL_ACCESSIBILITY_ANALYZER -> R.string.AdvancedFeatureAccessibility
+        AdvancedManufacturingFeature.MANUFACTURING_FEATURE_GENERATOR -> R.string.AdvancedFeatureGenerator
+        AdvancedManufacturingFeature.LASER_CONVERTER -> R.string.AdvancedFeatureLaser
+        AdvancedManufacturingFeature.V_CARVE_GENERATOR -> R.string.AdvancedFeatureVCarve
+        AdvancedManufacturingFeature.INTELLIGENT_MARKING -> R.string.AdvancedFeatureMarking
+        AdvancedManufacturingFeature.NON_PLANAR_SURFACE_PRINTING -> R.string.AdvancedFeatureNonPlanar
+        AdvancedManufacturingFeature.ROBOT_MOTION_OPTIMIZER -> R.string.AdvancedFeatureMotion
+        AdvancedManufacturingFeature.ROBOTIC_SUPPORT_DESIGNER -> R.string.AdvancedFeatureRoboticSupports
+        AdvancedManufacturingFeature.PRINTER_DIGITAL_TWIN -> R.string.AdvancedFeatureDigitalTwin
+    }
+    val statusRes = when (
+        if (feature == AdvancedManufacturingFeature.TOOL_ACCESSIBILITY_ANALYZER && enabled) {
+            ManufacturingFeatureAvailability.PARTIAL
+        } else ManufacturingFeatureCommandRegistry.availability(feature, enabled)
+    ) {
+        ManufacturingFeatureAvailability.DISABLED -> R.string.AdvancedFeatureDisabled
+        ManufacturingFeatureAvailability.READY -> R.string.AdvancedFeatureReady
+        ManufacturingFeatureAvailability.PARTIAL -> R.string.AdvancedFeatureAccessibilityPartial
+        ManufacturingFeatureAvailability.UNSUPPORTED -> R.string.AdvancedFeatureUnsupported
+        ManufacturingFeatureAvailability.EXPERIMENTAL -> R.string.AdvancedFeatureExperimental
+        ManufacturingFeatureAvailability.MISSING_PREREQUISITES -> R.string.AdvancedFeatureMissingPrerequisites
+        ManufacturingFeatureAvailability.NOT_IMPLEMENTED -> R.string.AdvancedFeatureNotImplemented
+    }
+    val groupRes = when (feature.group) {
+        ManufacturingFeatureGroup.MODEL_EDITING -> R.string.AdvancedFeatureGroupModel
+        ManufacturingFeatureGroup.ANALYSIS -> R.string.AdvancedFeatureGroupAnalysis
+        ManufacturingFeatureGroup.SPECIAL_TOOLS -> R.string.AdvancedFeatureGroupSpecial
+        ManufacturingFeatureGroup.ADVANCED_PRINTING -> R.string.AdvancedFeatureGroupPrinting
+    }
+    Surface(
+        modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 3.dp),
+        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f),
+        shape = RoundedCornerShape(12.dp),
+    ) {
+        Row(
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = if (compactLayout) 8.dp else 10.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Column(Modifier.weight(1f).padding(end = 8.dp)) {
+                Text(stringResource(titleRes), fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onSurface)
+                Text(
+                    text = stringResource(groupRes) + " · " + stringResource(statusRes),
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    fontSize = 13.sp,
+                )
+            }
+            Switch(
+                checked = enabled,
+                onCheckedChange = onEnabledChange,
+            )
+        }
+    }
 }
 
 @Composable

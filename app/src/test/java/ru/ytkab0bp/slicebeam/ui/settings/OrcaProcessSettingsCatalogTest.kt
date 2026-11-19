@@ -170,6 +170,7 @@ class OrcaProcessSettingsCatalogTest {
         assertTrue("Elephant-foot layer density uses the native expert option", "elefant_foot_layers_density" in precision.keys)
         assertTrue("Infill locking remains in the Orca infill settings", "infill_lock_depth" in infill.keys)
         assertTrue("Hilbert smoothing must be editable in the infill settings", "sparse_infill_smooth_factor" in infill.keys)
+        assertTrue("Orca's crossing strategy must be editable beside its infill pattern", "sparse_infill_strategy" in infill.keys)
         assertTrue(OrcaProcessSettingsCatalog.hasUniqueProcessKeys())
     }
 

@@ -181,9 +181,8 @@ internal fun BedMenuActionsContent(
             }
             // Keep enough vertical room for the larger artwork and the full Orca label.
             // The tile width and four-column layout stay unchanged.
-            val gridTileHeight = BedMenuActionTileWidthPolicy.reducedTileHeightDp(
-                if (fontScale >= 1.5f) 150 else if (fontScale >= 1.3f) 160 else 165,
-            ).dp
+            val gridTileHeight = ru.ytkab0bp.slicebeam.ui.navigation.WorkspaceToolPanelPolicy
+                .actionTileHeightDp(fontScale).dp
             val gridHeight = minOf(
                 maxHeight,
                 gridTileHeight * visibleRows + 2.dp * (visibleRows - 1),

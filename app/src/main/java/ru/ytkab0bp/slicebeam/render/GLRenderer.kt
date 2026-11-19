@@ -34,6 +34,8 @@ import ru.ytkab0bp.slicebeam.slic3r.ObjectGroupDistribution
 import ru.ytkab0bp.slicebeam.slic3r.ObjectPlacement
 import ru.ytkab0bp.slicebeam.slic3r.ObjectPlacementDelta
 import ru.ytkab0bp.slicebeam.slic3r.PaintSession
+import ru.ytkab0bp.slicebeam.manufacturing.ToolAccessibilityOverlayMeshes
+import ru.ytkab0bp.slicebeam.manufacturing.AdvancedManufacturingFeature
 import ru.ytkab0bp.slicebeam.slic3r.Slic3rUtils
 import ru.ytkab0bp.slicebeam.theme.ThemesRepo
 import ru.ytkab0bp.slicebeam.utils.DoubleMatrix
@@ -69,6 +71,16 @@ private var shadersManager: GLShadersManager? = null
 private var backgroundModel: GLModel? = null
 private var selectionModel: GLModel? = null
 private var glModels = ArrayList<GLModel>()
+/** Temporary CNC visualization only; never used as model, slice, or export geometry. */
+private var cncCompensationPreview: GLModel? = null
+private var cncCompensationPreviewObject = -1
+/** Temporary manufacturing preview only; never enters model, slice, or export state. */
+private var throughHolePreview: GLModel? = null
+private var throughHolePreviewObject = -1
+private data class ToolAccessOverlay(val model: GLModel, val color: Int)
+private val toolAccessOverlays = ArrayList<ToolAccessOverlay>()
+private var toolAccessPreviewObject = -1
+private var toolAccessPreviewGeneration = -1L
 private data class ModifierPreview(val volumeIndex: Int, val type: Int, val model: GLModel)
 private val modifierPreviews = HashMap<Int, MutableList<ModifierPreview>>()
 var model:Model? = null
@@ -911,6 +923,7 @@ internal var color:Int = 0
     private set
 fun setCurrentPlateIndex(currentPlateIndex:Int) {
 this.currentPlateIndex = Math.max(0, currentPlateIndex)
+clearToolAccessibilityPreview()
 primeTowerPreviewX = Double.NaN
 primeTowerPreviewY = Double.NaN
 primeTowerGrabOffsetX = Double.NaN
@@ -1087,6 +1100,7 @@ this.isViewerEnabled = result != null
 if (result !== this.gcodeResult)
 {
 if (result != null) {
+    clearToolAccessibilityPreview()
     // Retain the editable model, but release its rebuildable GPU meshes before
     // allocating the G-code viewer.
     clearModifierPreviews()
@@ -1246,6 +1260,9 @@ val sameSingle = (this.selectedObject == selectedObject
 && selectedObjects.size == (if (selectedObject == -1) 0 else 1)
 && (selectedObject == -1 || selectedObjects.contains(selectedObject)))
 if (sameSingle) return false
+clearCncCompensationPreview()
+clearThroughHolePreview()
+clearToolAccessibilityPreview()
 this.selectedObject = selectedObject
 selectedObjects.clear()
 if (selectedObject != -1) selectedObjects.add(selectedObject)
@@ -1271,6 +1288,9 @@ return selectedObjects.contains(i)
     if (normalized.size != indices.size || normalized.any { it !in 0 until activeModel.objectsCount }) return false
     val primary = selectedObject.takeIf { it in normalized } ?: normalized.firstOrNull() ?: -1
     if (selectedObject == primary && selectedObjects == normalized) return false
+    clearCncCompensationPreview()
+    clearThroughHolePreview()
+    clearToolAccessibilityPreview()
     selectedObject = primary
     selectedObjects.clear()
     selectedObjects.addAll(normalized)
@@ -1288,6 +1308,8 @@ return selectedObjects.contains(i)
  }
 /** Clear object-specific controls before replacing the active build-plate model. */
 fun clearSelectionForPlateSwitch() {
+clearCncCompensationPreview()
+clearThroughHolePreview()
 val selection = ObjectTapSelectionPolicy.clearForPlateSwitch(selectedObject, selectedObjects)
 selectedObject = selection.primaryIndex
 selectedObjects.clear()
@@ -1347,6 +1369,9 @@ return true
 }
 fun invalidateGlModel(i:Int) {
 if (this.model == null) return
+if (cncCompensationPreviewObject == i) clearCncCompensationPreview()
+if (throughHolePreviewObject == i) clearThroughHolePreview()
+if (toolAccessPreviewObject == i) clearToolAccessibilityPreview()
 if (i < glModels.size)
 {
 val glModel = glModels.get(i)
@@ -1354,6 +1379,137 @@ glModel.reset()
 initObjectPreview(glModel, i)
 }
 invalidateCommittedOverlays(i)
+}
+
+/** Must be called on the GL thread. A null mesh removes the temporary overlay. */
+fun setCncCompensationPreview(objectIndex: Int, triangles: FloatArray?) {
+    val activeModel = model
+    if (triangles == null) {
+        clearCncCompensationPreview()
+        glView.requestRender()
+        return
+    }
+    if (activeModel == null || objectIndex !in 0 until activeModel.objectsCount ||
+        triangles.isEmpty() || triangles.size % 9 != 0 || triangles.size / 9 > 4096) {
+        clearCncCompensationPreview()
+        glView.requestRender()
+        return
+    }
+    clearCncCompensationPreview()
+    val overlay = GLModel()
+    if (!overlay.initFromTriangleVertices(triangles)) {
+        overlay.release()
+        glView.requestRender()
+        return
+    }
+    cncCompensationPreview = overlay
+    cncCompensationPreviewObject = objectIndex
+    glView.requestRender()
+}
+
+/** Must be called on the GL thread. The overlay is never used by slicing or export. */
+fun setThroughHolePreview(objectIndex: Int, triangles: FloatArray?) {
+    val activeModel = model
+    if (triangles == null) {
+        clearThroughHolePreview()
+        glView.requestRender()
+        return
+    }
+    if (activeModel == null || objectIndex !in 0 until activeModel.objectsCount ||
+        isViewerEnabled || printerThumbnailCaptureMode || triangles.isEmpty() ||
+        triangles.size % 9 != 0 || triangles.size / 9 > 4_096
+    ) {
+        clearThroughHolePreview()
+        glView.requestRender()
+        return
+    }
+    clearThroughHolePreview()
+    val overlay = GLModel()
+    if (!overlay.initFromTriangleVertices(triangles)) {
+        overlay.release()
+        glView.requestRender()
+        return
+    }
+    throughHolePreview = overlay
+    throughHolePreviewObject = objectIndex
+    glView.requestRender()
+}
+
+/** Must be called on the GL thread. These temporary markers never enter model/slice/export state. */
+fun setToolAccessibilityPreview(
+    objectIndex: Int,
+    meshes: ToolAccessibilityOverlayMeshes?,
+    generation: Long,
+): Boolean {
+    val activeModel = model
+    if (!Prefs.isAdvancedManufacturingFeatureEnabled(AdvancedManufacturingFeature.TOOL_ACCESSIBILITY_ANALYZER) ||
+        meshes == null || activeModel == null || objectIndex !in 0 until activeModel.objectsCount ||
+        isViewerEnabled || printerThumbnailCaptureMode
+    ) {
+        clearToolAccessibilityPreview()
+        glView.requestRender()
+        return false
+    }
+    val layers = listOf(
+        meshes.accessibleTriangles to Color.rgb(50, 220, 130),
+        meshes.constrainedTriangles to Color.rgb(255, 174, 45),
+        meshes.blockedTriangles to Color.rgb(245, 72, 90),
+    )
+    if (layers.any { it.first.size % 9 != 0 || it.first.size / 9 > 8192 }) {
+        clearToolAccessibilityPreview()
+        glView.requestRender()
+        return false
+    }
+    clearToolAccessibilityPreview()
+    for ((triangles, color) in layers) {
+        if (triangles.isEmpty()) continue
+        val overlay = GLModel()
+        if (!overlay.initFromTriangleVertices(triangles)) {
+            overlay.release()
+            clearToolAccessibilityPreview()
+            glView.requestRender()
+            return false
+        }
+        toolAccessOverlays.add(ToolAccessOverlay(overlay, color))
+    }
+    if (toolAccessOverlays.isEmpty()) {
+        glView.requestRender()
+        return false
+    }
+    toolAccessPreviewObject = objectIndex
+    toolAccessPreviewGeneration = generation
+    glView.requestRender()
+    return true
+}
+
+fun clearToolAccessibilityPreview() {
+    toolAccessOverlays.forEach { it.model.release() }
+    toolAccessOverlays.clear()
+    toolAccessPreviewObject = -1
+    toolAccessPreviewGeneration = -1L
+}
+
+/** Read only on the GL thread; used to avoid clearing a newer preview during selection cleanup. */
+fun toolAccessibilityPreviewObjectIndex(): Int = toolAccessPreviewObject
+
+/** Clears only the result from an obsolete analysis request. Must run on the GL thread. */
+fun clearToolAccessibilityPreviewIfGeneration(objectIndex: Int, generation: Long) {
+    if (toolAccessPreviewObject == objectIndex && toolAccessPreviewGeneration == generation) {
+        clearToolAccessibilityPreview()
+        glView.requestRender()
+    }
+}
+
+fun clearCncCompensationPreview() {
+    cncCompensationPreview?.release()
+    cncCompensationPreview = null
+    cncCompensationPreviewObject = -1
+}
+
+fun clearThroughHolePreview() {
+    throughHolePreview?.release()
+    throughHolePreview = null
+    throughHolePreviewObject = -1
 }
 private fun initObjectPreview(glModel: GLModel, index: Int) {
     val source = model ?: return
@@ -1376,6 +1532,9 @@ selectionModel!!.reset()
 }
 }
 fun resetGlModels() {
+clearCncCompensationPreview()
+clearThroughHolePreview()
+clearToolAccessibilityPreview()
 clearModifierPreviews()
 if (this.model == null) return
 clearAllCommittedOverlays()
@@ -1390,6 +1549,9 @@ initObjectPreview(glModel, i)
 }
 /** Release mesh buffers that can be rebuilt from the retained native model. */
  fun releaseMeshResources() {
+clearCncCompensationPreview()
+clearThroughHolePreview()
+clearToolAccessibilityPreview()
 clearModifierPreviews()
 for (glModel in glModels) glModel.release()
 glModels.clear()
@@ -1428,6 +1590,11 @@ flattenPlanes.addAll(planes)
 }
 override fun onDrawFrame(gl:GL10) {
 if (backgroundModel == null) return // Not initialized yet
+if (toolAccessPreviewObject >= 0 && !Prefs.isAdvancedManufacturingFeatureEnabled(
+        AdvancedManufacturingFeature.TOOL_ACCESSIBILITY_ANALYZER,
+    )) {
+    clearToolAccessibilityPreview()
+}
 val dt = Math.min(System.currentTimeMillis() - lastDraw, 16)
 lastDraw = System.currentTimeMillis()
 // Fetch view matrix once per frame â€” getViewModelMatrix() is lazy/cached in Camera
@@ -1544,6 +1711,38 @@ val baseColor = paintPalette.getOrNull(baseFilament) ?: color
 glModel.setColor(ColorUtils.blendARGB(baseColor, Color.WHITE, if (hovering) 0.4f else 0f))
 glModel.render()
 if (!printerThumbnailCaptureMode) renderModifierVolumes(i, this.model!!, outModelMatrix, left)
+if (!printerThumbnailCaptureMode && i == cncCompensationPreviewObject) {
+    val cncOverlay = cncCompensationPreview
+    if (cncOverlay != null) {
+        glEnable(GL_POLYGON_OFFSET_FILL)
+        glPolygonOffset(-2f, -2f)
+        cncOverlay.setColor(Color.argb(220, 0, 190, 255))
+        cncOverlay.render()
+        glPolygonOffset(0f, 0f)
+        glDisable(GL_POLYGON_OFFSET_FILL)
+    }
+}
+if (!printerThumbnailCaptureMode && i == throughHolePreviewObject) {
+    val holeOverlay = throughHolePreview
+    if (holeOverlay != null) {
+        glEnable(GL_POLYGON_OFFSET_FILL)
+        glPolygonOffset(-2f, -2f)
+        holeOverlay.setColor(Color.argb(235, 255, 168, 40))
+        holeOverlay.render()
+        glPolygonOffset(0f, 0f)
+        glDisable(GL_POLYGON_OFFSET_FILL)
+    }
+}
+if (!printerThumbnailCaptureMode && i == toolAccessPreviewObject) {
+    glEnable(GL_POLYGON_OFFSET_FILL)
+    glPolygonOffset(-2f, -2f)
+    toolAccessOverlays.forEach { overlay ->
+        overlay.model.setColor(Color.argb(230, Color.red(overlay.color), Color.green(overlay.color), Color.blue(overlay.color)))
+        overlay.model.render()
+    }
+    glPolygonOffset(0f, 0f)
+    glDisable(GL_POLYGON_OFFSET_FILL)
+}
 if (!overlays.isEmpty())
 {
 // Painted facets share the object's surface; offset to avoid z-fighting.

@@ -33,6 +33,9 @@ class Native {
     /** Orca regression: plane normals stay perpendicular after nonuniform affine scaling. */
     @JvmStatic
     external fun measure_nonuniform_scale_regression(): DoubleArray
+    /** Runs closed/open/non-manifold/disconnected/degenerate/bad-index and resource-limit fixtures. */
+    @JvmStatic
+    external fun mesh_topology_audit_regression(): IntArray
     @JvmStatic
     external fun arachne_unrepairable_voronoi_regression(): Int
     /** Long, shallow-notched strip regression for outline simplification overflow in Arachne. */
@@ -75,6 +78,9 @@ class Native {
     /** Verifies an almost bed-filling object is not rejected by the default arrange margin. */
     @JvmStatic
     external fun near_bed_size_arrangement_regression(): DoubleArray
+    /** Verifies skirt spacing resolves percentage line widths against nozzle diameter. */
+    @JvmStatic
+    external fun skirt_distance_percent_regression(): DoubleArray
     /** Exercises status-callback replacement from callbacks and concurrent slice progress. */
     @JvmStatic
     external fun print_status_callback_regression(): IntArray
@@ -91,6 +97,8 @@ class Native {
     external fun short_wipe_tower_final_unload_regression(): IntArray
     @JvmStatic
     external fun gcoderesult_get_spiral_vase_override_warning(ptr: Long): String?
+    @JvmStatic
+    external fun gcoderesult_get_sparse_infill_warning(ptr: Long): String?
     @JvmStatic
     external fun gcoderesult_get_seam_marker_count(ptr: Long): Int
 
@@ -251,6 +259,7 @@ class Native {
     external fun glmodel_init_from_model_object_volume(ptr: Long, model: Long, objectIndex: Int, volumeIndex: Int): Unit
     @JvmStatic
     external fun glmodel_init_from_model_object_preview(ptr: Long, model: Long, i: Int, maxTriangles: Int): Unit
+    external fun glmodel_init_from_triangle_vertices(ptr: Long, triangleVertices: FloatArray): Boolean
     @JvmStatic
     external fun glmodel_init_raycast_data(ptr: Long): Boolean
     @JvmStatic
@@ -368,6 +377,17 @@ class Native {
     external fun model_get_triangle_count(ptr: Long, i: Int): Int
     @JvmStatic
     external fun model_get_object_preview_mesh(ptr: Long, objectIndex: Int, maxTriangles: Int): FloatArray
+    /** Exact, read-only model-space triangle vertices for bounded manufacturing analysis. */
+    @JvmStatic
+    external fun model_get_object_triangles_bounded(ptr: Long, objectIndex: Int, maxTriangles: Int): FloatArray
+    /** Read-only CGAL subtraction preview of a cylindrical through-hole. */
+    @JvmStatic
+    external fun model_through_hole_preview_mesh(
+        ptr: Long, objectIndex: Int,
+        originX: Double, originY: Double, originZ: Double,
+        normalX: Double, normalY: Double, normalZ: Double,
+        diameterMm: Double, maxTriangles: Int,
+    ): FloatArray
     @JvmStatic
     external fun model_simplify(ptr: Long, i: Int, keepRatio: Float): Int
     @JvmStatic
@@ -426,6 +446,9 @@ class Native {
     external fun model_create_flatten_planes(ptr: Long, i: Int): LongArray
     @JvmStatic
     external fun model_cut(ptr: Long, i: Int, zHeight: Double, rotX: Double, rotY: Double, keepUpper: Boolean, keepLower: Boolean): Boolean
+    /** Returns upper/lower preview triangle vertices in model space without changing the source model. */
+    @JvmStatic
+    external fun model_cut_preview_mesh(ptr: Long, i: Int, zHeight: Double, rotX: Double, rotY: Double, maxTriangles: Int): Array<FloatArray>
     @JvmStatic
     external fun model_add_connector(ptr: Long, objIdx: Int, x: Double, y: Double, z: Double, radius: Float, height: Float, type: Int): Unit
     @JvmStatic
@@ -500,6 +523,9 @@ class Native {
     external fun model_boolean_objects(ptr: Long, objectIndices: IntArray, op: Int): Int
     @JvmStatic
     external fun model_get_object_volume(ptr: Long, objectIndex: Int): Double
+    /** Read-only indexed-edge audit: [valid, components, closed components, boundary, non-manifold, degenerate, faces]. */
+    @JvmStatic
+    external fun model_audit_object_mesh_topology(ptr: Long, objectIndex: Int): IntArray
     @JvmStatic
     external fun paint_begin(modelPtr: Long, objIdx: Int, mode: Int): Long
     @JvmStatic

@@ -22,6 +22,8 @@ internal fun menuActionArtwork(titleRes: Int, selected: Boolean = false, enabled
         R.string.ModelMenuAlignPrimaryAxes -> R.drawable.cad_an_achsen
         R.string.ModelMenuCombineSelected -> R.drawable.cad_als_teile_verbinden
         R.string.ModelMenuBoolean -> R.drawable.cad_boolesche_funktion
+        R.string.AdvancedFeatureAccessibility -> R.drawable.cad_tools
+        R.string.ToolAccessibilityPreviewClear -> R.drawable.cad_tools
         R.string.ModelMenuFillBed -> R.drawable.cad_druckplatte_fuellen
         R.string.ModelMenuArrange,
         R.string.MenuOrientationArrange -> R.drawable.cad_alle_anordnen

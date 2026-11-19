@@ -1,5 +1,5 @@
 {
-  "de": "OrkanSlicer Nightly 2.5 · 0.8.503\n\n• Neues OrkanSlicer-App-Branding: adaptives Launcher-Icon, passende Android-Splashfarbe und aktualisiertes Setup-Artwork.\n• Feature-Banner und Branding-Vorschau sind jetzt auch auf der GitHub-Projektseite zu sehen.",
-  "en": "OrkanSlicer Nightly 2.5 · 0.8.503\n\n• Updated OrkanSlicer app branding: adaptive launcher icon, matching Android splash color, and refreshed setup artwork.\n• The GitHub project page now features the feature graphic and branding preview.",
-  "ru": "OrkanSlicer Nightly 2.5 · 0.8.503\n\n• Обновлен фирменный стиль приложения OrkanSlicer: адаптивный значок, цвет заставки Android и оформление экрана настройки.\n• На странице GitHub теперь показаны баннер и предварительный просмотр фирменного стиля."
+  "de": "OrkanSlicer Nightly 2.5 · 0.8.508\n\n• Aktualisierte OrcaSlicer-Profile und Sprachen.\n• Filamentzuweisung für Brim und weitere Modell-/Slicing-Verbesserungen mit Regressionstests.",
+  "en": "OrkanSlicer Nightly 2.5 · 0.8.508\n\n• Updated OrcaSlicer profiles and languages.\n• Brim filament assignment and further model/slicing improvements with regression coverage.",
+  "ru": "OrkanSlicer Nightly 2.5 · 0.8.508\n\n• Обновлены профили OrcaSlicer и языковые данные.\n• Назначение филамента для каймы и другие улучшения моделей/нарезки с регрессионными тестами."
 }

@@ -5,6 +5,8 @@
 #include <set>
 #include <algorithm>
 #include <unordered_set>
+#include <unordered_map>
+#include <climits>
 #include <memory>
 #include <mutex>
 #include <atomic>
@@ -120,6 +122,114 @@ struct GLModelRef {
 
 };
 
+struct MeshAuditEdge {
+    size_t first_face;
+    size_t incident_faces = 1;
+};
+
+struct MeshAuditDisjointSet {
+    std::vector<size_t> parent;
+    std::vector<uint8_t> rank;
+
+    explicit MeshAuditDisjointSet(size_t count) : parent(count), rank(count, 0) {
+        for (size_t i = 0; i < count; ++i) parent[i] = i;
+    }
+    size_t find(size_t value) {
+        if (parent[value] != value) parent[value] = find(parent[value]);
+        return parent[value];
+    }
+    void unite(size_t a, size_t b) {
+        a = find(a);
+        b = find(b);
+        if (a == b) return;
+        if (rank[a] < rank[b]) std::swap(a, b);
+        parent[b] = a;
+        if (rank[a] == rank[b]) ++rank[a];
+    }
+};
+
+static constexpr size_t kMaxMeshTopologyAuditFaces = 500'000;
+
+// An indexed-edge audit deliberately does not weld coincident vertices or run a
+// self-intersection test. It provides the conservative topology facts needed to
+// reject unsupported input before a future precision operation.
+static std::array<jint, 8> audit_indexed_mesh_topology(const indexed_triangle_set& mesh) {
+    const size_t face_count = mesh.indices.size();
+    // Bound temporary DSU and edge-map memory on mobile. An over-budget mesh is
+    // reported as unavailable, not as invalid geometry and never blocks slicing.
+    if (face_count > kMaxMeshTopologyAuditFaces) return {0, 0, 0, 0, 0, 0, 0, static_cast<jint>(std::min<size_t>(face_count, INT_MAX))};
+    std::array<jint, 8> result {1, 1, 0, 0, 0, 0, 0, static_cast<jint>(std::min<size_t>(face_count, INT_MAX))};
+    if (face_count == 0) return result;
+
+    MeshAuditDisjointSet components(face_count);
+    std::unordered_map<uint64_t, MeshAuditEdge> edges;
+    if (face_count <= std::numeric_limits<size_t>::max() / 3)
+        edges.reserve(face_count * 3);
+    std::vector<uint8_t> degenerate(face_count, 0);
+
+    const auto add_edge = [&](int first, int second, size_t face) {
+        const uint32_t low = static_cast<uint32_t>(std::min(first, second));
+        const uint32_t high = static_cast<uint32_t>(std::max(first, second));
+        const uint64_t key = (static_cast<uint64_t>(low) << 32) | high;
+        auto [it, inserted] = edges.emplace(key, MeshAuditEdge{face, 1});
+        if (!inserted) {
+            ++it->second.incident_faces;
+            components.unite(face, it->second.first_face);
+        }
+    };
+
+    for (size_t face_index = 0; face_index < face_count; ++face_index) {
+        const auto& face = mesh.indices[face_index];
+        const int a = face[0], b = face[1], c = face[2];
+        if (a < 0 || b < 0 || c < 0 ||
+            static_cast<size_t>(a) >= mesh.vertices.size() ||
+            static_cast<size_t>(b) >= mesh.vertices.size() ||
+            static_cast<size_t>(c) >= mesh.vertices.size()) {
+            result[1] = 0;
+            return result;
+        }
+        const Vec3f& va = mesh.vertices[static_cast<size_t>(a)];
+        const Vec3f& vb = mesh.vertices[static_cast<size_t>(b)];
+        const Vec3f& vc = mesh.vertices[static_cast<size_t>(c)];
+        if (!va.allFinite() || !vb.allFinite() || !vc.allFinite()) {
+            result[1] = 0;
+            return result;
+        }
+        const bool repeated_vertex = a == b || b == c || c == a;
+        const Vec3d cross = (vb.cast<double>() - va.cast<double>()).cross(vc.cast<double>() - va.cast<double>());
+        if (repeated_vertex || !cross.allFinite() || cross.squaredNorm() <= 1e-24) {
+            degenerate[face_index] = 1;
+            ++result[6];
+        }
+        add_edge(a, b, face_index);
+        add_edge(b, c, face_index);
+        add_edge(c, a, face_index);
+    }
+
+    std::vector<uint8_t> root_has_defect(face_count, 0);
+    for (const auto& entry : edges) {
+        const MeshAuditEdge& edge = entry.second;
+        const size_t root = components.find(edge.first_face);
+        if (edge.incident_faces == 1) {
+            ++result[4];
+            root_has_defect[root] = 1;
+        } else if (edge.incident_faces > 2) {
+            ++result[5];
+            root_has_defect[root] = 1;
+        }
+    }
+
+    for (size_t face_index = 0; face_index < face_count; ++face_index) {
+        const size_t root = components.find(face_index);
+        if (root == face_index) ++result[2];
+        if (degenerate[face_index]) root_has_defect[root] = 1;
+    }
+    for (size_t face_index = 0; face_index < face_count; ++face_index) {
+        if (components.find(face_index) == face_index && !root_has_defect[face_index]) ++result[3];
+    }
+    return result;
+}
+
 // Flatten candidate planes are expressed in the flattening coordinate space,
 // while their support mesh is in object space. Undo the instance and flattening
 // transforms before comparing candidate samples against the source surface.
@@ -153,10 +263,13 @@ static bool flatten_candidate_has_surface_support(
             sample(center * (1.0 - fraction) + vertex * fraction);
     }
 
-    // A hull plane may approximate a gently curved printable surface. Keep it if
-    // at least half of its interior samples are supported; this still rejects
-    // planes spanning large concave gaps while exposing useful face targets.
-    return sample_count > 0 && supported_count * 2 >= sample_count;
+    // Hull faces are deliberately broader than the source mesh on organic and
+    // concave models. Requiring half the samples hid most useful placement faces
+    // (especially where the hull spans recessed geometry). Keep candidates with
+    // a meaningful supported patch, while still rejecting planes that are almost
+    // entirely detached from the model.
+    const size_t minimum_supported_samples = std::max<size_t>(3, (sample_count + 3) / 4);
+    return sample_count > 0 && supported_count >= minimum_supported_samples;
 }
 // A paint draft owns one selector and ray tree per model-part volume. A 3MF assembly is a single
 // ModelObject, but every constituent part stores independent facet annotations.
@@ -198,6 +311,7 @@ struct GCodeResultRef {
     GCodeProcessorResult result;
     std::string name;
     std::string spiral_vase_override_warning;
+    std::string sparse_infill_warning;
 };
 struct ConfigRef {
     DynamicPrintConfig config;
@@ -565,13 +679,17 @@ extern "C" {
         const XML_Status status = XML_Parse(parser, xml.data(), static_cast<int>(xml.size()), XML_TRUE);
         const XML_Error error = XML_GetErrorCode(parser);
         XML_ParserFree(parser);
+        const XML_Expat_Version version = XML_ExpatVersionInfo();
 
-        const std::array<jint, 5> values{
+        const std::array<jint, 8> values{
             has_dtd ? 1 : 0,
             maximum_amplification,
             activation_threshold,
             status == XML_STATUS_ERROR ? 1 : 0,
             error == XML_ERROR_AMPLIFICATION_LIMIT_BREACH ? 1 : 0,
+            version.major,
+            version.minor,
+            version.micro,
         };
         jintArray result = env->NewIntArray(static_cast<jsize>(values.size()));
         if (result != nullptr)
@@ -1960,6 +2078,134 @@ extern "C" {
         return result;
     }
 
+    // Exact, merged model-space triangles for bounded manufacturing analysis. Unlike the
+    // thumbnail path above, this must never simplify: callers use the original topology to
+    // decide whether a feature preview is supportable. Returning an empty array means rejected.
+    JNIEXPORT jfloatArray JNICALL Java_ru_ytkab0bp_slicebeam_slic3r_Native_model_1get_1object_1triangles_1bounded(
+            JNIEnv* env, jclass, jlong ptr, jint i, jint max_triangles) {
+        ModelRef* model = reinterpret_cast<ModelRef*>(static_cast<intptr_t>(ptr));
+        if (model == nullptr || i < 0 || static_cast<size_t>(i) >= model->model.objects.size() ||
+            max_triangles < 1 || max_triangles > 50'000) return env->NewFloatArray(0);
+        ModelObject* object = model->model.objects[static_cast<size_t>(i)];
+        if (object == nullptr) return env->NewFloatArray(0);
+        try {
+            // ModelObject::mesh() applies all instance and volume transforms, matching the
+            // object's world/model coordinates used by its exact bounds.
+            const indexed_triangle_set mesh = object->mesh().its;
+            if (mesh.indices.empty() || mesh.indices.size() > static_cast<size_t>(max_triangles) ||
+                mesh.indices.size() > static_cast<size_t>(std::numeric_limits<jsize>::max() / 9))
+                return env->NewFloatArray(0);
+            std::vector<jfloat> vertices;
+            vertices.reserve(mesh.indices.size() * 9);
+            for (const Vec3i32& triangle : mesh.indices) {
+                for (int corner = 0; corner < 3; ++corner) {
+                    const int vertex_index = triangle[corner];
+                    if (vertex_index < 0 || static_cast<size_t>(vertex_index) >= mesh.vertices.size())
+                        return env->NewFloatArray(0);
+                    const Vec3f& point = mesh.vertices[static_cast<size_t>(vertex_index)];
+                    if (!point.allFinite()) return env->NewFloatArray(0);
+                    vertices.push_back(point.x());
+                    vertices.push_back(point.y());
+                    vertices.push_back(point.z());
+                }
+            }
+            jfloatArray result = env->NewFloatArray(static_cast<jsize>(vertices.size()));
+            if (result != nullptr) env->SetFloatArrayRegion(result, 0, static_cast<jsize>(vertices.size()), vertices.data());
+            return result;
+        } catch (const std::exception& error) {
+            __android_log_print(ANDROID_LOG_WARN, TAG, "Bounded geometry analysis mesh rejected: %s", error.what());
+            return env->NewFloatArray(0);
+        }
+    }
+
+    // Create a render-only through-hole mesh. The source ModelObject is never edited; this
+    // deliberately returns only a preview surface, not a printable/exportable replacement.
+    JNIEXPORT jfloatArray JNICALL Java_ru_ytkab0bp_slicebeam_slic3r_Native_model_1through_1hole_1preview_1mesh(
+            JNIEnv* env, jclass, jlong ptr, jint i,
+            jdouble origin_x, jdouble origin_y, jdouble origin_z,
+            jdouble normal_x, jdouble normal_y, jdouble normal_z,
+            jdouble diameter_mm, jint max_triangles) {
+        auto empty_result = [&]() { return env->NewFloatArray(0); };
+        ModelRef* model = reinterpret_cast<ModelRef*>(static_cast<intptr_t>(ptr));
+        if (model == nullptr || i < 0 || static_cast<size_t>(i) >= model->model.objects.size() ||
+            max_triangles < 16 || max_triangles > 4'096 || !std::isfinite(origin_x) ||
+            !std::isfinite(origin_y) || !std::isfinite(origin_z) || !std::isfinite(normal_x) ||
+            !std::isfinite(normal_y) || !std::isfinite(normal_z) || !std::isfinite(diameter_mm) ||
+            diameter_mm < 0.2 || diameter_mm > 500.0) return empty_result();
+        const Vec3d origin(origin_x, origin_y, origin_z);
+        Vec3d normal(normal_x, normal_y, normal_z);
+        const double normal_length = normal.norm();
+        if (!origin.allFinite() || !normal.allFinite() || !std::isfinite(normal_length) ||
+            normal_length < 1e-8 || std::fabs(normal_length - 1.0) > 1e-3) return empty_result();
+        normal /= normal_length;
+        ModelObject* object = model->model.objects[static_cast<size_t>(i)];
+        if (object == nullptr) return empty_result();
+
+        try {
+            TriangleMesh source_mesh = object->mesh();
+            const double diagonal = source_mesh.bounding_box().size().norm();
+            if (source_mesh.its.indices.empty() || source_mesh.its.indices.size() > 10'000 ||
+                !std::isfinite(diagonal) || diagonal <= 0.0) return empty_result();
+            const double source_volume = std::fabs(source_mesh.volume());
+            if (!std::isfinite(source_volume) || source_volume <= 1e-8) return empty_result();
+            const double cutter_length = diagonal * 2.0 + diameter_mm + 2.0;
+            if (!std::isfinite(cutter_length) || cutter_length > 200'002.0) return empty_result();
+
+            TriangleMesh cutter(its_make_cylinder(diameter_mm * 0.5, cutter_length, PI / 18.0));
+            const Eigen::Quaterniond orientation = Eigen::Quaterniond::FromTwoVectors(Vec3d::UnitZ(), normal);
+            Transform3d transform = Transform3d::Identity();
+            transform.linear() = orientation.toRotationMatrix();
+            transform.translation() = origin - normal * (cutter_length * 0.5);
+            cutter.transform(transform);
+
+            auto source = MeshBoolean::cgal::triangle_mesh_to_cgal(source_mesh);
+            auto tool = MeshBoolean::cgal::triangle_mesh_to_cgal(cutter);
+            if (!source || !tool || MeshBoolean::cgal::empty(*source) || MeshBoolean::cgal::empty(*tool) ||
+                !MeshBoolean::cgal::does_bound_a_volume(*source) ||
+                !MeshBoolean::cgal::does_bound_a_volume(*tool) ||
+                MeshBoolean::cgal::does_self_intersect(*source) || MeshBoolean::cgal::does_self_intersect(*tool))
+                return empty_result();
+            MeshBoolean::cgal::minus(*source, *tool);
+            if (MeshBoolean::cgal::empty(*source) || !MeshBoolean::cgal::does_bound_a_volume(*source) ||
+                MeshBoolean::cgal::does_self_intersect(*source)) return empty_result();
+
+            TriangleMesh result_mesh = MeshBoolean::cgal::cgal_to_triangle_mesh(*source);
+            const double result_volume = std::fabs(result_mesh.volume());
+            if (!std::isfinite(result_volume) || result_volume <= 1e-8 ||
+                result_volume >= source_volume - std::max(1e-6, source_volume * 1e-7)) return empty_result();
+            indexed_triangle_set preview = std::move(result_mesh.its);
+            if (preview.indices.empty()) return empty_result();
+            if (preview.indices.size() > static_cast<size_t>(max_triangles))
+                its_quadric_edge_collapse(preview, static_cast<uint32_t>(max_triangles));
+            if (preview.indices.empty() || preview.indices.size() > static_cast<size_t>(max_triangles) ||
+                preview.indices.size() > static_cast<size_t>(std::numeric_limits<jsize>::max() / 9))
+                return empty_result();
+            std::vector<jfloat> vertices;
+            vertices.reserve(preview.indices.size() * 9);
+            for (const Vec3i32& triangle : preview.indices) {
+                for (int corner = 0; corner < 3; ++corner) {
+                    const int vertex_index = triangle[corner];
+                    if (vertex_index < 0 || static_cast<size_t>(vertex_index) >= preview.vertices.size())
+                        return empty_result();
+                    const Vec3f& point = preview.vertices[static_cast<size_t>(vertex_index)];
+                    if (!point.allFinite()) return empty_result();
+                    vertices.push_back(point.x());
+                    vertices.push_back(point.y());
+                    vertices.push_back(point.z());
+                }
+            }
+            jfloatArray result = env->NewFloatArray(static_cast<jsize>(vertices.size()));
+            if (result != nullptr) env->SetFloatArrayRegion(result, 0, static_cast<jsize>(vertices.size()), vertices.data());
+            return result;
+        } catch (const std::exception& error) {
+            __android_log_print(ANDROID_LOG_WARN, TAG, "Through-hole preview rejected: %s", error.what());
+            return empty_result();
+        } catch (...) {
+            __android_log_print(ANDROID_LOG_WARN, TAG, "Through-hole preview rejected with an unknown error");
+            return empty_result();
+        }
+    }
+
     JNIEXPORT jint JNICALL Java_ru_ytkab0bp_slicebeam_slic3r_Native_model_1simplify(JNIEnv* env, jclass, jlong ptr, jint i, jfloat keepRatio) {
         ModelRef* model = (ModelRef *) (intptr_t) ptr;
         if (model == nullptr || i < 0 || static_cast<size_t>(i) >= model->model.objects.size() ||
@@ -2314,6 +2560,71 @@ extern "C" {
         return true;
     }
 
+    // Produce a bounded, read-only planar cut preview. Cut owns a deep model copy, so this
+    // path must never append parts to or otherwise mutate the caller's ModelRef.
+    JNIEXPORT jobjectArray JNICALL Java_ru_ytkab0bp_slicebeam_slic3r_Native_model_1cut_1preview_1mesh(
+            JNIEnv* env, jclass, jlong ptr, jint i, jdouble zHeight, jdouble rotX, jdouble rotY, jint maxTriangles) {
+        jclass floatArrayClass = env->FindClass("[F");
+        if (floatArrayClass == nullptr) return nullptr;
+        jobjectArray result = env->NewObjectArray(2, floatArrayClass, nullptr);
+        if (result == nullptr) return nullptr;
+        ModelRef* modelRef = reinterpret_cast<ModelRef*>(static_cast<intptr_t>(ptr));
+        if (modelRef == nullptr || i < 0 || static_cast<size_t>(i) >= modelRef->model.objects.size() ||
+            modelRef->model.objects[i] == nullptr || !std::isfinite(zHeight) || !std::isfinite(rotX) ||
+            !std::isfinite(rotY) || maxTriangles < 4 || maxTriangles > 100000) return result;
+
+        try {
+            Transform3d cut_matrix = Transform3d::Identity();
+            cut_matrix.translate(Vec3d(0.0, 0.0, zHeight));
+            cut_matrix.rotate(Eigen::AngleAxisd(rotY, Vec3d::UnitY()));
+            cut_matrix.rotate(Eigen::AngleAxisd(rotX, Vec3d::UnitX()));
+            const auto attributes = ModelObjectCutAttribute::KeepUpper | ModelObjectCutAttribute::KeepLower;
+            Cut cut(modelRef->model.objects[i], 0, cut_matrix, attributes);
+            const auto& cut_objects = cut.perform_with_plane();
+            for (size_t side = 0; side < std::min<size_t>(2, cut_objects.size()); ++side) {
+                if (cut_objects[side] == nullptr) continue;
+                indexed_triangle_set mesh = cut_objects[side]->mesh().its;
+                if (mesh.indices.empty()) continue;
+                if (mesh.indices.size() > static_cast<size_t>(maxTriangles))
+                    its_quadric_edge_collapse(mesh, static_cast<uint32_t>(maxTriangles));
+                const size_t floatCount = mesh.indices.size() * 9;
+                if (floatCount > static_cast<size_t>(std::numeric_limits<jsize>::max())) continue;
+                std::vector<jfloat> vertices;
+                vertices.reserve(floatCount);
+                bool validMesh = true;
+                for (const Vec3i32& triangle : mesh.indices) {
+                    for (int corner = 0; corner < 3; ++corner) {
+                        const int vertexIndex = triangle[corner];
+                        if (vertexIndex < 0 || static_cast<size_t>(vertexIndex) >= mesh.vertices.size()) {
+                            validMesh = false;
+                            break;
+                        }
+                        const Vec3f& point = mesh.vertices[vertexIndex];
+                        if (!point.allFinite()) {
+                            validMesh = false;
+                            break;
+                        }
+                        vertices.push_back(point.x());
+                        vertices.push_back(point.y());
+                        vertices.push_back(point.z());
+                    }
+                    if (!validMesh) break;
+                }
+                if (!validMesh || vertices.empty()) continue;
+                jfloatArray sideMesh = env->NewFloatArray(static_cast<jsize>(vertices.size()));
+                if (sideMesh == nullptr) continue;
+                env->SetFloatArrayRegion(sideMesh, 0, static_cast<jsize>(vertices.size()), vertices.data());
+                env->SetObjectArrayElement(result, static_cast<jsize>(side), sideMesh);
+                env->DeleteLocalRef(sideMesh);
+            }
+        } catch (const std::exception& e) {
+            __android_log_print(ANDROID_LOG_WARN, TAG, "Read-only cut preview failed: %s", e.what());
+        } catch (...) {
+            __android_log_print(ANDROID_LOG_WARN, TAG, "Read-only cut preview failed with an unknown error");
+        }
+        return result;
+    }
+
     // Split the selected object into separate objects (by connected mesh parts for a single-volume
     // object, or by volume for a multi-volume assembly). split() appends the new objects to the
     // model and preserves painting; we then drop the original. Returns the number of pieces, or 0
@@ -2648,15 +2959,10 @@ extern "C" {
         const ModelObject* mo = ref->model.objects[i];
         if (mo == nullptr || mo->instances.empty() || mo->instances.front() == nullptr) return empty_result();
         TriangleMesh ch;
-        TriangleMesh source_surface;
         Transform3d real_transform = Geometry::translation_transform(mo->bounding_box_exact().center());
         for (const ModelVolume* vol : mo->volumes) {
             if (vol == nullptr || vol->type() != ModelVolumeType::MODEL_PART || vol->mesh().empty())
                 continue;
-            TriangleMesh source_part = vol->mesh();
-            source_part.transform(vol->get_matrix_no_offset());
-            source_part.transform(real_transform);
-            source_surface.merge(source_part);
             TriangleMesh vol_ch = vol->get_convex_hull();
             if (vol_ch.empty()) continue;
             vol_ch.transform(vol->get_matrix_no_offset());
@@ -2666,17 +2972,25 @@ extern "C" {
         if (ch.empty()) return empty_result();
         ch = ch.convex_hull_3d();
         if (ch.empty()) return empty_result();
-        if (source_surface.empty()) return empty_result();
-        const AABBMesh source_surface_index(source_surface);
 
         std::vector<PlaneData> m_planes;
 
         const Transform3d inst_matrix = mo->instances.front()->get_matrix_no_offset();
 
         // Following constants are used for discarding too small polygons.
-        const float minimal_area = 5.f; // in square mm (world coordinates)
-        const float minimal_side = 1.f; // mm
+        const float minimal_area = 5.f; // SliceBeam threshold, square mm in world coordinates
+        const float minimal_side = 1.f; // SliceBeam threshold, mm
+        // Orca's newer hull generation may triangulate one planar surface with
+        // slightly different float normals. Group by the supporting plane as
+        // well as normal direction so that those triangles remain one useful
+        // face target. The distance bound prevents gradually curved surfaces
+        // from being merged into a misleading large placement face.
+        const double coplanar_normal_cosine = std::cos(0.5 * (double)PI / 180.0);
+        const double coplanar_distance_mm = 0.02;
 
+        // Match SliceBeam: candidate faces come from the convex hull of all model
+        // part hulls. This produces broad placement targets instead of tiny patches
+        // fragmented from curved raw STL triangles.
         const int                num_of_facets  = ch.facets_count();
         const std::vector<Vec3f> face_normals   = its_face_normals(ch.its);
         const std::vector<Vec3i32> face_neighbors = its_face_neighbors(ch.its);
@@ -2698,11 +3012,25 @@ extern "C" {
             if (facet_idx == num_of_facets)
                 break; // Everything was visited already
 
+            const Vec3i32 seed_face = ch.its.indices[facet_idx];
+            const Vec3d seed_normal = face_normals[facet_idx].cast<double>();
+            const Vec3d seed_origin = ch.its.vertices[seed_face[0]].cast<double>();
+
             while (facet_queue_cnt > 0) {
                 int facet_idx = facet_queue[-- facet_queue_cnt];
                 const stl_normal& this_normal = face_normals[facet_idx];
-                if (std::abs(this_normal(0) - (*normal_ptr)(0)) < 0.001 && std::abs(this_normal(1) - (*normal_ptr)(1)) < 0.001 && std::abs(this_normal(2) - (*normal_ptr)(2)) < 0.001) {
-                    const Vec3i32 face = ch.its.indices[facet_idx];
+                bool same_supporting_plane = seed_normal.dot(this_normal.cast<double>()) >= coplanar_normal_cosine;
+                const Vec3i32 face = ch.its.indices[facet_idx];
+                if (same_supporting_plane) {
+                    for (int j = 0; j < 3; ++j) {
+                        const Vec3d vertex = ch.its.vertices[face[j]].cast<double>();
+                        if (std::abs((vertex - seed_origin).dot(seed_normal)) > coplanar_distance_mm) {
+                            same_supporting_plane = false;
+                            break;
+                        }
+                    }
+                }
+                if (same_supporting_plane) {
                     for (int j=0; j<3; ++j)
                         m_planes.back().vertices.emplace_back(ch.its.vertices[face[j]].cast<double>());
 
@@ -2729,12 +3057,6 @@ extern "C" {
 
         // Let's prepare transformation of the normal vector from mesh to instance coordinates.
         const Matrix3d normal_matrix = inst_matrix.matrix().block(0, 0, 3, 3).inverse().transpose();
-        // Scale the tolerance with the object so large meshes can expose broad,
-        // gently curved faces while small parts retain a precise surface check.
-        const double source_diagonal = source_surface.bounding_box().size().norm();
-        const double support_tolerance = std::clamp(source_diagonal * 0.015, 0.75, 3.0);
-        const double max_surface_distance_squared = support_tolerance * support_tolerance;
-
         // Now we'll go through all the polygons, transform the points into xy plane to process them:
         for (unsigned int polygon_id=0; polygon_id < m_planes.size(); ++polygon_id) {
             Pointf3s& polygon = m_planes[polygon_id].vertices;
@@ -2791,14 +3113,8 @@ extern "C" {
                 continue;
             }
 
-            if (!flatten_candidate_has_surface_support(
-                    polygon, m, inst_matrix, source_surface_index, max_surface_distance_squared)) {
-                m_planes[polygon_id--] = std::move(m_planes.back());
-                m_planes.pop_back();
-                continue;
-            }
-
-            // We will shrink the polygon a little bit so it does not touch the object edges:
+            // Match SliceBeam's inset so broad convex-hull faces remain visible as
+            // placement targets on organic and concave models.
             Vec3d centroid = std::accumulate(polygon.begin(), polygon.end(), Vec3d(0.0, 0.0, 0.0));
             centroid /= (double)polygon.size();
             for (auto& vertex : polygon)
@@ -3937,6 +4253,112 @@ extern "C" {
         return (jdouble) ref->model.objects[objectIndex]->get_object_stl_stats().volume;
     }
 
+    JNIEXPORT jintArray JNICALL Java_ru_ytkab0bp_slicebeam_slic3r_Native_model_1audit_1object_1mesh_1topology(
+        JNIEnv* env, jclass, jlong ptr, jint objectIndex) {
+        std::array<jint, 8> result {0, 0, 0, 0, 0, 0, 0, 0};
+        ModelRef* ref = reinterpret_cast<ModelRef*>(static_cast<intptr_t>(ptr));
+        if (ref != nullptr && objectIndex >= 0 && static_cast<size_t>(objectIndex) < ref->model.objects.size()) {
+            try {
+                const ModelObject* object = ref->model.objects[static_cast<size_t>(objectIndex)];
+                if (object != nullptr) {
+                    // Avoid materializing a second merged mesh when the source is already
+                    // above the audit budget. Count only printable model parts, matching
+                    // raw_indexed_triangle_set(), before making that potentially large copy.
+                    size_t part_faces = 0;
+                    bool over_budget = false;
+                    for (const ModelVolume* volume : object->volumes) {
+                        if (volume == nullptr || volume->type() != ModelVolumeType::MODEL_PART) continue;
+                        const size_t count = volume->mesh().facets_count();
+                        if (count > kMaxMeshTopologyAuditFaces - part_faces) {
+                            over_budget = true;
+                            break;
+                        }
+                        part_faces += count;
+                    }
+                    if (over_budget) {
+                        result = {0, 0, 0, 0, 0, 0, 0, static_cast<jint>(kMaxMeshTopologyAuditFaces + 1)};
+                    } else {
+                        result = audit_indexed_mesh_topology(object->raw_indexed_triangle_set());
+                    }
+                }
+            } catch (const std::bad_alloc&) {
+                // An audit is optional analysis. Report invalid/unavailable rather than
+                // allowing memory pressure to affect slicing or model editing.
+            } catch (...) {
+                // Malformed meshes must fail closed and leave the source model untouched.
+            }
+        }
+        jintArray output = env->NewIntArray(static_cast<jsize>(result.size()));
+        if (output != nullptr) env->SetIntArrayRegion(output, 0, static_cast<jsize>(result.size()), result.data());
+        return output;
+    }
+
+    JNIEXPORT jintArray JNICALL Java_ru_ytkab0bp_slicebeam_slic3r_Native_mesh_1topology_1audit_1regression(
+        JNIEnv* env, jclass) {
+        const auto make_cube = [](indexed_triangle_set& mesh, int vertex_offset = 0, float x_offset = 0.f) {
+            const std::array<Vec3f, 8> vertices {
+                Vec3f(0, 0, 0), Vec3f(1, 0, 0), Vec3f(1, 1, 0), Vec3f(0, 1, 0),
+                Vec3f(0, 0, 1), Vec3f(1, 0, 1), Vec3f(1, 1, 1), Vec3f(0, 1, 1),
+            };
+            for (const Vec3f& vertex : vertices) mesh.vertices.emplace_back(vertex + Vec3f(x_offset, 0, 0));
+            const std::array<std::array<int, 3>, 12> faces {{
+                {{0, 2, 1}}, {{0, 3, 2}}, {{4, 5, 6}}, {{4, 6, 7}},
+                {{0, 1, 5}}, {{0, 5, 4}}, {{1, 2, 6}}, {{1, 6, 5}},
+                {{2, 3, 7}}, {{2, 7, 6}}, {{3, 0, 4}}, {{3, 4, 7}},
+            }};
+            for (const auto& face : faces)
+                mesh.indices.emplace_back(face[0] + vertex_offset, face[1] + vertex_offset, face[2] + vertex_offset);
+        };
+
+        indexed_triangle_set cube;
+        make_cube(cube);
+        const auto closed = audit_indexed_mesh_topology(cube);
+
+        indexed_triangle_set open;
+        open.vertices = {Vec3f(0, 0, 0), Vec3f(1, 0, 0), Vec3f(0, 1, 0)};
+        open.indices.emplace_back(0, 1, 2);
+        const auto open_result = audit_indexed_mesh_topology(open);
+
+        indexed_triangle_set non_manifold;
+        non_manifold.vertices = {Vec3f(0, 0, 0), Vec3f(1, 0, 0), Vec3f(0, 1, 0), Vec3f(0, -1, 0), Vec3f(0, 0, 1)};
+        non_manifold.indices.emplace_back(0, 1, 2);
+        non_manifold.indices.emplace_back(1, 0, 3);
+        non_manifold.indices.emplace_back(0, 1, 4);
+        const auto non_manifold_result = audit_indexed_mesh_topology(non_manifold);
+
+        indexed_triangle_set disconnected;
+        make_cube(disconnected, 0, 0.f);
+        make_cube(disconnected, 8, 3.f);
+        const auto disconnected_result = audit_indexed_mesh_topology(disconnected);
+
+        indexed_triangle_set degenerate;
+        degenerate.vertices = {Vec3f(0, 0, 0), Vec3f(1, 0, 0), Vec3f(2, 0, 0)};
+        degenerate.indices.emplace_back(0, 1, 2);
+        const auto degenerate_result = audit_indexed_mesh_topology(degenerate);
+
+        indexed_triangle_set invalid;
+        invalid.vertices = {Vec3f(0, 0, 0), Vec3f(1, 0, 0), Vec3f(0, 1, 0)};
+        invalid.indices.emplace_back(0, 1, 3);
+        const auto invalid_result = audit_indexed_mesh_topology(invalid);
+
+        indexed_triangle_set oversized;
+        oversized.indices.resize(500'001);
+        const auto oversized_result = audit_indexed_mesh_topology(oversized);
+
+        const std::array<jint, 7> passed {
+            closed[0] == 1 && closed[1] == 1 && closed[2] == 1 && closed[3] == 1 && closed[4] == 0 && closed[5] == 0,
+            open_result[0] == 1 && open_result[4] == 3 && open_result[3] == 0,
+            non_manifold_result[0] == 1 && non_manifold_result[5] == 1 && non_manifold_result[3] == 0,
+            disconnected_result[2] == 2 && disconnected_result[3] == 2 && disconnected_result[4] == 0,
+            degenerate_result[6] == 1 && degenerate_result[3] == 0,
+            invalid_result[0] == 1 && invalid_result[1] == 0,
+            oversized_result[0] == 0 && oversized_result[7] == 500'001,
+        };
+        jintArray output = env->NewIntArray(static_cast<jsize>(passed.size()));
+        if (output != nullptr) env->SetIntArrayRegion(output, 0, static_cast<jsize>(passed.size()), passed.data());
+        return output;
+    }
+
     JNIEXPORT jlong JNICALL Java_ru_ytkab0bp_slicebeam_slic3r_Native_model_1slice(JNIEnv* env, jclass, jlong ptr, jstring configPath, jstring path, jobject listener, jint numFilaments, jintArray colorsArr, jint calibMode, jdouble calibStart, jdouble calibEnd, jdouble calibStep, jint calibFilament) {
         try {
             ModelRef* model = (ModelRef*) (intptr_t) ptr;
@@ -3973,6 +4395,24 @@ extern "C" {
             config.load(std::string(chars), ForwardCompatibilitySubstitutionRule::Disable);
             env->ReleaseStringUTFChars(configPath, chars);
             config.normalize_fdm();
+
+            // Keep the physical destination for the calibration's selected logical
+            // filament before mobile multicolor normalization maps virtual filaments
+            // back to nozzle 1 for single-nozzle/MMU printers.
+            int calibrationPhysicalExtruder = std::max(1, (int) calibFilament + 1);
+            int calibrationNozzleCount = 0;
+            if (const auto* nozzleDiameters = dynamic_cast<const ConfigOptionFloats*>(config.option("nozzle_diameter", false)))
+                calibrationNozzleCount = (int) nozzleDiameters->values.size();
+            if (calibrationNozzleCount > 0)
+                calibrationPhysicalExtruder = std::min(calibrationPhysicalExtruder, calibrationNozzleCount);
+            if (calibMode != 0) {
+                if (const auto* filamentMap = dynamic_cast<const ConfigOptionInts*>(config.option("filament_map", false));
+                    filamentMap && calibFilament >= 0 && calibFilament < (int) filamentMap->values.size()) {
+                    const int mappedExtruder = filamentMap->get_at(calibFilament);
+                    if (mappedExtruder > 0 && (calibrationNozzleCount == 0 || mappedExtruder <= calibrationNozzleCount))
+                        calibrationPhysicalExtruder = mappedExtruder;
+                }
+            }
 
             // Legacy bed_temperature keys migrate to hot_plate_temp. When an older profile omits
             // curr_bed_type, keep Orkan's established PEI/high-temperature plate fallback.
@@ -4100,6 +4540,8 @@ extern "C" {
                 // beyond the physical extruder count.
                 {
                     std::vector<int> filamentMap(numFilaments, 1);
+                    if (calibMode != 0 && calibFilament >= 0 && calibFilament < numFilaments)
+                        filamentMap[calibFilament] = calibrationPhysicalExtruder;
                     config.set_key_value("filament_map", new ConfigOptionInts(filamentMap));
                 }
 
@@ -4197,6 +4639,9 @@ extern "C" {
             }
 
             if (calibMode != 0) {
+                // ModelConfig::extruder is the one-based *logical filament* id. Orca's
+                // GCodeWriter then resolves its physical nozzle through filament_map;
+                // assigning the physical nozzle here would select a different filament.
                 const int selectedExtruder = std::max(0, (int) calibFilament) + 1;
                 for (auto* mo : model->model.objects) {
                     calibrationExtruderRestore.set(&mo->config, selectedExtruder);
@@ -4294,6 +4739,8 @@ extern "C" {
                  validation_warning.opt_key == "wall_loops" ||
                  validation_warning.opt_key == "top_shell_layers"))
                 resultRef->spiral_vase_override_warning = validation_warning.string;
+            else if (validation_warning.is_warning && validation_warning.opt_key == "sparse_infill_strategy")
+                resultRef->sparse_infill_warning = validation_warning.string;
             __android_log_print(ANDROID_LOG_WARN, "BeamPaint", "step: exported gcode");
             env->ReleaseStringUTFChars(path, chars);
 
@@ -4372,6 +4819,12 @@ extern "C" {
         GCodeResultRef* ref = (GCodeResultRef*) (intptr_t) ptr;
         if (ref == nullptr || ref->spiral_vase_override_warning.empty()) return nullptr;
         return env->NewStringUTF(ref->spiral_vase_override_warning.c_str());
+    }
+
+    JNIEXPORT jstring JNICALL Java_ru_ytkab0bp_slicebeam_slic3r_Native_gcoderesult_1get_1sparse_1infill_1warning(JNIEnv* env, jclass, jlong ptr) {
+        GCodeResultRef* ref = (GCodeResultRef*) (intptr_t) ptr;
+        if (ref == nullptr || ref->sparse_infill_warning.empty()) return nullptr;
+        return env->NewStringUTF(ref->sparse_infill_warning.c_str());
     }
 
     JNIEXPORT jint JNICALL Java_ru_ytkab0bp_slicebeam_slic3r_Native_gcoderesult_1get_1seam_1marker_1count(JNIEnv*, jclass, jlong ptr) {
@@ -4661,6 +5114,51 @@ extern "C" {
             }
         }
         ref->model.init_from(ref->mesh.its);
+    }
+
+    JNIEXPORT jboolean JNICALL Java_ru_ytkab0bp_slicebeam_slic3r_Native_glmodel_1init_1from_1triangle_1vertices(
+            JNIEnv* env, jclass, jlong ptr, jfloatArray triangle_vertices) {
+        GLModelRef* ref = reinterpret_cast<GLModelRef*>(static_cast<intptr_t>(ptr));
+        if (ref == nullptr || triangle_vertices == nullptr) return JNI_FALSE;
+        const jsize float_count = env->GetArrayLength(triangle_vertices);
+        constexpr jsize floats_per_triangle = 9;
+        constexpr jsize max_triangles = 4096;
+        if (float_count <= 0 || float_count % floats_per_triangle != 0 ||
+            float_count / floats_per_triangle > max_triangles) return JNI_FALSE;
+
+        jfloat* values = env->GetFloatArrayElements(triangle_vertices, nullptr);
+        if (values == nullptr) return JNI_FALSE;
+        GLModel::Geometry geometry;
+        geometry.format = {GLModel::Geometry::EPrimitiveType::Triangles, GLModel::Geometry::EVertexLayout::P3N3};
+        const size_t triangle_count = static_cast<size_t>(float_count / floats_per_triangle);
+        geometry.reserve_vertices(triangle_count * 3);
+        geometry.reserve_indices(triangle_count * 3);
+        bool valid = true;
+        for (size_t triangle = 0; triangle < triangle_count; ++triangle) {
+            const size_t offset = triangle * floats_per_triangle;
+            const Vec3f a(values[offset], values[offset + 1], values[offset + 2]);
+            const Vec3f b(values[offset + 3], values[offset + 4], values[offset + 5]);
+            const Vec3f c(values[offset + 6], values[offset + 7], values[offset + 8]);
+            if (!a.allFinite() || !b.allFinite() || !c.allFinite()) { valid = false; break; }
+            Vec3f normal = (b - a).cross(c - a);
+            const float normal_length = normal.norm();
+            if (!std::isfinite(normal_length) || normal_length <= 1e-8f) { valid = false; break; }
+            normal /= normal_length;
+            const unsigned int base = static_cast<unsigned int>(triangle * 3);
+            geometry.add_vertex(a, normal);
+            geometry.add_vertex(b, normal);
+            geometry.add_vertex(c, normal);
+            geometry.add_triangle(base, base + 1, base + 2);
+        }
+        env->ReleaseFloatArrayElements(triangle_vertices, values, JNI_ABORT);
+        if (!valid) return JNI_FALSE;
+
+        std::lock_guard<std::mutex> lock(ref->picking_mutex);
+        ref->raycast_tree.reset();
+        ref->mesh = TriangleMesh();
+        ref->model.reset();
+        ref->model.init_from(std::move(geometry));
+        return JNI_TRUE;
     }
 
     JNIEXPORT void JNICALL Java_ru_ytkab0bp_slicebeam_slic3r_Native_glmodel_1set_1color(JNIEnv* env, jclass, jlong ptr, jfloat red, jfloat green, jfloat blue, jfloat alpha) {
@@ -5231,20 +5729,12 @@ extern "C" {
                         static_cast<float>(config.opt_int("skirt_loops")) * nozzle_width;
                 }
 
-                arrangement::update_arrange_params(arrange_cfg, &config, input);
-                arrangement::update_selected_items_inflation(input, &config, arrange_cfg);
-                if (selected_object_index >= 0)
-                    arrangement::update_unselected_items_inflation(fixed_objects, &config, arrange_cfg);
-                bed = arrangement::get_shrink_bedpts(&config, arrange_cfg);
-            } else {
-                const coord_t inflation = arrange_cfg.min_obj_distance / 2;
-                for (ArrangePolygon& ap : input)
-                    if (!ap.is_virt_object)
-                        ap.inflation = inflation;
-                for (ArrangePolygon& ap : fixed_objects)
-                    if (!ap.is_virt_object)
-                        ap.inflation = inflation;
             }
+            // Apply Orca's ordered setup for both normal and sequential arrangement. The
+            // inflation calculation must see axis-aligned footprints before measuring how
+            // much room remains; this also gives near-bed-sized parts their available margin.
+            arrangement::update_arrange_items(input, fixed_objects, &config, arrange_cfg);
+            bed = arrangement::get_shrink_bedpts(&config, arrange_cfg);
             // The exclusions argument preloads fixed models and physical geometry into libnest2d.
             // ArrangeParams::excluded_regions alone only informs its alignment scoring.
             ArrangePolygons fixed_geometry = std::move(fixed_objects);
@@ -6463,6 +6953,25 @@ extern "C" {
         }
     }
 
+    // Skirt spacing must resolve FloatOrPercent line widths using the active nozzle.
+    JNIEXPORT jdoubleArray JNICALL Java_ru_ytkab0bp_slicebeam_slic3r_Native_skirt_1distance_1percent_1regression(JNIEnv* env, jclass) {
+        using namespace Slic3r;
+        DynamicPrintConfig config;
+        config.set_key_value("skirt_height", new ConfigOptionInt(1));
+        config.set_key_value("skirt_loops", new ConfigOptionInt(2));
+        config.set_key_value("skirt_distance", new ConfigOptionFloat(1.f));
+        config.set_key_value("nozzle_diameter", new ConfigOptionFloats({0.6f}));
+        config.set_key_value("initial_layer_line_width", new ConfigOptionFloatOrPercent(150.f, true));
+        const double percent_width = get_real_skirt_dist(config);
+        config.set_key_value("initial_layer_line_width", new ConfigOptionFloatOrPercent(0.f, false));
+        config.set_key_value("line_width", new ConfigOptionFloatOrPercent(0.5f, false));
+        const double absolute_width = get_real_skirt_dist(config);
+        const jdouble values[] = {percent_width, absolute_width};
+        jdoubleArray result = env->NewDoubleArray(2);
+        if (result != nullptr) env->SetDoubleArrayRegion(result, 0, 2, values);
+        return result;
+    }
+
     // Exercises Orca's sequential-arrangement edge cases on a deterministic 200 mm bed.
     JNIEXPORT jdoubleArray JNICALL Java_ru_ytkab0bp_slicebeam_slic3r_Native_short_1object_1arrangement_1regression(JNIEnv* env, jclass) {
         using namespace Slic3r;
@@ -6511,10 +7020,8 @@ extern "C" {
             params.clearance_height_to_lid = 16.f;
             params.bed_shrink_x = BED_SHRINK_SEQ_PRINT;
             params.bed_shrink_y = BED_SHRINK_SEQ_PRINT;
-            arrangement::update_arrange_params(params, &config, items);
-            arrangement::update_selected_items_inflation(items, &config, params);
             arrangement::ArrangePolygons fixed;
-            arrangement::update_unselected_items_inflation(fixed, &config, params);
+            arrangement::update_arrange_items(items, fixed, &config, params);
             const Points arrange_bed = arrangement::get_shrink_bedpts(&config, params);
             arrangement::arrange(items, fixed, arrange_bed, params);
         };
@@ -6593,8 +7100,8 @@ extern "C" {
             arrangement::ArrangeParams params;
             params.parallel = false;
             params.progressind = [](unsigned, std::string) {};
-            arrangement::update_arrange_params(params, &config, items);
-            arrangement::update_selected_items_inflation(items, &config, params);
+            arrangement::ArrangePolygons fixed;
+            arrangement::update_arrange_items(items, fixed, &config, params);
             const Points arrange_bed = arrangement::get_shrink_bedpts(&config, params);
             arrangement::arrange(items, arrange_bed, params);
 

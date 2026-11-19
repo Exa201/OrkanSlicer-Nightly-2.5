@@ -2140,10 +2140,17 @@ private fun createWorkspaceContent(ctx: Context, portrait: Boolean): View {
                     toolPanelExpanded = menuToolsExpanded,
                     // One row of four actions stays compact; show a second row only for
                     // menus that actually contain more than four visible commands.
-                    toolPanelNeedsTwoRows = portrait && currentMenuSlot != WorkspaceDestination.PROJECT.ordinal &&
-                        currentMenuSlot != WorkspaceDestination.CAMERA.ordinal,
+                    // Use the controller's selected route for both the rendered menu and
+                    // its reserved height. currentMenuSlot is a legacy field updated after
+                    // the navigation state changes, so it can still describe File during
+                    // the first File -> Model recomposition and leave the action grid clipped.
+                    toolPanelNeedsTwoRows = portrait &&
+                        workspaceController.selectedDestinationSlot != WorkspaceDestination.PROJECT.ordinal &&
+                        workspaceController.selectedDestinationSlot != WorkspaceDestination.CAMERA.ordinal,
                     menuActionCount = workspaceMenuActionCount,
-                    toolPanelAdditionalChromeDp = if (currentMenuSlot == WorkspaceDestination.MODEL.ordinal) {
+                    toolPanelAdditionalChromeDp = if (
+                        workspaceController.selectedDestinationSlot == WorkspaceDestination.MODEL.ordinal
+                    ) {
                         if (ctx.resources.configuration.fontScale >= 1.3f) 72 else 56
                     } else 0,
                     navigationItemCount = WorkspaceDestination.visibleNavigationDestinations.size,

@@ -4767,8 +4767,17 @@ void GCodeProcessor::process_G2_G3(const GCodeReader::GCodeLine& line, bool cloc
                 ret[a] -= prev_position[a];
             }
         }
-        else if (m_e_local_positioning_type == EPositioningType::Relative)
-            ret[E] -= prev_position[E];
+        else {
+            // Arc subdivision points are calculated in the processor's absolute
+            // coordinate space. Convert them back to G-code coordinates before
+            // feeding them through process_G1(), which applies m_origin again.
+            for (unsigned char a = X; a <= Z; ++a)
+                ret[a] -= m_origin[a];
+            if (m_e_local_positioning_type == EPositioningType::Relative)
+                ret[E] -= prev_position[E];
+            else
+                ret[E] -= m_origin[E];
+        }
 
         // if (m_use_volumetric_e)
         //     ret[E] *= area_filament_cross_section;

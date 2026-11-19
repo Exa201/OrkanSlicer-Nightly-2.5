@@ -19,6 +19,10 @@ open class GCodeProcessorResult {
     open fun getSpiralVaseOverrideWarning(): String? =
         if (pointer == 0L) null else Native.gcoderesult_get_spiral_vase_override_warning(pointer)
 
+    /** Orca warning for Crossing sparse infill with excessive multiline intersections. */
+    open fun getSparseInfillWarning(): String? =
+        if (pointer == 0L) null else Native.gcoderesult_get_sparse_infill_warning(pointer)
+
     /** Seam markers parsed from the G-code preview stream. */
     open fun getSeamMarkerCount(): Int = if (pointer == 0L) 0 else Native.gcoderesult_get_seam_marker_count(pointer)
 

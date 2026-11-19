@@ -89,6 +89,30 @@ msgstr[1] "%1${'$'}d Verbinder sind außerhalb der Schnittkontur"
         )
     }
 
+    @Test
+    fun actualKoreanCatalogUsesConsistentOrcaExtruderTerminology() {
+        val fromModule = File("src/main/assets/localization/ko.po")
+        val catalog = if (fromModule.isFile) fromModule else File("app/src/main/assets/localization/ko.po")
+        val localization = catalog.inputStream().use(Slic3rLocalization::fromPo)
+
+        assertEquals("왼쪽 압출기", localization.get("left extruder"))
+        assertEquals("오른쪽 압출기", localization.get("right extruder"))
+        assertEquals("압출기", localization.get("extruder"))
+        assertEquals("%s은(는) %s 압출기에서 지원되지 않습니다.", localization.get("%s is not supported by %s extruder."))
+        assertEquals("습한 PVA는 유연하여 압출기에 끼일 수 있습니다. 사용 전에 건조시키세요.", localization.get("Damp PVA is flexible and may get stuck in extruder. Dry it before use."))
+        assertEquals(
+            "현재 챔버 온도 또는 목표 챔버 온도가 45℃를 초과합니다. 압출기 막힘을 방지하기 위해 저온 필라멘트(PLA/PETG/TPU) 로딩이 허용되지 않습니다.",
+            localization.get("The current chamber temperature or the target chamber temperature exceeds 45℃. In order to avoid extruder clogging, low temperature filament(PLA/PETG/TPU) is not allowed to be loaded."),
+        )
+        assertEquals(
+            "저온 필라멘트(PLA/PETG/TPU)가 압출기에 로드되어 있습니다. 압출기 막힘을 방지하기 위해 챔버 온도 설정이 허용되지 않습니다.",
+            localization.get("Low temperature filament(PLA/PETG/TPU) is loaded in the extruder. In order to avoid extruder clogging, it is not allowed to set the chamber temperature."),
+        )
+        assertEquals("현재 압출기가 필라멘트 교체 중입니다.", localization.get("Current extruder is busy changing filament."))
+        assertEquals("프린터 압출기 수.", localization.get("Number of extruders of the printer."))
+        assertEquals("압출기 수", localization.get("Extruder count"))
+    }
+
     private fun parse(po: String): Slic3rLocalization = Slic3rLocalization.fromPo(
         ByteArrayInputStream(po.toByteArray(StandardCharsets.UTF_8))
     )

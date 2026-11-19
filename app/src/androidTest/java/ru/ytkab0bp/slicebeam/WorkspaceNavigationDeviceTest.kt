@@ -59,8 +59,10 @@ class WorkspaceNavigationDeviceTest {
         Prefs.setLastCommit()
         val config = context.assets.open("orca_profiles/Anycubic.ini").use { Slic3rConfigWrapper(it) }
         val printer = requireNotNull(config.findPrinter("Anycubic Kobra 3 0.4 nozzle"))
-        val process = requireNotNull(config.findPrint("0.16mm Standard"))
-        val filament = requireNotNull(config.findFilament("Anycubic Generic PLA"))
+        // The bundled Orca catalog can rename/scope default presets between upstream
+        // snapshots; navigation coverage only needs any valid profile, not that label.
+        val process = requireNotNull(config.printConfigs.firstOrNull())
+        val filament = requireNotNull(config.filamentConfigs.firstOrNull())
         config.presets = ConfigObject("presets").apply {
             put("printer", printer.title)
             put("print", process.title)

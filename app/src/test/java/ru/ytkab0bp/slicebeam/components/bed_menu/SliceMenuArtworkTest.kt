@@ -6,6 +6,12 @@ import ru.ytkab0bp.slicebeam.R
 
 class SliceMenuArtworkTest {
     @Test
+    fun accessibilityAnalyzerAndClearUseConsistentManufacturingArtwork() {
+        assertEquals(R.drawable.cad_tools, menuActionArtwork(R.string.AdvancedFeatureAccessibility))
+        assertEquals(R.drawable.cad_tools, menuActionArtwork(R.string.ToolAccessibilityPreviewClear))
+    }
+
+    @Test
     fun suppliedArtworkIsMappedToTheExistingSliceActionsAndStates() {
         val actions = listOf(
             R.string.MenuSliceInfo to Triple(R.drawable.ic_print_info, R.drawable.ic_print_info_active, R.drawable.ic_print_info_disabled),

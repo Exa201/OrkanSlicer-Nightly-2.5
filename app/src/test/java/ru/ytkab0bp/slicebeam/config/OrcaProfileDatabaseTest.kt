@@ -20,7 +20,7 @@ class OrcaProfileDatabaseTest {
         val version = File(profilesDirectory, "UPSTREAM_VERSION.txt").readText().trim()
         val files = profilesDirectory.listFiles { file -> file.extension == "ini" }.orEmpty()
 
-        assertEquals("OrcaSlicer profiles main @ 07f38df2a4fd3439cffbf991ee41ee99ec71fbee", version)
+        assertEquals("OrcaSlicer profiles main @ 0c80c412a1fd3236f1e753433c29d5050683da6b", version)
         assertTrue("Expected the full Orca vendor catalog", files.size >= 70)
 
         var printerCount = 0
@@ -52,6 +52,25 @@ class OrcaProfileDatabaseTest {
             })
         assertTrue("Expected current printer catalog", printerCount >= 1200)
         assertTrue("Expected current print and filament presets", processCount + filamentCount >= 10_000)
+    }
+
+    @Test
+    fun prusaCoreOneOverhangSpeedsUseOrcaSeveritySlots() {
+        val profilesDirectory = listOf(
+            File("src/main/assets/orca_profiles"),
+            File("app/src/main/assets/orca_profiles"),
+        ).firstOrNull { it.isDirectory } ?: error("Bundled Orca profile database is missing")
+        val prusa = Slic3rConfigWrapper(File(profilesDirectory, "Prusa.ini"))
+
+        val speed04 = checkNotNull(prusa.findPrint("0.15mm SPEED @CORE One 0.4"))
+        assertEquals("50", speed04["overhang_2_4_speed"])
+        assertEquals("25", speed04["overhang_3_4_speed"])
+
+        val speed06 = checkNotNull(prusa.findPrint("0.20mm SPEED @CORE One 0.6"))
+        assertEquals("70%", speed06["overhang_1_4_speed"])
+        assertEquals("30", speed06["overhang_2_4_speed"])
+        assertEquals("25", speed06["overhang_3_4_speed"])
+        assertEquals("15", speed06["overhang_4_4_speed"])
     }
 
     @Test

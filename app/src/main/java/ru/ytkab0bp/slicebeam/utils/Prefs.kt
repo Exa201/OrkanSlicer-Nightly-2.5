@@ -10,6 +10,11 @@ import ru.ytkab0bp.slicebeam.R
 import ru.ytkab0bp.slicebeam.SetupActivity
 import ru.ytkab0bp.slicebeam.config.TemporaryProjectSettings
 import ru.ytkab0bp.slicebeam.render.DevicePerformancePolicy
+import ru.ytkab0bp.slicebeam.manufacturing.AdvancedManufacturingFeature
+import ru.ytkab0bp.slicebeam.manufacturing.AdvancedManufacturingFeaturePreferences
+import ru.ytkab0bp.slicebeam.manufacturing.CncFitCalibration
+import ru.ytkab0bp.slicebeam.manufacturing.CncFitCalibrationStore
+import ru.ytkab0bp.slicebeam.manufacturing.ManufacturingFeatureCommandRegistry
 
 /** Shared preference access for the Android app and its Java-based host integrations. */
 open class Prefs {
@@ -424,6 +429,50 @@ open class Prefs {
         @JvmStatic
         fun setTranslucentFilamentPreviewEnabled(enabled: Boolean) {
             requirePrefs().edit().putBoolean("preview_translucent_filaments", enabled).apply()
+        }
+
+        /** New manufacturing features are isolated, local, and off unless explicitly enabled. */
+        @JvmStatic
+        fun isAdvancedManufacturingFeatureEnabled(feature: AdvancedManufacturingFeature): Boolean =
+            AdvancedManufacturingFeaturePreferences.isEnabled(feature) { key, defaultValue ->
+                requirePrefs().getBoolean(key, defaultValue)
+            }
+
+        /** True only when a feature is opted in and its implementation is ready to run. */
+        @JvmStatic
+        fun isAdvancedManufacturingFeatureRunnable(feature: AdvancedManufacturingFeature): Boolean =
+            ManufacturingFeatureCommandRegistry.availability(
+                feature = feature,
+                enabled = isAdvancedManufacturingFeatureEnabled(feature),
+            ) == ru.ytkab0bp.slicebeam.manufacturing.ManufacturingFeatureAvailability.READY
+
+        @JvmStatic
+        fun setAdvancedManufacturingFeatureEnabled(feature: AdvancedManufacturingFeature, enabled: Boolean) {
+            AdvancedManufacturingFeaturePreferences.setEnabled(feature, enabled) { key, value ->
+                requirePrefs().edit().putBoolean(key, value).apply()
+            }
+        }
+
+        /** Return only an explicitly stored measurement; there is no implicit calibration. */
+        @JvmStatic
+        fun getCncFitCalibration(printerId: String, nozzleDiameterMm: Double, materialId: String): CncFitCalibration? =
+            CncFitCalibrationStore.get(printerId, nozzleDiameterMm, materialId) { key ->
+                requirePrefs().getString(key, null)
+            }
+
+        /** Persist a user measured calibration scoped to printer, nozzle, and material. */
+        @JvmStatic
+        fun setCncFitCalibration(calibration: CncFitCalibration) {
+            CncFitCalibrationStore.put(calibration) { key, value ->
+                requirePrefs().edit().putString(key, value).apply()
+            }
+        }
+
+        @JvmStatic
+        fun removeCncFitCalibration(printerId: String, nozzleDiameterMm: Double, materialId: String) {
+            CncFitCalibrationStore.remove(printerId, nozzleDiameterMm, materialId) { key ->
+                requirePrefs().edit().remove(key).apply()
+            }
         }
     }
 

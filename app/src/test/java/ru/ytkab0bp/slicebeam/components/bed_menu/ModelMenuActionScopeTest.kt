@@ -60,6 +60,8 @@ class ModelMenuActionScopeTest {
             R.string.ModelMenuDistributeSelected,
             R.string.ModelMenuCombineSelected,
             R.string.ModelMenuBoolean,
+            R.string.AdvancedFeatureAccessibility,
+            R.string.ToolAccessibilityPreviewClear,
         ).forEach { assertTrue("$it operates on the current selection", ModelMenuActionScope.isSelectionScoped(it)) }
     }
 }

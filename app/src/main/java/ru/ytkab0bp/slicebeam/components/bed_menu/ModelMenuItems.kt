@@ -6,6 +6,7 @@ import ru.ytkab0bp.slicebeam.SliceBeam
 import ru.ytkab0bp.slicebeam.events.NeedSnackbarEvent
 import ru.ytkab0bp.slicebeam.fragment.BedFragment
 import ru.ytkab0bp.slicebeam.utils.ViewUtils
+import ru.ytkab0bp.slicebeam.utils.Prefs
 import ru.ytkab0bp.slicebeam.slic3r.BooleanOperation
 import ru.ytkab0bp.slicebeam.render.ModelAlignmentAxis
 import ru.ytkab0bp.slicebeam.render.ModelAlignmentCoordinateSystem
@@ -15,6 +16,12 @@ import ru.ytkab0bp.slicebeam.render.MODEL_EDIT_SURFACE_NEEDS_SIMPLIFICATION
 import ru.ytkab0bp.slicebeam.render.MODEL_EDIT_OPERATION_FAILED
 import ru.ytkab0bp.slicebeam.render.MODEL_EDIT_ROLLBACK_FAILED
 import ru.ytkab0bp.slicebeam.slic3r.ObjectDistributionAxis
+import ru.ytkab0bp.slicebeam.manufacturing.AccessibilityToolShape
+import ru.ytkab0bp.slicebeam.manufacturing.ToolAccessibilityAnalyzer
+import ru.ytkab0bp.slicebeam.manufacturing.ToolAccessibilityOverlayBuilder
+import ru.ytkab0bp.slicebeam.manufacturing.ToolAccessibilityRequest
+import ru.ytkab0bp.slicebeam.manufacturing.ToolAccessRegionStatus
+import java.util.concurrent.Executors
 
 /** Model selection, placement and object operations; geometry editing stays in TransformMenuItems. */
 internal class ModelMenuItems(
@@ -22,11 +29,24 @@ internal class ModelMenuItems(
     private val onItemsChanged: () -> Unit,
 ) {
     private var flattenEnabled = false
+    private var accessibilityPreviewObjectIndex: Int? = null
+    private var accessibilityPreviewGeneration = 0L
     private val selectionObserver = ModelMenuSelectionObserver(fragment, onItemsChanged)
 
     /** Selection and model metadata are owned by GLRenderer and must be sampled on its thread. */
     fun invalidateSelectionState() {
+        accessibilityPreviewGeneration++
         selectionObserver.invalidate()
+        val previewObject = accessibilityPreviewObjectIndex ?: return
+        accessibilityPreviewObjectIndex = null
+        fragment.glView?.let { view ->
+            view.queueEvent {
+                if (view.renderer.toolAccessibilityPreviewObjectIndex() == previewObject) {
+                    view.renderer.clearToolAccessibilityPreview()
+                    view.requestRender()
+                }
+            }
+        }
     }
 
     fun createItems(): List<BedComposeMenuAction> {
@@ -139,6 +159,18 @@ internal class ModelMenuItems(
             BedComposeMenuAction(R.string.ModelMenuBoolean, R.drawable.vk_cube_box_outline_24, { anchor ->
                 showBooleanDialog(anchor)
             }, enabled = selectedCount >= 2),
+            if (accessibilityPreviewObjectIndex == currentSelection.selectedObject) {
+                BedComposeMenuAction(R.string.ToolAccessibilityPreviewClear, R.drawable.vk_scan_viewfinder_outline_24, {
+                    clearToolAccessibilityPreview()
+                }, enabled = true)
+            } else {
+                BedComposeMenuAction(R.string.AdvancedFeatureAccessibility, R.drawable.vk_scan_viewfinder_outline_24, { anchor ->
+                    showToolAccessibilityDialog(anchor)
+                }, enabled = availability.hasSelectedObject &&
+                    ru.ytkab0bp.slicebeam.utils.Prefs.isAdvancedManufacturingFeatureEnabled(
+                        ru.ytkab0bp.slicebeam.manufacturing.AdvancedManufacturingFeature.TOOL_ACCESSIBILITY_ANALYZER,
+                    ))
+            },
             BedComposeMenuAction(R.string.ModelMenuFillBed, R.drawable.picture_stack_outline_28, { anchor ->
                 fragment.glView!!.fillBedWithSelectedModel { addedCopies ->
                     // A concurrent Arrange invalidates an in-flight copy trial. Its old
@@ -473,6 +505,171 @@ internal class ModelMenuItems(
         }
     }
 
+    /**
+     * Opt-in preview of vertical/side approach centerline visibility. Cutter radius, holder and
+     * machine collisions are intentionally not inferred or presented as checked by this preview.
+     */
+    private fun showToolAccessibilityDialog(anchor: android.view.View) {
+        val glView = fragment.glView ?: return
+        val directions = listOf(
+            R.string.ToolAccessibilityDirectionTop to doubleArrayOf(0.0, 0.0, 1.0),
+            R.string.ToolAccessibilityDirectionBottom to doubleArrayOf(0.0, 0.0, -1.0),
+            R.string.ToolAccessibilityDirectionFront to doubleArrayOf(0.0, 1.0, 0.0),
+            R.string.ToolAccessibilityDirectionBack to doubleArrayOf(0.0, -1.0, 0.0),
+            R.string.ToolAccessibilityDirectionRight to doubleArrayOf(1.0, 0.0, 0.0),
+            R.string.ToolAccessibilityDirectionLeft to doubleArrayOf(-1.0, 0.0, 0.0),
+        )
+        val labels = directions.map { anchor.context.getString(it.first) } +
+            anchor.context.getString(R.string.ToolAccessibilityDirectionAll)
+        val hint = anchor.context.getString(R.string.ToolAccessibilityPreviewDisclaimer)
+        fragment.showWorkspaceComposeDialog { dismiss ->
+            ModelChoiceDialog(
+                title = anchor.context.getString(R.string.AdvancedFeatureAccessibility),
+                cancelLabel = anchor.context.getString(android.R.string.cancel),
+                choices = labels,
+                hint = hint,
+                onDismiss = dismiss,
+                onSelect = { directionIndex ->
+                    dismiss()
+                    if (!ru.ytkab0bp.slicebeam.utils.Prefs.isAdvancedManufacturingFeatureEnabled(
+                            ru.ytkab0bp.slicebeam.manufacturing.AdvancedManufacturingFeature.TOOL_ACCESSIBILITY_ANALYZER,
+                        )
+                    ) {
+                        SliceBeam.EVENT_BUS.fireEvent(NeedSnackbarEvent(R.string.AdvancedFeatureDisabled))
+                        return@ModelChoiceDialog
+                    }
+                    val allDirections = directionIndex == directions.size
+                    val direction = if (allDirections) doubleArrayOf(0.0, 0.0, 1.0)
+                    else directions.getOrNull(directionIndex)?.second ?: return@ModelChoiceDialog
+                    val requestGeneration = ++accessibilityPreviewGeneration
+                    accessibilityPreviewObjectIndex = null
+                    onItemsChanged()
+                    glView.queueEvent {
+                        val renderer = glView.renderer
+                        if (!ru.ytkab0bp.slicebeam.utils.Prefs.isAdvancedManufacturingFeatureEnabled(
+                                ru.ytkab0bp.slicebeam.manufacturing.AdvancedManufacturingFeature.TOOL_ACCESSIBILITY_ANALYZER,
+                            )
+                        ) return@queueEvent
+                        val snapshot = renderer.captureSelectionSnapshot() ?: return@queueEvent
+                        renderer.clearToolAccessibilityPreview()
+                        ViewUtils.postOnMainThread {
+                            accessibilityPreviewObjectIndex = null
+                            onItemsChanged()
+                        }
+                        val model = snapshot.model
+                        val objectIndex = snapshot.primaryObject
+                        val stateRevision = model.stateRevision
+                        val triangles = model.getObjectTrianglesForAnalysis(objectIndex, maxTriangles = 4_096)
+                        if (triangles.isEmpty()) {
+                            ViewUtils.postOnMainThread {
+                                SliceBeam.EVENT_BUS.fireEvent(NeedSnackbarEvent(R.string.ToolAccessibilityPreviewUnavailable))
+                            }
+                            return@queueEvent
+                        }
+                        ACCESSIBILITY_ANALYSIS_EXECUTOR.execute {
+                            val request = ToolAccessibilityRequest(
+                                shape = AccessibilityToolShape.FLAT_END_MILL,
+                                radiusMm = 0.5,
+                                reachMm = 20.0,
+                                approachX = direction[0],
+                                approachY = direction[1],
+                                approachZ = direction[2],
+                                sampleSpacingMm = 1.0,
+                            )
+                            val result = if (allDirections) {
+                                ToolAccessibilityAnalyzer.analyzeAllApproaches(triangles, request)
+                            } else {
+                                ToolAccessibilityAnalyzer.analyze(triangles, request)
+                            }
+                            val samples = when (result) {
+                                is ru.ytkab0bp.slicebeam.manufacturing.ToolAccessibilityMultiApproachAnalysisResult -> result.samples
+                                is ru.ytkab0bp.slicebeam.manufacturing.ToolAccessibilityAnalysisResult -> result.samples
+                                else -> emptyList()
+                            }
+                            val classification = when (result) {
+                                is ru.ytkab0bp.slicebeam.manufacturing.ToolAccessibilityMultiApproachAnalysisResult -> result.classification
+                                is ru.ytkab0bp.slicebeam.manufacturing.ToolAccessibilityAnalysisResult -> result.classification
+                                else -> null
+                            }
+                            val available = when (result) {
+                                is ru.ytkab0bp.slicebeam.manufacturing.ToolAccessibilityMultiApproachAnalysisResult -> result.isAvailable
+                                is ru.ytkab0bp.slicebeam.manufacturing.ToolAccessibilityAnalysisResult -> result.isAvailable
+                                else -> false
+                            }
+                            if (!available) {
+                                ViewUtils.postOnMainThread {
+                                    SliceBeam.EVENT_BUS.fireEvent(NeedSnackbarEvent(R.string.ToolAccessibilityPreviewUnavailable))
+                                }
+                                return@execute
+                            }
+                            val overlay = classification?.let {
+                                ToolAccessibilityOverlayBuilder.build(samples, it, markerRadiusMm = 0.35)
+                            }
+                            ViewUtils.postOnMainThread {
+                                if (requestGeneration != accessibilityPreviewGeneration) return@postOnMainThread
+                                glView.queueEvent {
+                                    val currentRenderer = glView.renderer
+                                    if (!currentRenderer.isSelectionSnapshotCurrent(snapshot) ||
+                                        model.stateRevision != stateRevision
+                                    ) return@queueEvent
+                                    val installed = overlay != null &&
+                                        currentRenderer.setToolAccessibilityPreview(objectIndex, overlay, requestGeneration)
+                                    ViewUtils.postOnMainThread {
+                                        if (requestGeneration == accessibilityPreviewGeneration && installed) {
+                                            accessibilityPreviewObjectIndex = objectIndex
+                                            onItemsChanged()
+                                        } else {
+                                            glView.queueEvent {
+                                                glView.renderer.clearToolAccessibilityPreviewIfGeneration(
+                                                    objectIndex,
+                                                    requestGeneration,
+                                                )
+                                            }
+                                        }
+                                    }
+                                    val counts = classification?.regions.orEmpty().groupingBy { it.status }.eachCount()
+                                    val summaryRes = if (allDirections) {
+                                        val candidates = (result as? ru.ytkab0bp.slicebeam.manufacturing.ToolAccessibilityMultiApproachAnalysisResult)
+                                            ?.pocketCandidates?.sampleStatuses
+                                            ?.count { it == ru.ytkab0bp.slicebeam.manufacturing.PocketSampleStatus.OCCLUDED_IN_TESTED_DIRECTIONS }
+                                            ?: 0
+                                        R.string.ToolAccessibilityPocketCandidateSummary to candidates
+                                    } else {
+                                        R.string.ToolAccessibilityPreviewSummary to intArrayOf(
+                                            counts[ToolAccessRegionStatus.ACCESSIBLE] ?: 0,
+                                            counts[ToolAccessRegionStatus.CONSTRAINED] ?: 0,
+                                            counts[ToolAccessRegionStatus.BLOCKED] ?: 0,
+                                        )
+                                    }
+                                    ViewUtils.postOnMainThread {
+                                        if (requestGeneration != accessibilityPreviewGeneration) return@postOnMainThread
+                                        val message = when (val values = summaryRes.second) {
+                                            is Int -> anchor.context.getString(summaryRes.first, values)
+                                            is IntArray -> anchor.context.getString(summaryRes.first, *values.toTypedArray())
+                                            else -> return@postOnMainThread
+                                        }
+                                        SliceBeam.EVENT_BUS.fireEvent(NeedSnackbarEvent(message))
+                                    }
+                                }
+                            }
+                        }
+                    }
+                },
+            )
+        }
+    }
+
+    private fun clearToolAccessibilityPreview() {
+        val view = fragment.glView ?: return
+        accessibilityPreviewGeneration++
+        accessibilityPreviewObjectIndex = null
+        onItemsChanged()
+        view.queueEvent {
+            view.renderer.clearToolAccessibilityPreview()
+            view.requestRender()
+        }
+    }
+
     private fun showObjectProcessSettingsDialog(anchor: android.view.View) {
         val activeGlView = fragment.glView ?: return
         activeGlView.queueEvent {
@@ -482,7 +679,7 @@ internal class ModelMenuItems(
             val objectIndex = snapshot.primaryObject
             if (objectIndex !in 0 until model.objectsCount) return@queueEvent
             val revision = model.stateRevision
-            val values = listOf("wall_loops", "sparse_infill_density", "top_shell_layers", "sparse_infill_pattern", "enable_support", "support_type", "top_surface_pattern", "bottom_surface_pattern", "seam_position", "raft_layers")
+            val values = listOf("wall_loops", "sparse_infill_density", "top_shell_layers", "sparse_infill_pattern", "enable_support", "support_type", "top_surface_pattern", "bottom_surface_pattern", "seam_position", "raft_layers", "brim_filament_id")
                 .associateWith { model.getObjectConfigOption(objectIndex, it).orEmpty() }
             val name = model.getObjectName(objectIndex)
                     ?: anchor.context.getString(R.string.MenuFileObjectNumber, (objectIndex + 1).toString())
@@ -492,6 +689,7 @@ internal class ModelMenuItems(
                     ModelObjectProcessOverridesDialog(
                         objectName = name,
                         initialValues = values,
+                        brimFilamentOptions = ModelObjectBrimFilamentPolicy.options(Prefs.getFilamentSlots().map { it.type.orEmpty() }),
                         onDismiss = dismiss,
                         onApply = { overrides ->
                             dismiss()
@@ -696,6 +894,12 @@ internal class ModelMenuItems(
                     )
                 }
             }
+        }
+    }
+
+    private companion object {
+        val ACCESSIBILITY_ANALYSIS_EXECUTOR = Executors.newSingleThreadExecutor { runnable ->
+            Thread(runnable, "ToolAccessibilityAnalysis").apply { isDaemon = true }
         }
     }
 }

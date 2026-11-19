@@ -69,6 +69,13 @@ open class GLModel internal constructor(
         Native.glmodel_init_from_model_object_preview(pointer, model.pointer, i, maxTriangles)
     }
 
+    /** Initializes a bounded, transient overlay mesh from triangle-list xyz coordinates. */
+    @Synchronized
+    open fun initFromTriangleVertices(triangles: FloatArray): Boolean {
+        clearPicking()
+        return Native.glmodel_init_from_triangle_vertices(pointer, triangles)
+    }
+
     private fun updatePickBounds(
         model: Model,
         i: Int,

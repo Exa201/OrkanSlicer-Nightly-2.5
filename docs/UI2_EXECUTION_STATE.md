@@ -1,3 +1,57 @@
+# Orca-Nightly-Upgrade — aktueller Stand 2026-11-19
+
+- Arbeitscheckout: `OrkanSlicer-Nightly-2.5-current`, Branch `codex/advanced-manufacturing`, Code-HEAD `37e8e4fbeff4953c923e34ff70d258b0cd81b278`.
+- Orca-Upstream wurde frisch geholt: `4f71398a0fc9719aeda72cc6a32997f304ca9da9`. Upgrade-Plan steht auf **65/100**; Schritt 65 portiert zehn koreanische Extruder-Übersetzungen und hat einen gezielten Katalogtest ohne Fehler bestanden.
+- Debug-Unit-Regression `Slic3rLocalizationTest#actualKoreanCatalogUsesConsistentOrcaExtruderTerminology`: 1 Test, 0 Fehler, 0 übersprungen. Kein Slice-/Native-Verhalten geändert; deshalb keine Instrumentierungs- oder Hardwareprüfung behauptet.
+- Kein APK/Release oder Push: vereinbartes Erstellungs-/Upload-Gate bleibt 100/100. Nächster Schritt: weitere fehlende Android-erreichbare Orca-Funktion mit Regression auditieren.
+
+# Hardware-Nachprüfung — Xiaomi 13 — 2026-11-19
+
+- Der Nutzer hat die Installation freigegeben. Installiert und gestartet wurde ausschließlich die Nightly-App aus diesem Checkout (`codex/advanced-manufacturing`, HEAD `37e8e4fbeff4953c923e34ff70d258b0cd81b278`), Version **0.8.507 / Code 542**. Der aus dem Xiaomi-Paket gezogene APK-Hash stimmt exakt mit der lokalen Nightly-APK überein: `7C9BFC52219DEE5840AB4118605B2EA5CA6B8D07F0F9D9440EBD9C77A9F9D50F`. Stable wurde nicht installiert.
+- Xiaomi 13 (2211133G, Android 16) wurde mit der bereitgestellten `1000017905.stl` geprüft. Nach Auswahl des Modells und Öffnen des tatsächlichen Menüpunktes **Flach hinlegen** erscheinen die Flächenkandidaten; nach Auswahl einer breiten Fläche änderte sich die Modellrotation sichtbar. Screenshots: `artifacts/xiaomi-flatten-mode-active.png` und `artifacts/xiaomi-flatten-face-applied.png`. Es wurde kein Slice gesendet und kein Druck gestartet.
+- Test-APK und Instrumentierungs-APK wurden frisch aus dem aktuellen Nightly-Quellstand erstellt. API-36-Emulator: `InitialProjectMenuDeviceTest#flatteningAnAngledFaceIsUndoableAndRedoable`, `NativeSliceDeviceTest#flattenFaceCandidatesUseBroadSliceBeamHullFaces` und `NativeSliceDeviceTest#flattenFaceCandidatesExposeTargetsOnHonorDragonFixture` bestanden **3/3**. Der Broad-Hull-Test prüft die Kandidatenabdeckung; die UI-Regression prüft Drehung, Rückgängig/Wiederholen und Auflage der ausgewählten Fläche.
+- Auf dem Xiaomi nach Import/Flächenwahl kein FATAL, ANR oder OOM im erfassten Logcat. Die Xiaomi-Prüfung war eine manuelle UI-/Sichtprüfung; die numerische Geometrieabnahme stammt aus dem frischen API-36-Testlauf. Orca-Upstream-Zähler bleibt **64/100**; kein neuer Kern-Port in dieser Prüfung gezählt.
+- Der Gerätescreen wurde anschließend wieder auf normalen Wachmodus zurückgestellt. Nächster konkreter Schritt des Orca-Plans: nächste fehlende, Android-erreichbare Upstream-Funktion auswählen und mit einer aktuellen Regression verifizieren.
+
+# Orca Nightly-Upgrades — Fortsetzung 2026-11-18
+
+## Aktueller Arbeitsstand — Orca-Schritt 64/100 — 2026-11-18
+
+- Der aktuelle Orca-Nightly-Fix ergänzt `Print::validate()` um den fehlenden Crossing-Sparse-Infill-Sicherheitshinweis und führt ihn bis zum Dialog vor dem Druckersenden.
+- Echte Slice-Regression `NativeSliceDeviceTest#crossingSparseInfillWarnsBeforePrinterSend`: API-36-Emulator **1/1 bestanden**; G-Code wurde mit Extrusion erzeugt und der Warntext identifiziert das Objekt.
+- Der Testlauf erreichte auch Xiaomi, aber Android blockierte dort die Testinstallation (`INSTALL_FAILED_USER_RESTRICTED`). Honor ist derzeit nicht in ADB sichtbar. Kein Honor-Test und keine Installation behauptet.
+- Änderungen umfassen `Print.cpp`, JNI-Ergebnisweitergabe, Kotlin-Slice-Ergebnis/Dialog sowie die neue Nightly-Instrumentierungsregression. Der aktuelle Stand ist noch nicht APK-/Release-verifiziert.
+- Orca-/Core-Zähler: **64/100**. Kein APK-Build bis zum bestehenden 100/100-Gate. Nächste konkrete Aktion: nächste Android-relevante Orca-Änderung gegen den Nightly-Aufrufpfad abgleichen und eine reproduzierbare Regression wählen.
+
+## Aktuelle Fortsetzung — Layerkühlung und G2/G3 nach G92 — 2026-11-18
+
+- Die zuvor unten protokollierten fehlgeschlagenen Cooling-Läufe sind durch die nachfolgende Ursachenanalyse und den Korrekturlauf abgelöst. Ursache war die doppelte Anwendung von `m_origin` auf absolute Zwischenpunkte bei der G2/G3-Unterteilung in `GCodeProcessor::process_G2_G3`.
+- Nightly-Korrektur: Arc-Zwischenpunkte werden vor dem erneuten `process_G1()`-Durchlauf in G-Code-Koordinaten zurückgerechnet; E wird im relativen und absoluten Modus angepasst. Kühlungswerte und Testtoleranzen blieben unverändert.
+- API-36-Emulator, `:app:connectedSliceTestAndroidTest`, gezielter gemeinsamer Lauf **3/3 bestanden**: Beschleunigungslimits/Layerzeit, Resonanzvermeidung/Außenwände und relative/absolute E-Äquivalenz. Die dritte Test-Fixture wurde auf aktuelle Kobra-Standardprofile umgestellt, damit sie den echten Slice erreicht.
+- Frischer Orca-HEAD: `3838002bc8ba58f4f460749af40fa6fd8a89ffc7`. Der jüngste Delta-Audit ergab keinen weiteren fehlenden Android-Port; bereits portierte Arachne-/Filamentindex-Fixes wurden nicht doppelt gezählt. Die G2/G3-Korrektur ist als Nightly-Kernregression dokumentiert, nicht als neuer Upstream-Commit ausgegeben.
+- Honor wird trotz Nutzerhinweis aktuell nicht von ADB gelistet; der zuletzt bekannte Verbindungsport `192.168.68.66:35053` verweigert Verbindungen. Sichtbare Geräte: Xiaomi `192.168.68.56:42641` und `emulator-5554`. Daher kein Honor-Test.
+- Kein APK, Release, Commit oder Push in diesem Schritt. Orca-/Core-Upgrade-Zähler: **63/100**; nächste konkrete Aufgabe ist ein weiterer fehlender Android-erreichbarer Orca-Core-Pfad mit Slice-Regression.
+
+## Korrektur zur Test-App-Prüfung — 2026-11-18, 18:00
+
+- Die frühere Sichtprüfung der normalen Orkan-App ist keine Nightly-Test-App-Abnahme. Auf den Hinweis des Nutzers wurden die beiden betroffenen Datei→Modell-Navigationstests erneut ausschließlich über `:app:connectedSliceTestAndroidTest` ausgeführt; beide bestanden (2/2, 0 Fehler, 0 übersprungen). Der gebaute und zusätzlich direkt auf dem Emulator installierte Test-Build ist `com.exa201.orkanslicer.nightly25.slicetest`, Version **0.8.507 / Code 542**. Die normale Nightly-App hat eine separate Paket-ID.
+- ADB erkennt aktuell das Xiaomi `192.168.68.56:42641` und `emulator-5554`, aber kein Honor. Die erneute Prüfung bestätigt somit das Verhalten des Nightly-Test-Builds im API-36-Emulator; die Honor-Sichtprüfung bleibt offen und wird nicht als erledigt gezählt.
+- Nach der Installationsfreigabe des Nutzers liefen die Datei→Modell-Navigationstests auch auf dem Xiaomi 13 (Android 16) erfolgreich **2/2**, 0 Fehler und 0 übersprungen. Ein anschließender erneuter Testinstallationsversuch wurde durch MIUI mit `INSTALL_FAILED_USER_RESTRICTED` abgebrochen; dadurch ist der zusätzliche Arachne-Gerätetest nur auf dem API-36-Emulator verifiziert.
+- Arachne/Orca PR #17599 wurde mit aktuellem Quellcode neu gebaut und der bestehende Notched-Strip-Test bestand auf dem API-36-Emulator **1/1**. Der Nightly-Fix und die Regression waren bereits vorhanden; keine redundante JNI-Änderung wurde behalten und der Orca-Zähler bleibt bei **62/100**.
+- Der Nutzer hat das Xiaomi 13 ausdrücklich für weitere Tests freigegeben. Der gezielte Instrumentierungslauf wurde dort gestartet, konnte aber den Nightly-Testbuild wegen Androids `INSTALL_FAILED_USER_RESTRICTED` nicht installieren; **0 Tests liefen auf dem Xiaomi**. Das Telefon zeigte anschließend den Launcher, keine Installationsbestätigung. Hardwarelauf steht bis zur Freigabe „Über USB installieren“ offen; der Emulatorlauf 2/2 bleibt davon unberührt.
+- Nach der Freigabe ließ sich der Nightly-Testbuild installieren und der gezielte Lauf auf `2211133G - 16` (Xiaomi 13, Android 16) bestand **2/2**, 0 Fehler/Skips. XML: `app/build/outputs/androidTest-results/connected/sliceTest/TEST-2211133G - 16-_app-.xml`, Zeitstempel `2026-11-18T18:06:09`. Geprüft wurden Datei→Modell-Menüraster/Scope und Menüwechsel mit genau einem aktiven Menü. Ein nachträglicher manueller Neuinstallationsversuch nach Testende wurde erneut von MIUI abgebrochen; das ändert den erfolgreichen Instrumentierungslauf nicht.
+
+## Aktueller Prüfpunkt — richtige Test-App verwendet
+
+- Der aktuelle Nightly-Checkout ist `C:\Users\Galal\Documents\Codex\2026-10-15\OrkanSlicer-Nightly-2.5-current`, Branch `codex/advanced-manufacturing`, HEAD `37e8e4fbeff4953c923e34ff70d258b0cd81b278`. Stable wurde für diese Prüfung nicht verwendet.
+- Die frühere Sichtprüfung der normalen Orkan-App zählt nicht als Test-App-Abnahme. Erneute Nightly-Verifikation am 2026-11-18 auf API-36 lief ausdrücklich über `:app:connectedSliceTestAndroidTest` (Buildtyp `sliceTest`, separates Nightly-Testpaket `com.exa201.orkanslicer.nightly25.slicetest`): `InitialProjectMenuDeviceTest#fileToModelRouteMeasuresCompleteScopeAndActionGrid` und `WorkspaceNavigationDeviceTest#switchingBetweenFileAndModelRoutesKeepsOnlyTheSelectedMenuAttached` **2/2 bestanden**, 0 Fehler/Skips. Ergebnis: `app/build/outputs/androidTest-results/connected/sliceTest/TEST-codex_api36_test(AVD) - 16-_app-.xml`, Zeitstempel 17:46:41Z. Der erste Test prüft den echten Datei→Modell-Navigationstap, vollständige Modell-Aktionszeilen, Scope-Leiste, Scrollbarkeit sowie gleiche Rasterhöhe nach Bearbeiten→Modell; der zweite prüft, dass nur das gewählte Menü angehängt bleibt. Das Instrumentierungsziel war die Nightly-Test-App, nicht die normale Orkan-App. Diese Emulator-Tests ersetzen keine Honor-Sichtprüfung.
+- Zusätzlich wurde der Nightly-Parser aktualisiert: Expat 2.10.0 besteht im selben Nightly-`sliceTest`-Paket drei gezielte Emulatorprüfungen (Entity-Amplification-Schutz, ZIP64-Übergrößen-Abweisung, 3MF-Rundlauf) jeweils **1/1**. Diese Tests liefen ausschließlich gegen das Nightly-Testpaket, nicht gegen den normalen OrkanSlicer.
+- Aktueller ADB-Status: nur `emulator-5554` ist verbunden; Honor erscheint derzeit nicht. Daher keine Behauptung eines Honor-Tests und keine Installation auf dem Honor. Kein Nutzer-APK/Release erstellt.
+- Der aktuelle Prusa-CORE-One-Profilabgleich zu Orca `0c80c412a1` wurde in der Nightly-`sliceTest`-JVM-Suite geprüft: `OrcaProfileDatabaseTest#prusaCoreOneOverhangSpeedsUseOrcaSeveritySlots` **1/1**. Der Testbericht weist 0 Fehler, 0 Übersprungene aus.
+- Orca-Upgrade-Zähler: **62/100**. Details und Upstream-Abgleich: [ORCA_NIGHTLY_FEATURE_PLAN.md](ORCA_NIGHTLY_FEATURE_PLAN.md). Keine APK erstellt; das vereinbarte APK-Gate bleibt bei 100/100.
+- Nächster konkreter Schritt: einen Android-relevanten Orca-Core-Commit aus dem geprüften Upstream-Stand auswählen und gegen den vorhandenen Nightly-Aufrufpfad abgleichen. Das AMS-Inventar bleibt offen: der derzeitige Android-Slice hat kein Bambu-ToolOrdering-Gruppierungspendant; veralteter Anycubic-G-Code wird bereits anhand der Inventarsignatur verworfen.
+- Geräteabfrage am 2026-11-18 zeigte Xiaomi 2211133G und API-36-Emulator, aber kein Honor. Deshalb ist kein Honor-Test erfolgt; die ADB-Sichtprüfung der normalen Orkan-App bleibt ausdrücklich ausgeschlossen. Nächster Schritt: sobald Honor in `adb devices -l` erscheint, nur das Nightly-Paket `com.exa201.orkanslicer.nightly25` installieren/starten und die Datei→Modell-Menüfläche visuell prüfen; vorhandene stabile Orkan-App nicht als Ersatz werten.
+
 # Orca Nightly-Upgrades — Fortsetzung 2026-11-17
 
 - Aktueller Nightly-Checkout: Branch `codex/ui-2.1-redesign`, HEAD `41f84dffced17c14302d997dc3cd428f69017c09`, App 0.8.501 / Code 536. Orca-Upgrade-Plan steht bei **56/100**. `orcaslicer-upstream/main` wurde frisch geholt und steht auf `07f38df2a4fd3439cffbf991ee41ee99ec71fbee`.
@@ -48,6 +102,14 @@
 - Zusätzlich die Hauptbereiche Druck, Filament, Drucker und App geöffnet und Screenshots unter `artifacts/honor-{print,filament,printer,app}-0.8.493-480dp-150.png` aufgenommen. Die Menünavigation blieb stabil; Profilkarten, Filamentslots, Druckerverbindung und Einstellungsgruppen sind sichtbar und scrollbar. Kein Menü löste im Test einen Slice, Upload oder Druckstart aus.
 - Testinstallationslauf endete mit `BUILD SUCCESSFUL`; Build-/Instrumentierungslauf hat den Release-Zähler nicht verändert. Orca-Upstream-Zyklus bleibt **50/100**; kein Release erstellt.
 # Aktueller Arbeitsstand — Nightly 0.8.500 — 2026-11-17
+
+## Fortsetzung Orca-/Nightly-Prüfung — 2026-11-19
+
+- Aktiver Branch `codex/advanced-manufacturing`, Quell-HEAD `37e8e4fbeff4953c923e34ff70d258b0cd81b278`; der Arbeitsbaum enthält bereits umfangreiche, nicht committete Nutzer-/Nightly-Änderungen und wurde unverändert erhalten.
+- Orca-/Core-Upgrade-Plan: **64/100**. Die drei gezielten Layerkühlungstests und `flattenFaceCandidatesUseBroadSliceBeamHullFaces` bestanden einzeln über Android Instrumentation auf dem API-36-Emulator (**4/4**). Der frühere offene Kühlungsbefund ist damit überholt, nicht mehr offen.
+- Ein unpassend breiter Gradle-Klassenlauf wurde nach 10/235 Tests abgebrochen; mehrere fremde Fixture-/Profilfehler traten dabei auf. Er zählt nicht als Suite-Lauf und ändert die vier gezielten Testergebnisse nicht.
+- Xiaomi `192.168.68.56:42641` ist online (Android 16, Nightly 0.8.507 / Code 542), aber ohne SliceTest-Runner. Der zuvor protokollierte MIUI-Installationsschutz (`INSTALL_FAILED_USER_RESTRICTED`) verhindert derzeit Instrumentierung auf dem Xiaomi. Kein Xiaomi-Test behauptet.
+- Nächster Schritt: weiteren fehlenden, Android-erreichbaren Orca-Kernpfad aus dem aktuellen Upstream prüfen; nur bei tatsächlicher Lücke implementieren und mit echtem Slice regressionsprüfen. Kein APK-/Release-Build vor dem bestehenden 100/100-Gate.
 
 ## Nightly-App-Einstellungen — Iconpack — 2026-11-17
 
@@ -5979,3 +6041,57 @@ Phase 4 — workspace overlay migration is continuing. The model context menu an
 - Importdialog-Einschränkung: Die native Android-Dialogauswahl (Radio/Input) konnte im Honor-Espresso-Lauf wegen fehlendem Fensterfokus nicht automatisiert bedient werden. Die Auswahl-/Validierungsverdrahtung wurde im Code geprüft; der reale Abstandspfad selbst wurde mit Mesh-Fixtures auf dem Gerät getestet.
 - APK: `app/build/outputs/apk/debug/OrkanSlicerNightly25_41f84dffce.apk`; SHA-256 `9C8854F121A19F3F03699644260689D75043A8BBA76A4365C7759809BB22111B`.
 - Nicht durchgeführt: Git-Commit, Push, GitHub-Upload oder Release. Der bestehende Nightly-Worktree enthält zahlreiche unabhängige lokale Änderungen; sie wurden nicht bereinigt oder veröffentlicht.
+
+## Nightly-Test-App — Datei-/Modellnavigation korrekt verifiziert — 2026-11-18
+
+- Korrektur zur vorangegangenen Rückmeldung: Die zunächst erwähnte Prüfung war kein Nightly-Test-App-Nachweis. Auch der erste Gradle-XML-Bericht reicht allein nicht aus: Vor Installation des frischen Nightly-Instrumentierungspakets listete Android nur einen älteren SliceBeam-Test-Runner. Dieser erste Bericht wird deshalb nicht als Nightly-Ergebnis gewertet.
+- Quellstand: Nightly-Branch `codex/advanced-manufacturing`, HEAD `37e8e4fbeff4953c923e34ff70d258b0cd81b278`. Build-Metadaten weisen die frische App als `com.exa201.orkanslicer.nightly25.slicetest` und die Instrumentierungs-App als `com.exa201.orkanslicer.nightly25.slicetest.test` aus.
+- Beide frisch gebauten `sliceTest`-APKs wurden ausschließlich auf dem API-36-Emulator installiert. `pm list instrumentation` bestätigte anschließend den Nightly-Runner `com.exa201.orkanslicer.nightly25.slicetest.test/androidx.test.runner.AndroidJUnitRunner` mit Ziel `com.exa201.orkanslicer.nightly25.slicetest`.
+- Direkter Lauf des Nightly-Runners für `WorkspaceNavigationDeviceTest#switchingBetweenFileAndModelRoutesKeepsOnlyTheSelectedMenuAttached` lieferte `OK (1 test)`. Der Test navigiert zwischen Datei und Modell sowie weiteren Workspace-Menüs und prüft den aktiven Menühost. Das ist ein automatisierter Test der Nightly-Test-App, keine manuelle visuelle Abnahme.
+- Der frühere gekoppelte Gradle-Lauf versuchte zusätzlich die Test-APK auf dem Xiaomi 2211133G zu installieren; Android blockierte das mit `INSTALL_FAILED_USER_RESTRICTED`, dort **0 Tests**. Das Honor war nicht in `adb devices` gelistet; kein Honor-Nachweis.
+- Orca-Upstream wurde frisch geprüft: `3838002bc8ba58f4f460749af40fa6fd8a89ffc7` (2026-11-18). Der einzige neue Commit seit dem vorher dokumentierten Quellstand betrifft Orca-Desktop-Dateiberechtigungen und ergibt keinen Android-Port. Orca-Upgrade-Stand bleibt **60/100**; es wurde kein Upgrade-Schritt doppelt gezählt.
+- Keine APK-Veröffentlichung, kein Commit und kein Push in diesem Verifikationsschritt. Nächster konkreter Schritt: den nächsten noch fehlenden Android-erreichbaren Orca-Core-Pfad samt Regression identifizieren und portieren.
+
+### Nachtrag — Nutzerkorrektur zur Test-App — 2026-11-18
+
+- Nutzerhinweis bestätigt: Die zuvor beobachtete Oberfläche war die normale OrkanSlicer-App und kann nicht als Nightly-Verifikation gelten.
+- Separater Nightly-Nachweis: `:app:connectedSliceTestAndroidTest` mit festem `ANDROID_SERIAL=emulator-5554` und Filter `WorkspaceNavigationDeviceTest#switchingBetweenFileAndModelRoutesKeepsOnlyTheSelectedMenuAttached` — **BUILD SUCCESSFUL, 1/1 Test**. Der Test prüft Dateimenü → Modellmenü und weitere Routen sowie den tatsächlich gebundenen Menühost.
+- Der Testlauf installierte/benutzte SliceTest (`applicationIdSuffix .slicetest`); der normale App-Identifier `com.exa201.orkanslicer.nightly25` wurde nicht als Testziel verwendet. Kein visuelles Honor-Ergebnis: `adb devices` listet aktuell Xiaomi `e7dbd22e` und Emulator `emulator-5554`, aber kein Honor.
+- Aktuelle Nightly-Test-App wird beim Testlauf im Gradle-Bericht als `sliceTest` gebaut. Nicht durchgeführt: Installation auf Honor, Änderung am normalen OrkanSlicer-Paket, Release oder GitHub-Upload.
+
+### Nachtrag — Xiaomi-Wireless-ADB und Kühlungsregression — 2026-11-18
+
+- Xiaomi 2211133G / Android 16 ist unter `192.168.68.56:42641` sichtbar. Der gezielte `sliceTest`-Installationsversuch wurde trotz Nutzerfreigabe vom Android-Paketmanager mit `INSTALL_FAILED_USER_RESTRICTED` abgewiesen; auf dem Xiaomi liefen **0 Tests**. Es erschien kein Bestätigungsdialog, den ADB hätte bedienen können.
+- Der Resonanz-Kühlungstest wurde auf dem API-36-Emulator erneut ausgeführt und scheitert reproduzierbar bei Layer 2: Soll mindestens 9,9 s, Vorschau 9,734333 s. Ein zusätzlicher Versuch mit 6-%-Sicherheitsschwelle änderte den Vorschauwert nicht; diese wirkungslose Produktionstweak wurde zurückgenommen.
+- Der Beschleunigungs-Kühlungstest scheiterte ebenfalls unabhängig bei Layer 10 (Soll 8 s, Vorschau 4,9429955 s). Nachprüfung mit Layer-ID-Logging im nativen Filter zeigt: `slow_down_layer` schätzt `Z=3.3 mm` auf 9,994591 s und überspringt deshalb die Drosselung, während die finale Preview 4,9429955 s meldet. Die Layer-Zuordnung ist korrekt; es handelt sich nicht nur um einen Testindexversatz. Temporäre Logs wurden wieder entfernt. Der Produktionsfehler ist noch nicht behoben.
+- Der einzige verbleibende Quellunterschied in `CoolingBuffer.cpp` entspricht dem bestehenden Commit `1009179b4e`; keine temporären Android-Log-Ausgaben oder 4-/6-%-Schwellenänderungen verbleiben. In `NativeSliceDeviceTest.kt` wurde die veraltete Profilnamenssuche auf aktive Drucker-Defaults umgestellt, damit der Test überhaupt bis zum Slice gelangt.
+- Orca-Upgrade-Zähler unverändert **60/100**. Kein Release, Commit oder Push.
+- Nächster konkreter Schritt: `Z=3.3 mm`-G-Code plus `timer_setup` aus dem reproduzierbaren ARM64-Fixture isolieren und die Abweichung von 5,05 s zwischen `estimate_layer_time` und Preview-Zeit auflösen. Danach beide Kühlungstests wiederholen. Für Xiaomi-Test-APK-Installationen muss die Gerätefreigabe für Testpakete separat erteilt werden; bis dahin Emulator verwenden.
+
+### Fortsetzung — Layerzeit-Verteilung beim Beschleunigungs-Kühlungstest — 2026-11-18
+
+- Gezielter Nightly-`sliceTest` wurde auf `emulator-5554` erneut ausgeführt; Instrumentierungs-APK baute erfolgreich, Test reproduziert denselben Fehler bei Layer 10. Erweiterte Fehlermeldung zeigt die Previewzeiten der Nachbarn: **[8,005799 s; 4,9429955 s; 8,002406 s]**, während die isolierte Cooling-Schätzung für `Z=3,3 mm` **9,994591 s** beträgt. Unsliced Layer 10 bleibt bei **4,943002 s**, also wird dieser Layer vom CoolingBuffer gar nicht verlangsamt.
+- Damit ist nun nachgewiesen, dass es eine Abweichung zwischen isolierter Layer-Schätzung und der im fortlaufenden Vorschauplan ausgewiesenen Layerzeit gibt; die benachbarten Layer erreichen ihr Ziel. Noch nicht nachgewiesen ist, ob der Unterschied im Planner-Lookahead, der Zuordnung von Bewegungszeit zu Layer-Markern oder der Cooling-Schätzung entsteht. Keine Sicherheitsmarge oder Testtoleranz wurde gelockert.
+- Honor ist in der ADB-Abfrage dieses Laufs nicht sichtbar; verfügbar sind Xiaomi `192.168.68.56:42641` und `emulator-5554`. Xiaomi bleibt für SliceTest-Installationen durch `INSTALL_FAILED_USER_RESTRICTED` blockiert. Die betroffene Kühlungsregression wird daher weiter auf dem Emulator isoliert.
+- Nächster konkreter Schritt: denselben erzeugten Layer mit G-code Markergrenzen und nativen Planner-Bewegungszeiten nebeneinander auswerten, um Zeitübertragungen über Layergrenzen von falscher Beschleunigungs-/Motion-Config zu unterscheiden. Danach die Cooling-Logik gezielt korrigieren und beide Cooling-Regressionen erneut ausführen.
+
+### Kühlungszeit-Regression — Arc/G92-Ursprung korrigiert — 2026-11-18
+
+- Ursache der zuvor reproduzierten Abweichung gefunden: `GCodeProcessor::process_G2_G3` zerlegt Bögen in absolute Zwischenpunkte. Im absoluten Positionierungsmodus wurden diese Punkte direkt erneut an `process_G1()` übergeben, das den aktiven `G92`-Ursprung nochmals anwandte. Bei versetztem Ursprung (unter anderem negativem Y-Offset) wurden Bogenwege falsch ausgewertet und die isolierte Kühlungszeit konnte deutlich länger als die Preview-Layerzeit ausfallen.
+- Korrektur in `app/src/main/jni/libslic3r/GCode/GCodeProcessor.cpp`: absolute Arc-Zwischenpunkte werden vor dem `process_G1()`-Pfad um den aktiven XYZ-Ursprung zurückgerechnet; E wird entsprechend dem absoluten oder relativen Extrusionsmodus normalisiert. Die Kühlungsschwellen und Testtoleranzen blieben unverändert.
+- Drei gezielte Nightly-Instrumentierungstests auf `emulator-5554` / API 36 bestanden: `layerCoolingTargetsPreviewLayerTimeWhenAccelerationLimitsShortMoves` (1/1), `layerCoolingKeepsOuterWallsOutsideResonanceAvoidanceRange` (1/1) und `layerCoolingKeepsExtrusionSpeedsEquivalentForRelativeAndAbsoluteE` (1/1). Letzterer verwendete zuvor veraltete Profilnamen und brach vor dem Slice ab; die Test-Fixture bezieht Prozess und Filament nun aus den Standardprofilen des aktiven Kobra-3-Druckers. Es wurde kein Produktionsverhalten gelockert.
+- Ein anfänglicher Gradle-Aufruf mit falsch übergebenem Testfilter wurde vor Ausführung abgebrochen; der korrekt quotierte Filterlauf führte den Test erfolgreich aus.
+- Temporäre CoolingBuffer-Diagnoseausgaben wurden entfernt. Emulator verfügbar; Xiaomi-ADB war zuvor beim Testpaket durch `INSTALL_FAILED_USER_RESTRICTED` blockiert. Honor war bei der Geräteabfrage nicht sichtbar; kein Honor-Test oder Geräteupdate.
+- Kein APK, Release, Commit oder Push erstellt. Relevante Arbeitsdateien sind weiterhin Teil des bestehenden Nightly-Worktrees mit zahlreichen unabhängigen Änderungen und wurden nicht isoliert veröffentlicht.
+- Nächster konkreter Schritt: bei Bedarf den vollständigen NativeSliceDeviceTest-Lauf auf Emulator durchführen; für dieses Arc/G92-Kühlungsproblem sind die drei gezielten Regressionen abgeschlossen.
+
+### Nightly-Kühlung — Arc-Zeitfehler mit G92-Ursprung behoben — 2026-11-18
+
+- Ursache: `GCodeProcessor::process_G2_G3` berechnet Bogen-Unterteilungen in absoluten Maschinenkoordinaten. Im absoluten XYZ-Modus übergab der Arc-Pfad sie unverändert an `process_G1()`, das `m_origin` erneut addierte. Bei `G92`/versetztem Ursprung wurden Arc-Zwischenbewegungen deshalb falsch vermessen; die isolierte Kühlungszeitschätzung konnte deutlich über der Preview-Layerzeit liegen und das notwendige Abbremsen überspringen.
+- Produktionskorrektur in `app/src/main/jni/libslic3r/GCode/GCodeProcessor.cpp`: Arc-Unterteilungspunkte werden vor dem `process_G1()`-Durchlauf um den aktiven XYZ-Ursprung zurückgerechnet; E-Koordinaten folgen weiterhin korrekt absolutem bzw. relativem E-Modus.
+- Verifikation auf der Nightly-SliceTest-App des API-36-Emulators, gebündelter Lauf **3/3 bestanden**: `layerCoolingTargetsPreviewLayerTimeWhenAccelerationLimitsShortMoves`, `layerCoolingKeepsOuterWallsOutsideResonanceAvoidanceRange` und `layerCoolingKeepsExtrusionSpeedsEquivalentForRelativeAndAbsoluteE`. Die ersten beiden reproduzierten zuvor zu lange geschätzte Layerzeiten; kein Grenzwert und keine Toleranz wurde gelockert.
+- Die Relative/Absolute-E-Test-Fixture verwendet nun die Standard-Prozess- und Filamentprofile des aktiven Kobra-3-Profils statt veralteter Profilnamen. Damit gelangt der Test bis zum echten Slice.
+- Diagnose-Logs wurden entfernt; `CoolingBuffer.cpp` enthält keine `CoolingProbe`- oder Android-Log-Ausgaben.
+- API-36-Emulator war Testziel. Beim letzten Geräteabgleich war das Honor nicht sichtbar; Xiaomi SliceTest-Installation war zuvor per `INSTALL_FAILED_USER_RESTRICTED` blockiert. Keine Verifikation auf physischem Gerät.
+- Kein APK/Release, Commit oder Push erstellt. Der Nightly-Worktree enthält zahlreiche parallele/unabhängige lokale Änderungen; diese wurden nicht gesammelt oder bereinigt.
+- Nächster sinnvoller Schritt: vollständigen `NativeSliceDeviceTest` auf Emulator ausführen, falls zusätzliche Absicherung der Native-Änderung gewünscht ist; gezielte Kühlungsregressionen sind abgeschlossen.

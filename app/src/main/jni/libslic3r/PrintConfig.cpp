@@ -1819,6 +1819,15 @@ void PrintConfigDef::init_fff_params()
     def->mode = comAdvanced;
     def->set_default_value(new ConfigOptionFloat(1));
 
+    def = this->add("brim_filament_id", coInt);
+    def->gui_type = ConfigOptionDef::GUIType::i_enum_open;
+    def->label = L("Brim filament");
+    def->category = L("Extruders");
+    def->tooltip = L("Filament used for the brim. Default uses the first filament that prints the object on the first layer.");
+    def->min = 0;
+    def->mode = comAdvanced;
+    def->set_default_value(new ConfigOptionInt(0));
+
     def = this->add("brim_use_efc_outline", coBool);
     def->label = L("Brim follows compensated outline");
     def->category = L("Support");
@@ -12033,17 +12042,25 @@ float get_real_skirt_dist(const DynamicPrintConfig& cfg) {
         loops = 1;
     }
 
-    float width = cfg.opt_float("initial_layer_line_width");
+    float nozzle = 0.4f;
+    auto* nd = cfg.opt<ConfigOptionFloats>("nozzle_diameter");
+    if (nd && !nd->values.empty())
+        nozzle = *std::max_element(nd->values.begin(), nd->values.end());
+
+    // Arrange must use the same absolute skirt width as slicing when line width is
+    // expressed as a percentage of the nozzle diameter.
+    auto line_width = [&](const char *key) -> float {
+        const ConfigOption *opt = cfg.option(key);
+        if (const auto *width = dynamic_cast<const ConfigOptionFloatOrPercent *>(opt))
+            return float(width->get_abs_value(nozzle));
+        return opt ? float(opt->getFloat()) : 0.f;
+    };
+    float width = line_width("initial_layer_line_width");
     if (width <= 0.f) {
-        width = cfg.opt_float("line_width");
+        width = line_width("line_width");
     }
     if (width <= 0.f) {
-        auto* nd = cfg.opt<ConfigOptionFloats>("nozzle_diameter");
-        if (nd && !nd->values.empty()) {
-            width = *std::max_element(nd->values.begin(), nd->values.end());
-        } else {
-            width = 0.4f;
-        }
+        width = nozzle;
     }
 
     return dist + loops * width;

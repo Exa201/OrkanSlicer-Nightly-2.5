@@ -159,6 +159,7 @@ internal fun modelSeamPositionOptions(): List<Pair<String, String>> = runCatchin
 internal fun ModelObjectProcessOverridesDialog(
     objectName: String,
     initialValues: Map<String, String>,
+    brimFilamentOptions: List<Pair<String, String>> = emptyList(),
     patternOptions: List<Pair<String, String>> = emptyList(),
     surfacePatternOptions: List<Pair<String, String>> = emptyList(),
     supportTypeOptions: List<Pair<String, String>> = emptyList(),
@@ -180,6 +181,7 @@ internal fun ModelObjectProcessOverridesDialog(
     val availableSeamPositionOptions = remember(seamPositionOptions) {
         seamPositionOptions.ifEmpty { modelSeamPositionOptions() }
     }
+    val availableBrimFilamentOptions = remember(brimFilamentOptions) { brimFilamentOptions }
     val mixedValues = remember(initialValues) {
         listOf(
             0 to "wall_loops", 1 to "sparse_infill_density", 2 to "top_shell_layers",
@@ -198,6 +200,7 @@ internal fun ModelObjectProcessOverridesDialog(
             initialValues["bottom_surface_pattern"].orEmpty().takeUnless { it == "<mixed>" }.orEmpty(),
             if (includeObjectSupport) initialValues["seam_position"].orEmpty() else "",
             if (includeObjectSupport) initialValues["raft_layers"].orEmpty() else "",
+            if (includeObjectSupport) initialValues["brim_filament_id"].orEmpty().takeUnless { it == "0" || it == "<mixed>" }.orEmpty() else "",
         )
     }
     var patternExpanded by remember { mutableStateOf(false) }
@@ -206,6 +209,7 @@ internal fun ModelObjectProcessOverridesDialog(
     var topSurfaceExpanded by remember { mutableStateOf(false) }
     var bottomSurfaceExpanded by remember { mutableStateOf(false) }
     var seamPositionExpanded by remember { mutableStateOf(false) }
+    var brimFilamentExpanded by remember { mutableStateOf(false) }
     val wallLoops = values[0].trim().toIntOrNull()
     val density = values[1].trim().replace(',', '.').toDoubleOrNull()
     val topLayers = values[2].trim().toIntOrNull()
@@ -220,7 +224,8 @@ internal fun ModelObjectProcessOverridesDialog(
         (values[6].isBlank() || availableSurfacePatternOptions.any { it.first == values[6] }) &&
         (values[7].isBlank() || availableSurfacePatternOptions.any { it.first == values[7] }) &&
         (values.getOrNull(8).isNullOrBlank() || availableSeamPositionOptions.any { it.first == values[8] }) &&
-        (values.getOrNull(9).isNullOrBlank() || raftLayers != null && raftLayers in 0..20)
+        (values.getOrNull(9).isNullOrBlank() || raftLayers != null && raftLayers in 0..20) &&
+        ModelObjectBrimFilamentPolicy.accepts(values.getOrNull(10).orEmpty(), availableBrimFilamentOptions)
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text(stringResource(R.string.ModelObjectProcessSettingsTitle, objectName)) },
@@ -383,6 +388,35 @@ internal fun ModelObjectProcessOverridesDialog(
                         )
                         return@forEach
                     }
+                    if (index == 10) {
+                        if (!includeObjectSupport) return@forEach
+                        val selectedLabel = if (values[index].isBlank()) {
+                            stringResource(R.string.ModelObjectProcessInheritPattern)
+                        } else {
+                            availableBrimFilamentOptions.firstOrNull { it.first == values[index] }?.second ?: values[index]
+                        }
+                        Box {
+                            TextButton(
+                                onClick = { brimFilamentExpanded = true },
+                                modifier = Modifier.fillMaxWidth().testTag("model-object-process-brim-filament"),
+                            ) { Text("${stringResource(R.string.ModelObjectProcessBrimFilament)}: $selectedLabel") }
+                            DropdownMenu(expanded = brimFilamentExpanded, onDismissRequest = { brimFilamentExpanded = false }) {
+                                DropdownMenuItem(
+                                    text = { Text(stringResource(R.string.ModelObjectProcessInheritPattern)) },
+                                    onClick = { values[index] = ""; brimFilamentExpanded = false },
+                                    modifier = Modifier.testTag("model-object-process-brim-filament-inherit"),
+                                )
+                                availableBrimFilamentOptions.forEach { (value, label) ->
+                                    DropdownMenuItem(
+                                        text = { Text(label) },
+                                        onClick = { values[index] = value; brimFilamentExpanded = false },
+                                        modifier = Modifier.testTag("model-object-process-brim-filament-$value"),
+                                    )
+                                }
+                            }
+                        }
+                        return@forEach
+                    }
                     if (index == 3) {
                         val selectedLabel = if (values[index].isBlank()) {
                             stringResource(R.string.ModelObjectProcessInheritPattern)
@@ -459,6 +493,7 @@ internal fun ModelObjectProcessOverridesDialog(
                     if (includeObjectSupport) overrides["support_type"] = values[5]
                     if (includeObjectSupport) overrides["seam_position"] = values.getOrNull(8).orEmpty()
                     if (includeObjectSupport) overrides["raft_layers"] = raftLayers?.toString().orEmpty()
+                    if (includeObjectSupport) overrides["brim_filament_id"] = values.getOrNull(10).orEmpty()
                     onApply(overrides)
                 },
                 modifier = Modifier.heightIn(min = 48.dp).testTag("model-object-process-settings-apply"),

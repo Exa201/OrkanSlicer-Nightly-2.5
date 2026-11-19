@@ -1,5 +1,30 @@
 # Changelog
 
+## 0.8.508 — Nightly-Funktions- und Datenupdate — 2026-11-19
+
+- Aktualisiert die OrcaSlicer-Drucker- und Prozessprofile sowie die auswählbaren Orca-Sprachen und Übersetzungsdaten.
+- Ergänzt die Filamentzuweisung für Brim und weitere fortgeschrittene Modell-/Slicing-Aktionen; bestehende Werkzeug- und G-Code-Zuordnungen werden durch gezielte Regressionen abgesichert.
+- Enthält die dokumentierten Korrekturen für Modellbearbeitung, Druckplatten-Anordnung und Workspace-Navigation aus diesem Nightly-Arbeitsstand.
+- Versionscode **543**.
+
+## 0.8.507 — Flächen zum flachen Ablegen wie in SliceBeam — 2026-11-18
+
+- Die Flächenkandidaten für „Flach hinlegen“ werden wie im originalen SliceBeam aus der konvexen Hülle aller Modellteile erzeugt. Das liefert zusammenhängende, gut auswählbare Flächen auch bei organischen STL-Modellen.
+- Koplanare Facetten, Mindestfläche (5 mm²) und Mindestkante (1 mm) entsprechen wieder SliceBeam. Die zusätzliche Rohoberflächen-Abfrage, die brauchbare Flächen herausfilterte, entfällt.
+- Regressionstest: sechs ebene Würfelflächen werden als Flächenkandidaten bereitgestellt. Die konkrete `1000017905.stl` vom Honor liefert 53 auswählbare Kandidaten. Beide SliceTest-Instrumentierungen auf HONOR PTP-N49 bestanden.
+- Versionscode **542**.
+
+## 0.8.506 — Untere Menüs vollständig sichtbar — 2026-11-18
+
+- Korrigiert die Höhenberechnung der unteren Aktionsmenüs. Menü-Host und Kachelgitter verwenden jetzt dieselbe Zeilenhöhe, auch bei 150 % Schriftgröße.
+- Vier Aktionen bleiben in einer vollständigen Reihe, fünf bis acht Aktionen zeigen zwei vollständige Reihen; weitere Aktionen bleiben innerhalb des Menüs scrollbar.
+- Versionscode **541**.
+
+## 0.8.505 — Nightly-Korrektur — 2026-11-18
+
+- Repariert die Kandidatenerkennung für „Flach hinlegen“: reale Modellflächen werden statt nur der globalen konvexen Hülle gruppiert; kleinere und leicht gekrümmte zusammenhängende Flächen bleiben auswählbar.
+- Diese APK stammt aus dem aktuellen Nightly-Checkout `codex/advanced-manufacturing` (Code 540). Versionscode 539 wurde bereits auf dem Honor installiert und wird damit aktualisiert.
+
 ## 0.8.503 — App-Branding — 2026-11-18
 
 - Korrekturhinweis: Die erste APK am Nightly-Release-Tag war versehentlich aus Version 0.8.493 / Code 528. Sie wurde durch den geprüften Build aus Commit `06cca6128403` (0.8.503 / Code 538) ersetzt.

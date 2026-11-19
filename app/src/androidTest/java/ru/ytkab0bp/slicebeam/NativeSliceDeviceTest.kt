@@ -37,6 +37,10 @@ import ru.ytkab0bp.slicebeam.slic3r.ObjectGroupDistribution
 import ru.ytkab0bp.slicebeam.slic3r.ObjectPlacement
 import ru.ytkab0bp.slicebeam.render.FillBedModelOperation
 import ru.ytkab0bp.slicebeam.components.bed_menu.SlicePreparationTools
+import ru.ytkab0bp.slicebeam.manufacturing.CylindricalFeatureDetector
+import ru.ytkab0bp.slicebeam.manufacturing.CylindricalFeatureKind
+import ru.ytkab0bp.slicebeam.manufacturing.ManufacturingFaceFrame
+import ru.ytkab0bp.slicebeam.manufacturing.ManufacturingPoint3d
 import ru.ytkab0bp.slicebeam.utils.Vec3d
 import java.io.File
 import java.io.FileOutputStream
@@ -54,6 +58,72 @@ import java.util.zip.CRC32
 @RunWith(AndroidJUnit4::class)
 class NativeSliceDeviceTest {
     @Test
+    fun cncCylinderCandidateUsesBoundedNativeObjectPreviewMesh() {
+        val model = Model()
+        try {
+            val objectIndex = model.createPrimitive(1, 10.0, 0.0, 20.0, "CNC detector shaft")
+            assertEquals(0, objectIndex)
+
+            val candidates = CylindricalFeatureDetector.detectModel(model.pointer, objectIndex)
+            assertNotNull("Native preview mesh should be available for the primitive", candidates)
+            val shaft = requireNotNull(candidates).single()
+            assertEquals(CylindricalFeatureKind.EXTERNAL_SHAFT, shaft.kind)
+            assertEquals(5.0, shaft.radiusMm, 0.35)
+            assertEquals(20.0, shaft.axialLengthMm, 0.5)
+            assertTrue("Candidate should expose bounded confidence", shaft.confidence in 0.60..1.0)
+        } finally {
+            model.release()
+        }
+    }
+
+    @Test
+    fun exactBoundedMeshAnalysisValidatesHolePlacementWithoutMutatingModel() {
+        val model = Model()
+        try {
+            val objectIndex = model.createPrimitive(0, 20.0, 20.0, 10.0, "Hole analysis box")
+            assertEquals(0, objectIndex)
+            val originalVolume = model.getObjectVolume(objectIndex)
+            val triangleCount = model.getTriangleCount(objectIndex)
+            val triangles = model.getObjectTrianglesForAnalysis(objectIndex)
+            assertTrue("exact analysis mesh should be available", triangles.isNotEmpty())
+            assertEquals(triangleCount * 9, triangles.size)
+            assertEquals("oversized meshes are rejected instead of simplified", 0,
+                model.getObjectTrianglesForAnalysis(objectIndex, triangleCount - 1).size)
+
+            val min = ru.ytkab0bp.slicebeam.utils.Vec3d()
+            val max = ru.ytkab0bp.slicebeam.utils.Vec3d()
+            model.getBoundingBoxExact(objectIndex, min, max)
+            val face = ManufacturingFaceFrame(
+                origin = ManufacturingPoint3d((min.x + max.x) / 2.0, (min.y + max.y) / 2.0, max.z),
+                normalX = 0.0, normalY = 0.0, normalZ = 1.0,
+                tangentX = 1.0, tangentY = 0.0, tangentZ = 0.0,
+            )
+            val accepted = model.validateThroughHolePlacement(objectIndex, face, 4.0, 1.0)
+            assertTrue("centered hole with adequate wall should fit: ${accepted.rejected}", accepted.isSupported)
+            assertEquals(8.0, requireNotNull(accepted.minimumWallMm), 0.05)
+            val preview = model.previewThroughHole(objectIndex, face, 4.0, 1.0)
+            assertTrue("CGAL through-hole preview should produce triangles", preview.isNotEmpty())
+            assertEquals(0, preview.size % 9)
+            assertTrue("preview is bounded", preview.size / 9 <= 4_096)
+            assertTrue("preview vertices are finite", preview.all(Float::isFinite))
+            assertEquals("preview must not mutate source volume", originalVolume, model.getObjectVolume(objectIndex), 1e-5)
+
+            val rejected = model.validateThroughHolePlacement(objectIndex, face.copy(
+                origin = ManufacturingPoint3d(max.x - 0.5, (min.y + max.y) / 2.0, max.z),
+            ), 4.0, 1.0)
+            assertFalse("edge hole must be rejected for insufficient wall", rejected.isSupported)
+            assertEquals(originalVolume, model.getObjectVolume(objectIndex), 1e-5)
+        } finally {
+            model.release()
+        }
+    }
+
+    @Test
+    fun meshTopologyAuditClassifiesSupportedAndInvalidFixtures() {
+        assertArrayEquals(intArrayOf(1, 1, 1, 1, 1, 1, 1), Native.mesh_topology_audit_regression())
+    }
+
+    @Test
     fun unknownPrinterFilamentTypeDoesNotSelectAnUnrelatedPreset() {
         val result = Native.unknown_filament_type_preset_regression()
         assertArrayEquals("Unknown material lookup should return no index and an empty filament id", intArrayOf(-1, 1), result)
@@ -67,6 +137,7 @@ class NativeSliceDeviceTest {
         assertEquals("The bounded parser threshold must remain at 8 MiB", 8 * 1024 * 1024, result[2])
         assertEquals("The crafted expansion should be rejected", 1, result[3])
         assertEquals("The parser should reject it specifically at the amplification guard", 1, result[4])
+        assertEquals("The Nightly Android parser should match the pinned Expat release", listOf(2, 10, 0), result.drop(5))
     }
 
     @Test
@@ -282,7 +353,9 @@ class NativeSliceDeviceTest {
             it.translate(0, 37.0, 31.0, 0.0)
         }
         val configFile = SliceBeam.getCurrentConfigFile()
-        val process = requireNotNull(SliceBeam.CONFIG?.findPrint("0.16mm Standard"))
+        val config = requireNotNull(SliceBeam.CONFIG)
+        val printer = requireNotNull(config.findPrinter("Anycubic Kobra 3 0.4 nozzle"))
+        val process = requireNotNull(config.findPrint(printer.get("default_print_profile")))
         val gcodeFile = File(context.cacheDir, "variable-layer-brush.gcode")
         var sliced: GCodeProcessorResult? = null
         try {
@@ -1622,8 +1695,10 @@ class NativeSliceDeviceTest {
     @Test(timeout = 120_000)
     fun layerCoolingKeepsExtrusionSpeedsEquivalentForRelativeAndAbsoluteE() = withKobraProfile {
         val context = InstrumentationRegistry.getInstrumentation().targetContext
-        val process = requireNotNull(SliceBeam.CONFIG?.findPrint("0.16mm Standard"))
-        val filament = requireNotNull(SliceBeam.CONFIG?.findFilament("Anycubic Generic PLA"))
+        val config = requireNotNull(SliceBeam.CONFIG)
+        val printer = requireNotNull(config.findPrinter("Anycubic Kobra 3 0.4 nozzle"))
+        val process = requireNotNull(config.findPrint(printer.get("default_print_profile")))
+        val filament = requireNotNull(config.findFilament(printer.get("default_filament_profile")))
         val processKeys = listOf("layer_height", "initial_layer_print_height", "use_relative_e_distances")
         val filamentKeys = listOf(
             "filament_max_volumetric_speed", "slow_down_for_layer_cooling", "slow_down_layer_time", "slow_down_min_speed",
@@ -1712,9 +1787,11 @@ class NativeSliceDeviceTest {
     @Test(timeout = 180_000)
     fun layerCoolingKeepsOuterWallsOutsideResonanceAvoidanceRange() = withKobraProfile {
         val context = InstrumentationRegistry.getInstrumentation().targetContext
-        val printer = requireNotNull(SliceBeam.CONFIG?.findPrinter("Anycubic Kobra 3 0.4 nozzle"))
-        val process = requireNotNull(SliceBeam.CONFIG?.findPrint("0.16mm Standard"))
-        val filament = requireNotNull(SliceBeam.CONFIG?.findFilament("Anycubic Generic PLA"))
+        val config = requireNotNull(SliceBeam.CONFIG)
+        val printer = requireNotNull(config.findPrinter("Anycubic Kobra 3 0.4 nozzle"))
+        // Follow the active printer defaults so this regression survives profile catalog updates.
+        val process = requireNotNull(config.findPrint(printer.get("default_print_profile")))
+        val filament = requireNotNull(config.findFilament(printer.get("default_filament_profile")))
         val printerKeys = listOf("resonance_avoidance", "min_resonance_avoidance_speed", "max_resonance_avoidance_speed")
         val processKeys = listOf("layer_height", "initial_layer_print_height", "outer_wall_speed")
         val filamentKeys = listOf("filament_max_volumetric_speed", "slow_down_for_layer_cooling", "slow_down_layer_time", "slow_down_min_speed")
@@ -1778,7 +1855,7 @@ class NativeSliceDeviceTest {
                 val minimumExpected = minOf(unprotectedLayerTimes[layer], 10f)
                 assertTrue(
                     "Layer $layer must retain its cooling time after outer walls are held outside the resonance band " +
-                        "(expected at least ${minimumExpected * 0.99f}s, got ${protectedLayerTimes[layer]}s)",
+                    "(expected at least ${minimumExpected * 0.99f}s, got ${protectedLayerTimes[layer]}s)",
                     protectedLayerTimes[layer] >= minimumExpected * 0.99f,
                 )
             }
@@ -1812,9 +1889,10 @@ class NativeSliceDeviceTest {
         val previousFilament = filamentKeys.associateWith(filament::get)
         val source = createThinCubeFixture("acceleration-layer-cooling.stl", 10.0, 10.0, 6.0)
         val output = File(context.cacheDir, "acceleration-layer-cooling.gcode")
-        val model = Model(source).also { it.ensureOnBed(0) }
+        var cooledLayerGcodeSummary = "not captured"
 
         fun layerTimes(cooling: Boolean): FloatArray {
+            val model = Model(source).also { it.ensureOnBed(0) }
             printer.put("machine_max_acceleration_extruding", "300,300")
             process.put("layer_height", "0.3")
             process.put("initial_layer_print_height", "0.3")
@@ -1833,9 +1911,24 @@ class NativeSliceDeviceTest {
             val result = model.slice(config.absolutePath, output.absolutePath, null)
             return try {
                 assertTrue("Acceleration fixture must generate G-code", output.isFile && output.length() > 0L)
-                result.getLayerTimes()
+                if (cooling) {
+                    val lines = output.readLines()
+                    val layerStart = lines.indexOfFirst { it.contains(";Z:3.3") }
+                    if (layerStart >= 0) {
+                        val nextLayer = (layerStart + 1 until lines.size).firstOrNull { lines[it].contains(";Z:") } ?: lines.size
+                        cooledLayerGcodeSummary = lines.subList(layerStart, nextLayer)
+                            .filter { it.contains("_EXTRUDE_SET_SPEED") || it.startsWith("G1 ") || it.startsWith("G0 ") }
+                            .take(18)
+                            .joinToString(" | ")
+                    } else {
+                        cooledLayerGcodeSummary = "Z:3.3 marker not found; marker count=${lines.count { line -> line.contains(';') && line.contains('Z') }}"
+                    }
+                }
+                val times = result.getLayerTimes()
+                times
             } finally {
                 result.release()
+                model.release()
             }
         }
 
@@ -1847,7 +1940,13 @@ class NativeSliceDeviceTest {
             assertTrue("The small, acceleration-limited cube must have several layers below 8s", quickLayers.size >= 5)
             for (layer in 1 until slowed.lastIndex) {
                 if (unslowed[layer] < 8f) {
-                    assertTrue("Layer $layer should reach the 8s preview target (was ${slowed[layer]}s)", slowed[layer] in 7.92f..8.24f)
+                    assertTrue(
+                        "Layer $layer should reach the 8s preview target " +
+                            "(was ${slowed[layer]}s, unslowed=${unslowed[layer]}s, " +
+                            "neighboring preview times=${slowed.copyOfRange((layer - 1).coerceAtLeast(0), (layer + 2).coerceAtMost(slowed.size)).contentToString()}, " +
+                            "layer G-code=$cooledLayerGcodeSummary)",
+                        slowed[layer] in 7.92f..8.24f,
+                    )
                 } else {
                     val tolerance = maxOf(0.01f, unslowed[layer] * 0.001f)
                     assertTrue("Already-long layer $layer should remain unchanged (unslowed=${unslowed[layer]}s, slowed=${slowed[layer]}s)", kotlin.math.abs(slowed[layer] - unslowed[layer]) <= tolerance)
@@ -1857,7 +1956,6 @@ class NativeSliceDeviceTest {
             printerKeys.forEach { printer.put(it, previousPrinter[it]) }
             processKeys.forEach { process.put(it, previousProcess[it]) }
             filamentKeys.forEach { filament.put(it, previousFilament[it]) }
-            model.release()
             source.delete()
             output.delete()
             SliceBeam.getCurrentConfigFile().delete()
@@ -2681,6 +2779,13 @@ class NativeSliceDeviceTest {
         assertEquals("the packer should reduce only the unused default margin", 0.5, result[2], 0.01)
         assertEquals("the square footprint remains intact", 197.0, result[4], 0.01)
         assertEquals("the square footprint remains intact", 197.0, result[5], 0.01)
+    }
+
+    @Test
+    fun arrangeSkirtClearanceUsesAbsoluteNozzleRelativeLineWidth() {
+        val result = Native.skirt_distance_percent_regression()
+        assertEquals("150% of a 0.6 mm nozzle plus two skirt loops and 1 mm distance", 2.8, result[0], 0.001)
+        assertEquals("absolute 0.5 mm line width plus two skirt loops and 1 mm distance", 2.0, result[1], 0.001)
     }
 
     @Test(timeout = 30_000)
@@ -5308,6 +5413,50 @@ class NativeSliceDeviceTest {
         }
     }
 
+    @Test(timeout = 360_000)
+    fun pressureAdvanceLineCalibrationUsesMappedPhysicalNozzle() = withToolChangerProfile {
+        val context = InstrumentationRegistry.getInstrumentation().targetContext
+        val source = copyCube(context, "orca25-pa-line-mapped-nozzle-source.stl")
+        val output = File(context.cacheDir, "orca25-pa-line-mapped-nozzle.gcode")
+        val model = Model(source)
+        var result: GCodeProcessorResult? = null
+        try {
+            val process = requireNotNull(SliceBeam.CONFIG?.findPrint("0.20mm Standard"))
+            process.put("initial_layer_print_height", "0.2")
+            SliceBeam.genCurrentConfig(model)
+            val configFile = SliceBeam.getCurrentConfigFile()
+            var configText = configFile.readText()
+            val mapLine = Regex("(?m)^filament_map\\s*=.*$")
+            configText = if (mapLine.containsMatchIn(configText)) {
+                configText.replace(mapLine, "filament_map = 2,1,3,4,5")
+            } else {
+                "$configText\nfilament_map = 2,1,3,4,5\n"
+            }
+            configFile.writeText(configText)
+
+            // Logical filament T0 is routed through physical nozzle 2. Orca emits the
+            // logical filament tool command; the writer resolves nozzle settings via filament_map.
+            result = model.slice(configFile.absolutePath, output.absolutePath, null,
+                1, 0.0, 0.02, 0.002, 0)
+            val gcode = output.readText()
+            val paCommandIndex = gcode.indexOf("SET_PRESSURE_ADVANCE ADVANCE=")
+            assertTrue("the PA line calibration must emit its parameter commands", paCommandIndex >= 0)
+            val activeTool = gcode.substring(0, paCommandIndex).lineSequence()
+                .map { it.trim() }
+                .filter { Regex("^T\\d+(?:\\s*;.*)?$").matches(it) }
+                .map { it.substringBefore(';').trim() }
+                .lastOrNull()
+            assertEquals("calibration must print with logical filament T0 while its physical nozzle is resolved separately; prior commands: " +
+                gcode.substring(0, paCommandIndex).lineSequence().toList().takeLast(25).joinToString(" | "), "T0", activeTool)
+        } finally {
+            result?.release()
+            model.release()
+            source.delete()
+            output.delete()
+            SliceBeam.getCurrentConfigFile().delete()
+        }
+    }
+
     @Test
     fun objectsWithDifferentNozzleLayerLimitsCanSharePrimeTower() = withToolChangerProfile {
         val limits = Native.object_nozzle_layer_limits_regression()
@@ -6023,6 +6172,39 @@ class NativeSliceDeviceTest {
     }
 
     @Test
+    fun cutPreviewReturnsBothHalvesWithoutMutatingTheSourceModel() {
+        val context = InstrumentationRegistry.getInstrumentation().targetContext
+        val modelFile = copyCube(context, "assembly-cut-preview-read-only.stl")
+        val model = Model(modelFile)
+        try {
+            val minBefore = Vec3d()
+            val maxBefore = Vec3d()
+            model.getBoundingBoxExact(0, minBefore, maxBefore)
+            val boundsBefore = doubleArrayOf(minBefore.x, minBefore.y, minBefore.z, maxBefore.x, maxBefore.y, maxBefore.z)
+            val trianglesBefore = model.getTriangleCount(0)
+
+            val preview = Native.model_cut_preview_mesh(model.pointer, 0, 10.0, 0.0, 0.0, 1000)
+
+            assertEquals("preview returns upper and lower mesh slots", 2, preview.size)
+            assertTrue("both sides of a centered plane should have preview geometry", preview.all { it.size >= 9 && it.size % 9 == 0 })
+            assertTrue("preview meshes respect the requested triangle cap", preview.all { it.size / 9 <= 1000 })
+            assertEquals("preview must not create or replace model objects", 1, model.objectsCount)
+            assertEquals("preview must not alter source triangle count", trianglesBefore, model.getTriangleCount(0))
+            model.getBoundingBoxExact(0, minBefore, maxBefore)
+            assertArrayEquals("preview must not alter source placement or bounds", boundsBefore,
+                doubleArrayOf(minBefore.x, minBefore.y, minBefore.z, maxBefore.x, maxBefore.y, maxBefore.z), 0.001)
+
+            assertTrue("invalid input should return empty preview slots",
+                Native.model_cut_preview_mesh(model.pointer, 0, Double.NaN, 0.0, 0.0, 1000).all { it.isEmpty() })
+            assertTrue("out-of-range preview budget should be rejected",
+                Native.model_cut_preview_mesh(model.pointer, 0, 10.0, 0.0, 0.0, 100001).all { it.isEmpty() })
+        } finally {
+            model.release()
+            modelFile.delete()
+        }
+    }
+
+    @Test
     fun nativeDeleteTranslateAndBedPlacementRejectInvalidObjectsAndValues() = withKobraProfile {
         val context = InstrumentationRegistry.getInstrumentation().targetContext
         val modelFile = copyAsset(context, "models/sphere.stl", "native-invalid-edit-requests.stl")
@@ -6220,6 +6402,53 @@ class NativeSliceDeviceTest {
         } finally {
             model.release()
             modelFile.delete()
+        }
+    }
+
+    @Test
+    fun flattenFaceCandidatesUseBroadSliceBeamHullFaces() = withKobraProfile {
+        val context = InstrumentationRegistry.getInstrumentation().targetContext
+        val modelFile = copyCube(context, "flatten-hull-candidates.stl")
+        val model = Model(modelFile)
+        var candidates: List<ru.ytkab0bp.slicebeam.slic3r.GLModel> = emptyList()
+        try {
+            candidates = model.createFlattenPlanes(0)
+            // The cube has six broad planar faces. SliceBeam's convex-hull based
+            // implementation must expose them as selectable targets; raw STL
+            // triangle grouping incorrectly fragments or filters such regions.
+            assertTrue("broad planar model faces should be available", candidates.size >= 6)
+        } finally {
+            candidates.forEach { it.release() }
+            model.release()
+            modelFile.delete()
+        }
+    }
+
+    @Test
+    fun flattenFaceCandidatesExposeTargetsOnHonorDragonFixture() = withKobraProfile {
+        val context = InstrumentationRegistry.getInstrumentation().targetContext
+        val modelFile = File(context.getExternalFilesDir(null), "flatten-reference.stl")
+        assumeTrue("Honor reference STL was not staged", modelFile.isFile && modelFile.length() > 84L)
+        val model = Model(modelFile)
+        var candidates: List<GLModel> = emptyList()
+        try {
+            candidates = model.createFlattenPlanes(0)
+            val footprints = candidates.map { candidate ->
+                val bounds = candidate.getBoundingBox()
+                val dimensions = listOf(
+                    kotlin.math.abs(bounds[3] - bounds[0]),
+                    kotlin.math.abs(bounds[4] - bounds[1]),
+                    kotlin.math.abs(bounds[5] - bounds[2]),
+                ).sortedDescending()
+                dimensions
+            }
+            val broadFaceCount = footprints.count { it[1] >= 5.0 }
+            assertTrue("organic reference model should expose broad selectable flat-placement regions", candidates.size >= 10)
+            assertTrue("hull triangulation must retain multiple broad selectable faces; found $broadFaceCount",
+                broadFaceCount >= 10)
+        } finally {
+            candidates.forEach { it.release() }
+            model.release()
         }
     }
 
@@ -7395,6 +7624,70 @@ class NativeSliceDeviceTest {
                     "a real multi-part slice should execute work on at least two TBB workers when multiple CPUs are available; observed=$activeTbbWorkers",
                     activeTbbWorkers.size >= 2,
                 )
+            }
+        } finally {
+            model.release()
+            modelFile.delete()
+            output.delete()
+            SliceBeam.getCurrentConfigFile().delete()
+        }
+    }
+
+    @Test
+    fun selectedBrimFilamentIsEmittedOnItsOwnToolPass() = withToolChangerProfile {
+        val context = InstrumentationRegistry.getInstrumentation().targetContext
+        val modelFile = createThinCubeFixture("selected-brim-filament.stl", 20.0, 20.0, 5.0)
+        val output = File(context.cacheDir, "selected-brim-filament.gcode")
+        val model = Model(modelFile, 1)
+        try {
+            model.ensureOnBed(0)
+            model.setUniformFilament(0, 1)
+            val config = requireNotNull(SliceBeam.CONFIG)
+            val process = requireNotNull(config.findPrint("0.20mm Standard"))
+            process.put("brim_type", "outer_only")
+            process.put("brim_width", "5")
+            process.put("gcode_comments", "1")
+            assertEquals("the selected brim filament belongs to the object configuration", 1,
+                model.setObjectConfigOptions(0, mapOf("brim_filament_id" to "2")))
+            assertEquals("the object must retain its selected brim filament", "2",
+                model.getObjectConfigOption(0, "brim_filament_id"))
+
+            SliceBeam.genCurrentConfig(model)
+            val generatedConfig = SliceBeam.getCurrentConfigFile()
+            val configSummary = generatedConfig.readText().lineSequence()
+                .filter { it.contains("filament_map") || it.contains("filament_colour") || it.contains("filament_diameter") || it.contains("brim_filament") }
+                .take(20).joinToString(" | ")
+
+            val result = model.slice(generatedConfig.absolutePath, output.absolutePath, null)
+            try {
+                val gcode = output.readText()
+                assertHasExtrusion(gcode)
+                val toolCommands = Regex("(?m)^T\\d+(?:(?:\\s|;).*)?$").findAll(gcode)
+                    .map { it.value.trim() }.toList()
+                val brimOverride = model.getObjectConfigOption(0, "brim_filament_id")
+                assertTrue(
+                    "the model must still print with T0; emitted tool commands=$toolCommands; " +
+                        "usedFilaments=${model.getUsedFilaments(0).toList()}; " +
+                        "brimOverride=$brimOverride; " +
+                        "config=$configSummary; gcode start=${gcode.take(1600)}",
+                    Regex("(?m)^T0(?:\\s|;|$)").containsMatchIn(gcode),
+                )
+                val brimMarker = gcode.indexOf("TYPE:Brim")
+                assertTrue("the selected-brim fixture must emit a brim feature; emitted tool commands=$toolCommands; gcode=${gcode.take(2400)}", brimMarker >= 0)
+                val brimSection = gcode.substring(brimMarker)
+                val brimExtrusionOffset = Regex("(?m)^G[01].*\\sE-?\\d")
+                    .find(brimSection)?.range?.first ?: -1
+                assertTrue("brim must contain extrusion moves; section=${brimSection.take(500)}", brimExtrusionOffset >= 0)
+                val activeToolAtBrim = gcode.substring(0, brimMarker + brimExtrusionOffset).lineSequence()
+                    .lastOrNull { it.matches(Regex("T\\d+(?:(?:\\s|;).*)?")) }
+                    ?.takeWhile { it.isDigit() || it == 'T' }
+                assertEquals("the brim extrusion must be emitted in the selected T1 pass; tools=$toolCommands; " +
+                    "usedFilaments=${model.getUsedFilaments(0).toList()}; brimOverride=$brimOverride; config=$configSummary; " +
+                    "section=${brimSection.take(500)}", "T1", activeToolAtBrim)
+                assertTrue("the brim tool must be included even though the model uses only T0",
+                    Regex("(?m)^T1(?:\\s|;|$)").containsMatchIn(gcode))
+            } finally {
+                result.release()
             }
         } finally {
             model.release()
@@ -10335,6 +10628,42 @@ class NativeSliceDeviceTest {
         }
     }
 
+    @Test(timeout = 120_000)
+    fun crossingSparseInfillWarnsBeforePrinterSend() = withKobraProfile {
+        val context = InstrumentationRegistry.getInstrumentation().targetContext
+        val config = requireNotNull(SliceBeam.CONFIG)
+        val activeProcessName = requireNotNull(config.presets?.get("print"))
+        val process = requireNotNull(config.findPrint(activeProcessName))
+        process.put("spiral_mode", "0")
+        process.put("sparse_infill_pattern", "grid")
+        process.put("sparse_infill_density", "15%")
+        process.put("sparse_infill_strategy", "crossing")
+        process.put("fill_multiline", "4")
+
+        val source = copyCube(context, "crossing-sparse-infill-warning.stl")
+        val output = File(context.cacheDir, "crossing-sparse-infill-warning.gcode")
+        val configFile = SliceBeam.getCurrentConfigFile()
+        var model: Model? = null
+        var result: GCodeProcessorResult? = null
+        try {
+            model = Model(source).also { it.ensureOnBed(0) }
+            SliceBeam.genCurrentConfig(model)
+            result = model.slice(configFile.absolutePath, output.absolutePath, null)
+
+            val warning = result.getSparseInfillWarning()
+            assertNotNull("the native slice result must preserve Orca's Crossing safety warning", warning)
+            assertTrue(requireNotNull(warning).contains("Crossing strategy with more than 3 lines"))
+            assertTrue("the warning should identify the object", requireNotNull(warning).contains("crossing-sparse-infill-warning.stl"))
+            assertHasExtrusion(output.readText())
+        } finally {
+            result?.release()
+            model?.release()
+            source.delete()
+            output.delete()
+            configFile.delete()
+        }
+    }
+
     @Test
     fun selectedBedSurfaceTemperatureReachesNativeGcode() {
         val context: Context = InstrumentationRegistry.getInstrumentation().targetContext
@@ -10539,10 +10868,11 @@ class NativeSliceDeviceTest {
         try {
             context.assets.open("orca_profiles/Anycubic.ini").use { SliceBeam.CONFIG = Slic3rConfigWrapper(it) }
             val config = requireNotNull(SliceBeam.CONFIG)
+            val printer = requireNotNull(config.findPrinter("Anycubic Kobra 3 0.4 nozzle"))
             config.presets = ConfigObject("presets").apply {
-                put("printer", requireNotNull(config.findPrinter("Anycubic Kobra 3 0.4 nozzle")).title)
-                put("print", requireNotNull(config.findPrint("0.16mm Standard")).title)
-                put("filament", requireNotNull(config.findFilament("Anycubic Generic PLA")).title)
+                put("printer", printer.title)
+                put("print", requireNotNull(config.findPrint(printer.get("default_print_profile"))).title)
+                put("filament", requireNotNull(config.findFilament(printer.get("default_filament_profile"))).title)
             }
             block()
         } finally {
@@ -10606,7 +10936,12 @@ class NativeSliceDeviceTest {
         Prefs.init(application)
         val previousConfig = SliceBeam.CONFIG
         try {
-            context.assets.open("orca_profiles/Custom.ini").use { SliceBeam.CONFIG = Slic3rConfigWrapper(it) }
+            // Custom.ini is a test-only fixture under src/androidTest/assets; it is not
+            // packaged into the target app. Open it from the instrumentation context so
+            // tool-changer slice regressions remain runnable with the production profile set.
+            InstrumentationRegistry.getInstrumentation().context.assets
+                .open("orca_profiles/Custom.ini")
+                .use { SliceBeam.CONFIG = Slic3rConfigWrapper(it) }
             val config = requireNotNull(SliceBeam.CONFIG)
             val printer = requireNotNull(config.findPrinter("MyToolChanger 0.4 nozzle"))
             val process = requireNotNull(config.findPrint("0.20mm Standard"))

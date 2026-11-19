@@ -134,6 +134,8 @@ internal object ModelMenuActionScope {
         R.string.ModelMenuPlaceGroupOnBed,
         R.string.ModelMenuCombineSelected,
         R.string.ModelMenuBoolean,
+        R.string.AdvancedFeatureAccessibility,
+        R.string.ToolAccessibilityPreviewClear,
         R.string.ModelMenuFillBed,
         R.string.ModelMenuAutoOrientSelected,
         R.string.ModelMenuFlatten,

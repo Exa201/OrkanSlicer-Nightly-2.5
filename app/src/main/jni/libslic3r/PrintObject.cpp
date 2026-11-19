@@ -1171,6 +1171,8 @@ bool PrintObject::invalidate_state_by_config_options(
                 if (old_brim_type->value == btOuterOnly || new_brim_type->value == btOuterOnly)
                     steps.emplace_back(posPerimeters);
             }
+        } else if (opt_key == "brim_filament_id") {
+            invalidated |= m_print->invalidate_steps({ psSkirtBrim, psWipeTower, psGCodeExport });
         } else if (
                opt_key == "wall_loops"
             || opt_key == "alternate_extra_wall"
@@ -3682,6 +3684,8 @@ PrintObjectConfig PrintObject::object_config_from_model_object(const PrintObject
     // Clamp invalid extruders to the default extruder (with index 1).
     clamp_exturder_to_default(config.support_filament,           num_extruders);
     clamp_exturder_to_default(config.support_interface_filament, num_extruders);
+    if (config.brim_filament_id.value < 0 || config.brim_filament_id.value > (int)num_extruders)
+        config.brim_filament_id.value = 0;
     return config;
 }
 

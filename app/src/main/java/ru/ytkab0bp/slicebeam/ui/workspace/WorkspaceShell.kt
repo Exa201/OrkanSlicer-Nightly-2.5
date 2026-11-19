@@ -1,12 +1,6 @@
 package ru.ytkab0bp.slicebeam.ui.workspace
 
 import android.view.View
-import androidx.compose.animation.AnimatedContent
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
-import androidx.compose.animation.slideInHorizontally
-import androidx.compose.animation.slideOutHorizontally
-import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -55,7 +49,6 @@ import ru.ytkab0bp.slicebeam.ui.navigation.WorkspaceDestination
 import ru.ytkab0bp.slicebeam.ui.navigation.WorkspaceNavigationItem
 import ru.ytkab0bp.slicebeam.ui.navigation.WorkspaceToolPanelPolicy
 import kotlinx.coroutines.delay
-import androidx.compose.animation.core.tween
 
 /** Compose owns the workspace geometry; legacy views are mounted only at explicit boundaries. */
 @Composable
@@ -91,7 +84,7 @@ internal fun WorkspaceShell(
     var visibleMenuHeightDp by remember { mutableIntStateOf(0) }
     val density = LocalDensity.current
     val toolPanelHeightDp = WorkspaceToolPanelPolicy.menuHeightDp(
-        menuActionCount > 4 || (menuActionCount == 0 && toolPanelNeedsTwoRows),
+        WorkspaceToolPanelPolicy.menuNeedsTwoRows(menuActionCount, toolPanelNeedsTwoRows),
         LocalBeamLayoutFontScale.current,
         toolPanelAdditionalChromeDp,
     )
@@ -202,10 +195,11 @@ internal fun WorkspaceShell(
                         // action grid out of the canvas hit area. It returns with the mode
                         // panel when the tool closes.
                         if (toolPanelExpanded && modePanelContent == null) {
-                            val overlayHeightDp = WorkspaceShellLayoutPolicy.portraitMenuOverlayHeightDp(
+                            // Use the viewport as a ceiling and let each route report its
+                            // measured height. A preferred-height estimate clipped the Model
+                            // route when its scope chips wrapped on first entry from File.
+                            val overlayHeightDp = WorkspaceShellLayoutPolicy.portraitMenuOverlayMaxHeightDp(
                                 viewportHeightDp = availableHeightDp,
-                                preferredHeightDp = toolPanelHeightDp,
-                                fontScale = LocalBeamLayoutFontScale.current,
                             )
                             WorkspaceMenuHost(
                                 slot = activeMenuSlot,
@@ -371,22 +365,14 @@ private fun WorkspaceMenuHost(
     composeContentForSlot: @Composable (Int) -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    AnimatedContent(
-        targetState = slot,
-        // Leave unused/transparent parts of the menu overlay out of the pointer hit-test
-        // chain. Keeping a full-size pointerInput observer here caused swipes that began
-        // over blank panel space to be routed away from the GL workspace and its gestures.
-        // Actual tiles and scroll containers keep their own gesture handlers.
-        modifier = modifier,
-        transitionSpec = {
-            val direction = if (targetState > initialState) 1 else -1
-            (slideInHorizontally(tween(220)) { direction * it / 3 } + fadeIn(tween(180))) togetherWith
-                (slideOutHorizontally(tween(220)) { -direction * it / 3 } + fadeOut(tween(160)))
-        },
-        label = "workspace-menu-route",
-    ) { targetSlot ->
-        key(targetSlot) {
-            composeContentForSlot(targetSlot)
+    // Menu routes have intentionally different measured heights (File is one row;
+    // Model also has scope tabs and often a second row). AnimatedContent keeps the
+    // outgoing route in the measure pass, so the wrapper can retain the shorter File
+    // height and clip the first frame(s) of Model. Swap the route in-place instead:
+    // Compose then measures only the selected menu against the panel's full max height.
+    Box(modifier = modifier) {
+        key(slot) {
+            composeContentForSlot(slot)
         }
     }
 }
@@ -430,23 +416,15 @@ internal object WorkspaceShellLayoutPolicy {
     @JvmStatic
     fun workspaceHeaderHeightDp(): Int = WORKSPACE_HEADER_HEIGHT_DP
 
-    /** Keeps the renderer at full viewport size while fitting the expanded action menu over it. */
+    /** Caps the wrap-content action menu without restricting its route-specific measured height. */
     @JvmStatic
-    fun portraitMenuOverlayHeightDp(viewportHeightDp: Int, preferredHeightDp: Int, fontScale: Float): Int {
+    fun portraitMenuOverlayMaxHeightDp(viewportHeightDp: Int): Int {
         val viewport = viewportHeightDp.coerceAtLeast(0)
         if (viewport == 0) return 0
-        // The action host needs enough height for its chrome plus at least two
-        // accessible rows at large text. The renderer still occupies the full
-        // viewport behind this overlay, so reserving only 55% clipped actions.
-        val maxOverlay = (viewport * 0.80f).toInt().coerceIn(1, viewport)
-        val preferred = preferredHeightDp.coerceAtLeast(0)
-        if (preferred <= maxOverlay) return preferred
-        val twoRowMinimum = if (fontScale >= 1.15f) 224 else 176
-        if (maxOverlay >= twoRowMinimum) return maxOverlay
-        // If two rows no longer fit, retain one touch-friendly row. Its actions
-        // remain horizontally scrollable and the full GL view continues behind it.
-        val compactRow = if (fontScale >= 1.15f) 112 else 88
-        return minOf(maxOverlay, compactRow)
+        // WorkspaceMenuHost wraps content, so this is only a safety ceiling. The
+        // measured route (including chips, tabs and localized labels) determines
+        // the visible height; the prior estimated preferred height could clip it.
+        return (viewport * 0.80f).toInt().coerceIn(1, viewport)
     }
 
     @JvmStatic

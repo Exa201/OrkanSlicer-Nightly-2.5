@@ -64,13 +64,14 @@ class SliceMenu : ListBedMenu() {
         val bed = fragment ?: return
         val context = bed.getContext() ?: return
         val slicingWarning = bed.glView?.renderer?.gcodeResult?.getSpiralVaseOverrideWarning()
+        val sparseInfillWarning = bed.glView?.renderer?.gcodeResult?.getSparseInfillWarning()
         preflightAnycubicScan = null
         val progress = bed.showPrinterUploadProgress(
             context.getString(R.string.UploadAnalyzingGcode),
         ) ?: return
         // Scan first: an explicitly unavailable ACE may use the single TPU external-spool
         // path, which must not make either the preflight or upload synchronize the MMU.
-        scanToolCountAndPrepare(type, host, apiKey, printer, print, slicingWarning, progress)
+        scanToolCountAndPrepare(type, host, apiKey, printer, print, slicingWarning, sparseInfillWarning, progress)
     }
 
     private fun scanToolCountAndPrepare(
@@ -80,6 +81,7 @@ class SliceMenu : ListBedMenu() {
         printer: ConfigObject,
         print: Boolean,
         slicingWarning: String?,
+        sparseInfillWarning: String?,
         progress: PrinterUploadProgressDialog,
     ) {
         val bed = fragment ?: return
@@ -146,6 +148,7 @@ class SliceMenu : ListBedMenu() {
                         sourceFilamentTypes,
                         pressureAdvance,
                         slicingWarning,
+                        sparseInfillWarning,
                         externalSpool,
                         this::activatePrinterProfile,
                         { updatedPrinter ->
