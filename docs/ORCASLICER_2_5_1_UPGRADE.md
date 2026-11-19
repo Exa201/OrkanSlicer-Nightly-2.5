@@ -45,14 +45,14 @@ The new regression case in `app/src/androidTest/java/ru/ytkab0bp/slicebeam/Nativ
 - The configured API 36 ARM64 AVD could not boot because its `system-images/android-36/google_apis/arm64-v8a` package is missing. The installed x86_64 image cannot execute this ARM64-only test APK.
 - No before/after performance benchmark has been run. This correctness fix is not a performance optimization, and no speed or memory improvement is claimed.
 - No pre/post benchmark has been run and no speed or RAM benefit is claimed.
-- No candidate application APK has been delivered or published. The successful artifact was the Slice instrumentation test APK, not the installable Nightly app APK. Release/upload remains gated on device regression validation.
+- The installable Nightly app APK was published as an **experimental prerelease**, not as a verified release: [v0.8.504-nightly.1](https://github.com/Exa201/OrkanSlicer-Nightly-2.5/releases/tag/v0.8.504-nightly.1). Both the APK and SHA-256 sidecar are attached. Device regression validation is still outstanding.
 
 ## Experimental APK checkpoint — 2026-11-19
 
 - Nightly app version was advanced beyond the latest remote release (0.8.503 / code 538) to 0.8.504 / code 539 so Android will treat this as an upgrade.
 - Code commit: `e428183d56`. Installable ARM64 debug APK: `app/build/outputs/apk/debug/OrkanSlicerNightly25_e428183d56.apk`, 240,448,042 bytes, SHA-256 `DCE13E44BB4FE55AB920C597A6365E127692F3505C61FC733C311BD90DB88187`.
 - `:app:assembleDebug` succeeded; `aapt` confirmed package `com.exa201.orkanslicer.nightly25`, version 0.8.504/code 539, minSdk 23 and targetSdk 36.
-- Xiaomi rejected the test APK installation (`INSTALL_FAILED_USER_RESTRICTED`), so this app build is an experimental download and is not device-verified. The GitHub prerelease is pending upload.
+- Xiaomi rejected the test APK installation (`INSTALL_FAILED_USER_RESTRICTED`), so this app build is not device-verified. It was published as the experimental GitHub prerelease [v0.8.504-nightly.1](https://github.com/Exa201/OrkanSlicer-Nightly-2.5/releases/tag/v0.8.504-nightly.1). APK and checksum sidecar upload were confirmed via the GitHub release API.
 
 ## Candidate upstream changes to screen next
 

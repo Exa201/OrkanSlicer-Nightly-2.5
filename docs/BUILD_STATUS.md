@@ -6,7 +6,7 @@
 - ARM64 debug APK `OrkanSlicerNightly25_e428183d56.apk`, 240,448,042 bytes, SHA-256 `DCE13E44BB4FE55AB920C597A6365E127692F3505C61FC733C311BD90DB88187`. `aapt` verified package ID, version, min SDK 23 and target SDK 36.
 - `:app:assembleDebug` succeeded. The focused ARM64 Slice instrumentation APK build also succeeded. Xiaomi 2211133G refused installation of the instrumentation APK (`INSTALL_FAILED_USER_RESTRICTED`); no device test body ran. Do not interpret this prerelease as hardware-verified.
 - This is a selective OrcaSlicer 2.5.1 fix port, not a complete engine replacement. Arachne's exact upstream geometry fixtures, broad unit/instrumentation suites, Honor validation and performance benchmarks remain open. See [OrcaSlicer upgrade checkpoint](ORCASLICER_2_5_1_UPGRADE.md).
-- GitHub prerelease: pending upload.
+- Published as experimental GitHub prerelease [v0.8.504-nightly.1](https://github.com/Exa201/OrkanSlicer-Nightly-2.5/releases/tag/v0.8.504-nightly.1); APK and `.sha256` sidecar were verified as uploaded assets. This is not hardware-verified.
 
 ## Nightly 2.5 verified prerelease — 2026-11-03 — 0.8.429
 
